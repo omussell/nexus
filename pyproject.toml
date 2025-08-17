@@ -1,0 +1,26 @@
+[project]
+name = "nexus"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "advanced-alchemy>=1.4.5",
+    "aiosqlite>=0.21.0",
+    "attrs>=25.3.0",
+    "blake3>=1.0.5",
+    "cattrs>=25.1.1",
+    "fastnanoid>=0.4.1",
+    "litestar[standard]>=2.16.0",
+    "polars>=1.29.0",
+    "requests>=2.32.3",
+    "structlog>=25.4.0",
+]
+
+[dependency-groups]
+dev = [
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.6.14",
+    "mkdocs-monorepo-plugin>=1.1.0",
+    "rich>=14.1.0",
+]
