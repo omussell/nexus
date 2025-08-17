@@ -37,6 +37,11 @@ Write to filesystem maybe as shim instead of using S3 for prototype
 Stick to HTTP and JSON, ignore XML and other formats for now.
 Ignore auth for now
 
+Real prod would be Go+postgres+sqlc
+MQ would be postgres channel/notify
+Filesystem would be S3
+https://brandur.org/sqlc
+
 Prototype: 
 
 - Litestar
