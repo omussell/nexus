@@ -1,0 +1,32 @@
+site_name: "NEXUS"
+site_url: "https://omussell.github.io/nexus"
+docs_dir: "documentation"
+site_dir: "docs"
+theme:
+  name: "material"
+  palette:
+    primary: grey
+  icon:
+    logo: material/xml
+  favicon: images/xml.svg
+
+nav:
+  - Home: index.md
+  - Systems:
+    - NAUVIS: "./systems/nauvis"
+    - FULGORA: "./systems/fulgora"
+    - CROID: "./systems/croid"
+    - VULCANUS: "./systems/vulcanus"
+    - GLEBA: "./systems/gleba"
+    - AQUILO: "./systems/aquilo"
+    - NEXUS: "./systems/nexus"
+    - POMUS: "./systems/pomus"
+
+plugins:
+  - search
+
+markdown_extensions:
+  - toc:
+      permalink: True
+  - admonition
+  - pymdownx.superfences

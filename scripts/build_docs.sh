@@ -1,0 +1,9 @@
+uv run mkdocs build -f ./mkdocs.yml -d ./docs
+uv run mkdocs build -f systems/croid/mkdocs.yml -d ../../docs/systems/croid
+uv run mkdocs build -f systems/nauvis/mkdocs.yml -d ../../docs/systems/nauvis
+uv run mkdocs build -f systems/fulgora/mkdocs.yml -d ../../docs/systems/fulgora
+uv run mkdocs build -f systems/vulcanus/mkdocs.yml -d ../../docs/systems/vulcanus
+uv run mkdocs build -f systems/gleba/mkdocs.yml -d ../../docs/systems/gleba
+uv run mkdocs build -f systems/aquilo/mkdocs.yml -d ../../docs/systems/aquilo
+uv run mkdocs build -f systems/nexus/mkdocs.yml -d ../../docs/systems/nexus
+uv run mkdocs build -f systems/pomus/mkdocs.yml -d ../../docs/systems/pomus
