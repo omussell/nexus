@@ -1,0 +1,13 @@
+site_name: systems/pomus
+
+theme:
+  name: "material"
+  palette:
+    primary: teal
+  icon:
+    logo: material/fit-to-screen
+  favicon: images/xml.svg
+
+
+nav:
+  - POMUS: "index.md"

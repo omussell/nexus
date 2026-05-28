@@ -1,0 +1,13 @@
+site_name: systems/nexus
+
+theme:
+  name: "material"
+  palette:
+    primary: orange
+  icon:
+    logo: material/axis
+  favicon: images/xml.svg
+
+
+nav:
+  - NEXUS: "index.md"

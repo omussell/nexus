@@ -1,0 +1,13 @@
+site_name: systems/fulgora
+site_dir: "../../site/systems/fulgora"
+
+theme:
+  name: "material"
+  palette:
+    primary: purple
+  icon:
+    logo: material/radio-tower
+  favicon: images/xml.svg
+
+nav:
+  - FULGORA: "index.md"
