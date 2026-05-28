@@ -1,0 +1,12 @@
+site_name: systems/aquilo
+
+theme:
+  name: "material"
+  palette:
+    primary: light-blue
+  icon:
+    logo: material/chemical-weapon
+  favicon: images/xml.svg
+
+nav:
+  - AQUILO: "index.md"

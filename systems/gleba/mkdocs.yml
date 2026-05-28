@@ -1,0 +1,12 @@
+site_name: systems/gleba
+
+theme:
+  name: "material"
+  palette:
+    primary: green
+  icon:
+    logo: material/nature
+  favicon: images/xml.svg
+
+nav:
+  - GLEBA: "index.md"

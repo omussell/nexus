@@ -1,0 +1,14 @@
+site_name: systems/nauvis
+
+site_dir: "../../site/systems/nauvis"
+
+theme:
+  name: "material"
+  palette:
+    primary: blue
+  icon:
+    logo: material/chart-tree
+  favicon: images/xml.svg
+
+nav:
+  - NAUVIS: "index.md"
