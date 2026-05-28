@@ -1,0 +1,12 @@
+site_name: systems/vulcanus
+
+theme:
+  name: "material"
+  palette:
+    primary: red
+  icon:
+    logo: material/relation-zero-or-many-to-zero-or-many
+  favicon: images/xml.svg
+
+nav:
+  - VULCANUS: "index.md"
