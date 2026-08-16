@@ -1,29 +1,23 @@
-# Research Nexus Core Principles
+# AGENTS.md
 
-The codebase represents a multi-systems data integration pipeline for academic metadata. Agents must be aware of the overall workflow dependencies and data semantics.
+## What this repo is
+A prototype monorepo for the Crossref "Research Nexus" data pipeline. It is **mostly documentation**: most systems under `systems/` contain only a `README.md` a `docs/` folder and a `mkdocs.yml`. Real code is rare — the only Python file right now is the stub `systems/fulgora/retractionwatch/get_retractionwatch.py`. Plan around the state of the repo, not the README aspirations.
 
-## Architecture & Boundaries
+## Docs (the main buildable thing)
+- Build the whole site from the repo root: `bash scripts/build_docs.sh` (runs 8 `mkdocs build` calls).
+- Preview locally after a build: `bash scripts/serve_docs.sh`.
+- Source vs output:
+  - Root site: source in `documentation/`, output to `docs/`.
+  - Each system: source in `systems/<name>/docs/`, output to `docs/systems/<name>/`.
+- **`docs/` is generated output (mkdocs `site_dir`). Do not hand-edit files in `docs/`** — edit the `documentation/*.md` or `systems/<name>/docs/*.md` source and rebuild. The generated `docs/` tree is committed for GitHub Pages.
+- Each system's `mkdocs.yml` is independent; add new systems by adding their entry there and a `mkdocs build` line to `scripts/build_docs.sh`.
 
-*   **Systems Components**: The platform comprises interconnected services in the `systems/` directory:
-    *   `Nauvis`: Ingests Crossref snapshots. Implemented in **Go**. Stores data as files and maintains associated metadata in a **PostgreSQL** database.
-    *   `Fulgora`: Ingests external organization data (e.g., ROR). Implemented in **Python**. Stores data as files on **S3**.
-    *   `CROID`: Essential for generating and standardizing unique identifier strings used across all data types. Implemented in **Go**. Stores data as files and maintains associated metadata in a **PostgreSQL** database.
-    *   `Storage`: Defines the mechanism and type of data persistence used by all systems.
-    *   `Vulcanus`: Runs the primary data pipelines, consuming snapshots from Nauvis/Fulgora and structuring the data. Implemented in **Python**. Consumes data stored on S3 and uses **DuckDB** internally for data enrichment pipelines.
-    *   `Gleba`: Dedicated to collecting and maintaining statistical metadata (e.g., citation counts). Implemented in **Go**. Stores data as files and maintains associated metadata in a **PostgreSQL** database.
-    *   `Nexus`: **Crucial step.** Generates two types of metadata:
-        1.  **Provenance**: Records which source (snapshot, system run) created or modified a piece of data.
-        2.  **Relationships**: Determines and links abstract relationships (e.g., "Organization X funded Article Y"). Implemented in **Go**. Stores final structured data as files on **S3** in **RDF** format.
-    *   `Aquilo`: Main API for processed data access. Implemented in **Go**. Stores and presents processed data using **ScyllaDB** for JSON format access.
-    *   `Pomus`: Frontend (read-only UI using HTMX/Pico CSS) for viewing data from `Aquilo`/`Nexus`.
+## Python / tooling
+- Use `uv` for dependency management (root and per-system).
+- Python versions differ by scope: root `pyproject.toml` pins `3.12`; each system pins `3.13` (via `.python-version`). Don't assume one version.
+- `scripts/lint.sh`, `scripts/format.sh`, `scripts/run_tests.sh` are **empty placeholders** — there is no working lint/test harness yet. `ruff` is a dev dep in `systems/nauvis` only.
 
-## Workflow & Conventions
-
-*   **Data Flow**: Processing is not linear. Data streams often flow `Source -> (Nauvis/Fulgora) -> CROID -> Vulcanus -> (Gleba/Nexus) -> Storage -> Aquilo`.
-*   **Schema/Linking**: Always assume that any new data must be localized and traceable using `CROID` logic before being processed by `Vulcanus`.
-*   **Execution Order**: When verifying changes or running a full development cycle, the standard sequence is:
-    1.  Code Changes ->
-    2.  `lint` ->
-    3.  `typecheck` ->
-    4.  `test`
-*   **Source of Truth**: Trust the READMEs and configuration files found in the `systems/*/` directories over general assumptions. The system uses many cross-cutting concerns (ID assignment, relationship mapping, provenance tracking).
+## Gotchas
+- Several `README.md` files describe commands for code that does not exist yet (e.g. `nauvis` references `python -m nauvis.extract_pipeline`). Verify a command's module/package is actually present before running or citing it.
+- `0_TODO.md` at the root tracks next steps (e.g. initializing Go projects per system). There are **no Go files** yet despite that intent.
+- `.gitignore` excludes data artifacts (`*.zip *.csv *.parquet *.sqlite`) — large datasets are not committed; do not add them.

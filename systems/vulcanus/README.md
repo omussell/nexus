@@ -21,4 +21,6 @@ Affiliation -> ROR ID
 Person information -> ORCID
 ```
 
-The output should be a single file per CRO, probably in parquet format, and stored on S3 API compatible storage.
+The output should be a single file per CRO, probably in parquet format.
+
+Will use DuckDB to assist with processing parquet files.

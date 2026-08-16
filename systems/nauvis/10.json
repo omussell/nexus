@@ -1,0 +1,198 @@
+{
+  "URL": "http://dx.doi.org/10.1016/j.ultrasmedbio.2024.01.039",
+  "resource": {
+    "primary": {
+      "URL": "https://linkinghub.elsevier.com/retrieve/pii/S030156292400053X"
+    }
+  },
+  "member": "78",
+  "score": 0.0,
+  "created": {
+    "date-parts": [
+      [
+        2024,
+        4,
+        30
+      ]
+    ],
+    "date-time": "2024-04-30T06:09:54Z",
+    "timestamp": 1714457394000
+  },
+  "update-policy": "http://dx.doi.org/10.1016/elsevier_cm_policy",
+  "license": [
+    {
+      "start": {
+        "date-parts": [
+          [
+            2024,
+            1,
+            1
+          ]
+        ],
+        "date-time": "2024-01-01T00:00:00Z",
+        "timestamp": 1704067200000
+      },
+      "content-version": "tdm",
+      "delay-in-days": 0,
+      "URL": "https://www.elsevier.com/tdm/userlicense/1.0/"
+    },
+    {
+      "start": {
+        "date-parts": [
+          [
+            2024,
+            1,
+            1
+          ]
+        ],
+        "date-time": "2024-01-01T00:00:00Z",
+        "timestamp": 1704067200000
+      },
+      "content-version": "tdm",
+      "delay-in-days": 0,
+      "URL": "https://www.elsevier.com/legal/tdmrep-license"
+    }
+  ],
+  "ISSN": [
+    "0301-5629"
+  ],
+  "container-title": [
+    "Ultrasound in Medicine &amp; Biology"
+  ],
+  "issued": {
+    "date-parts": [
+      [
+        2024
+      ]
+    ]
+  },
+  "prefix": "10.1016",
+  "reference-count": 0,
+  "indexed": {
+    "date-parts": [
+      [
+        2024,
+        5,
+        1
+      ]
+    ],
+    "date-time": "2024-05-01T00:26:56Z",
+    "timestamp": 1714523216911
+  },
+  "author": [
+    {
+      "given": "Jeong Kyu",
+      "family": "Kim",
+      "sequence": "first",
+      "affiliation": []
+    }
+  ],
+  "DOI": "10.1016/j.ultrasmedbio.2024.01.039",
+  "is-referenced-by-count": 0,
+  "published": {
+    "date-parts": [
+      [
+        2024
+      ]
+    ]
+  },
+  "published-print": {
+    "date-parts": [
+      [
+        2024
+      ]
+    ]
+  },
+  "alternative-id": [
+    "S030156292400053X"
+  ],
+  "content-domain": {
+    "domain": [
+      "clinicalkey.fr",
+      "clinicalkey.jp",
+      "clinicalkey.es",
+      "clinicalkey.com.au",
+      "clinicalkey.com",
+      "umbjournal.org",
+      "elsevier.com",
+      "sciencedirect.com"
+    ],
+    "crossmark-restriction": true
+  },
+  "title": [
+    "ULTRASONOGRAPHIC FEATURES OF SUBLINGUAL GLAND STONE"
+  ],
+  "link": [
+    {
+      "URL": "https://api.elsevier.com/content/article/PII:S030156292400053X?httpAccept=text/xml",
+      "content-type": "text/xml",
+      "content-version": "vor",
+      "intended-application": "text-mining"
+    },
+    {
+      "URL": "https://api.elsevier.com/content/article/PII:S030156292400053X?httpAccept=text/plain",
+      "content-type": "text/plain",
+      "content-version": "vor",
+      "intended-application": "text-mining"
+    }
+  ],
+  "source": "Crossref",
+  "type": "journal-article",
+  "publisher": "Elsevier BV",
+  "volume": "50",
+  "references-count": 0,
+  "issn-type": [
+    {
+      "value": "0301-5629",
+      "type": "print"
+    }
+  ],
+  "assertion": [
+    {
+      "value": "Elsevier",
+      "name": "publisher",
+      "label": "This article is maintained by"
+    },
+    {
+      "value": "ULTRASONOGRAPHIC FEATURES OF SUBLINGUAL GLAND STONE",
+      "name": "articletitle",
+      "label": "Article Title"
+    },
+    {
+      "value": "Ultrasound in Medicine & Biology",
+      "name": "journaltitle",
+      "label": "Journal Title"
+    },
+    {
+      "value": "https://doi.org/10.1016/j.ultrasmedbio.2024.01.039",
+      "name": "articlelink",
+      "label": "CrossRef DOI link to publisher maintained version"
+    },
+    {
+      "value": "simple-article",
+      "name": "content_type",
+      "label": "Content Type"
+    },
+    {
+      "value": "Copyright © 2024 Published by Elsevier Inc.",
+      "name": "copyright",
+      "label": "Copyright"
+    }
+  ],
+  "deposited": {
+    "date-parts": [
+      [
+        2024,
+        4,
+        30
+      ]
+    ],
+    "date-time": "2024-04-30T06:43:35Z",
+    "timestamp": 1714459415000
+  },
+  "language": "en",
+  "page": "S26-S27",
+  "short-container-title": [
+    "Ultrasound in Medicine &amp; Biology"
+  ]
+}

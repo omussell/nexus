@@ -12,7 +12,55 @@
           "name": "Gemma 4" 
 	},
         "gemma3:270m": {
-          "name": "Gemma 3 270m" 
+          "name": "Small Functions - Gemma 3 270m" 
+	},
+        "gemma4:31b": {
+          "name": "Documentation and Prose - Gemma 4 31b" 
+	},
+        "muse-glimmer:30b": {
+          "name": "Tool Calling - Muse Glimmer 30b"
+	},
+        "qwen3.8:27b": {
+          "name": "Coding - Qwen3.8 27b",
+          "compatibility": {
+            "reasoningField": "reasoning_content"
+          },
+          "body": {
+            "reasoning_effort": "xhigh",
+            "preserve_thinking": true
+          },
+          "variants": {
+            "xhigh": {
+              "name": "Max Reasoning (xhigh)",
+              "body": {
+                "reasoning_effort": "xhigh",
+                "preserve_thinking": true
+              }
+            },
+            "med": {
+              "name": "Balanced (medium)",
+              "body": {
+                "reasoning_effort": "medium",
+                "preserve_thinking": true
+              }
+            },
+            "low": {
+              "name": "Fast (low)",
+              "body": {
+                "reasoning_effort": "low",
+                "preserve_thinking": true
+              }
+            },
+            "off": {
+              "name": "Thinking Disabled",
+              "body": {
+                "chat_template_kwargs": {
+                  "enable_thinking": false
+                },
+                "preserve_thinking": false
+              }
+            }
+          }
 	}
       },
       "small_model": "gemma3:270m"

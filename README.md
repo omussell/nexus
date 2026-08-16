@@ -10,11 +10,13 @@ Crossref creates a snapshot of all their data (~250GB compressed) which is publi
 
 The linking is done in different ways depending on the data type. For example, you could find that Crossref metadata contains a string with the name of an organization which appears in the ROR data. You could add the ROR ID for that organization to the Crossref metadata to make a hard link between the two data.
 
+The end result would be a HTTP API that provides the enriched metadata in JSON format.
+
 ## Prototype
 
-This project will serve as a prototype for the Nexus. It will consist of multiple systems which run independently and work together to gather, process and output data.
+This project will serve as a prototype for the Nexus. It will consist of multiple systems which run independently and work together to gather, process and output data with the code organised into a monorepo.
 
-The weird system names come from [factorio: space age](https://www.youtube.com/watch?v=OiczN-8QKDA) because the themes of each planet are quite similar to the system design.
+The weird system names come from the videogame [factorio: space age](https://www.youtube.com/watch?v=OiczN-8QKDA) because the themes of each planet are quite similar to the system design.
 
 ```
 Nauvis    Fulgora
@@ -65,12 +67,8 @@ In the `systems` folder each system has its own folder for storing its documenta
 
 ### Pomus
 
-- A human user interface for accessing the processed data
-
-### Storage
-
-- Define the different types of and ways to access data storage to be used across systems.
+- An HTML user interface for accessing the processed data
 
 ## Documentation
 
-The main documentation is stored in the `documentation` folder at the top level of the git repo. Then each system in the `systems` folder has the system documentation in the `docs` folders. The documentation site is generated using the `mkdocs` tool and will gather all of the documentation from each system folder.
+The main documentation is stored in the `documentation` folder at the top level of the git repo. Then each system in the `systems` folder has the system documentation in the `docs` folders. The documentation site is generated using the `mkdocs` tool and will gather all of the documentation from each system folder and produce the HTML output in the `docs` folder. This is then published to GitHub pages.
