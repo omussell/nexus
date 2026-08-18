@@ -1,0 +1,9 @@
+# Build artifacts
+aquilo
+
+# Local editor/OS noise
+.DS_Store
+
+# Docs/source that don't belong in the image (already not needed for build, but be explicit)
+docs
+mkdocs.yml
