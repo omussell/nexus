@@ -14,8 +14,8 @@
         "gemma3:270m": {
           "name": "Small Functions - Gemma 3 270m" 
 	},
-        "gemma4:12b-it-qat": {
-          "name": "Documentation and Prose - Gemma 4 12b" 
+        "gemma4:26b-a4b-it-qat": {
+          "name": "Documentation and Prose - Gemma 4 26b-a4b" 
 	},
         "muse-glimmer:30b": {
           "name": "Tool Calling - Muse Glimmer 30b"
