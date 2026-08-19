@@ -209,6 +209,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NEXUS
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="." class="md-nav__link md-nav__link--active">
         
   
@@ -225,6 +243,47 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-functionalities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Functionalities
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -250,6 +309,36 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-functionalities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Functionalities
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -266,6 +355,19 @@
 
 
 <h1 id="nexus">NEXUS</h1>
+<p>The Nexus system manages the provenance and relationship metadata generated during the data processing lifecycle.</p>
+<h2 id="overview">Overview</h2>
+<p>As data is processed and enriched, transformations and matching operations generate important metadata. Nexus captures these transformations as "provenance" and defines "relationships" between different entities.</p>
+<h2 id="key-functionalities">Key Functionalities</h2>
+<ul>
+<li><strong>Provenance Tracking:</strong> Maintains a record of how data has been modified or updated (e.g., which specific snapshot was used to update metadata via Vulcanus).</li>
+<li><strong>Relationship Management:</strong> Defines and stores connections between entities, such as:<ul>
+<li>Identifying a funder for a journal article.</li>
+<li>Linking authors to their respective organizations.</li>
+</ul>
+</li>
+<li><strong>RDF Metadata:</strong> Stores and provides this metadata in RDF (Resource Description Framework) format.</li>
+</ul>
 
 
 

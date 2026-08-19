@@ -209,6 +209,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VULCANUS
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="." class="md-nav__link md-nav__link--active">
         
   
@@ -225,6 +243,47 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-functionalities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Functionalities
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -250,6 +309,36 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-functionalities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Functionalities
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -266,6 +355,24 @@
 
 
 <h1 id="vulcanus">VULCANUS</h1>
+<p>The Vulcanus system is responsible for processing and enriching the data collected by other systems like Nauvis and Fulgora.</p>
+<h2 id="overview">Overview</h2>
+<p>Vulcanus takes the "main" data collected by Nauvis and enriches it with data from Fulgora. A key part of this process is "matching"—using algorithms to map data from one source to metadata from another.</p>
+<h2 id="key-functionalities">Key Functionalities</h2>
+<ul>
+<li><strong>Data Enrichment:</strong> Enhances Nauvis data with additional information from Fulgora.</li>
+<li><strong>Data Matching:</strong><ul>
+<li>Maps citation strings to DOIs.</li>
+<li>Maps journal articles to preprint DOIs.</li>
+<li>Maps funder info to grant DOIs.</li>
+<li>Maps funder names to ROR/Funder IDs.</li>
+<li>Maps affiliations to ROR IDs.</li>
+<li>Maps person information to ORCID.</li>
+</ul>
+</li>
+<li><strong>Data Output:</strong> Produces single files per CRO, ideally in Parquet format.</li>
+<li><strong>Processing Engine:</strong> Utilizes DuckDB to assist with processing Parquet files.</li>
+</ul>
 
 
 

@@ -209,6 +209,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AQUILO
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="." class="md-nav__link md-nav__link--active">
         
   
@@ -225,6 +243,47 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-functionalities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Functionalities
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -250,6 +309,36 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-functionalities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Functionalities
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -266,6 +355,15 @@
 
 
 <h1 id="aquilo">AQUILO</h1>
+<p>The Aquilo system provides the final API and data delivery layer for the Nexus pipeline, serving the processed and enriched data in a usable format.</p>
+<h2 id="overview">Overview</h2>
+<p>Once all data processing and enrichment steps are complete, Aquilo exposes the final dataset through an API. This allows external organizations to access the high-quality JSON data produced by the pipeline.</p>
+<h2 id="key-functionalities">Key Functionalities</h2>
+<ul>
+<li><strong>Data API:</strong> Provides an interface for users and external systems to query processed data in JSON format.</li>
+<li><strong>Data Storage:</strong> Efficiently stores the final, high-quality dataset using ScyllaDB.</li>
+<li><strong>Service Delivery:</strong> Acts as the primary entry point for consumers of the Nexus data ecosystem.</li>
+</ul>
 
 
 
