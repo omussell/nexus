@@ -4,11 +4,63 @@ The CROID (Crossref Research Object ID) system provides unique, URL-safe identif
 
 ## Overview
 
-A CROID acts as an identifier that is separate from other existing identifiers like DOIs or ORCIDs. This allows the Nexus pipeline to track research objects even when they are undergoing metadata quality changes or when they lack a standardized global identifier.
+A CROID acts as an identifier separate from others like DOIs or ORCIDs, allowing tracking of research objects regardless of metadata changes or missing standards.
 
-## Key Functionalities
+## API Reference
 
-* **Unique Identification:** Generates 32-character, URL-safe, randomly generated strings to identify research objects.
-* **Metadata Association:** Connects original identifiers (e.g., DOI, ORCID) to a CROID for cross-system tracking.
-* **Web Service:** Provides a web service at `https://id.crossref.org` to retrieve metadata via API.
-* **Provenance & Relationship Support:** Enables tracking of how a research object's metadata has changed across different systems (e.g., Nauvis, Vulcanus).
+### Create CROID
+**POST** `/croid`
+
+Links an object's identity (via `cro_type`, `cro_value`, `system`) to a CROID.
+
+**Request Body:**
+```json
+{
+  "cro_type": "DOI",
+  "cro_value": "10.5555/12345678",
+  "system": "nauvis"
+}
+```
+
+**Responses:**
+- `201 Created`: New CROID minted.
+- `200 OK`: Existing CROID found (Idempotent).
+- `400 Bad Request`: Missing or invalid parameters.
+
+### Retrieve Metadata
+**GET** `/croid/{croid}`
+
+Fetches the metadata associated with a specific CROID.
+
+**Response Body:**
+```json
+{
+  "cro_type": "DOI",
+  "cro_value": "10.5555/12345678",
+  "system": "nauvis",
+  "croid": "aaaaa12345_aaaaa12345-aaaaa12345",
+  "created_at": "2026-05-28T19:04:17Z"
+}
+```
+
+**Responses:**
+- `200 OK`: Success.
+- `404 Not Found`: CROID does not exist.
+
+## Implementation Details
+
+- **Language:** Go 1.25
+- **Database:** SQLite (using `modernc.org/sqlite`: a pure-Go, CGO-free driver).
+- **Querying:** `sqlc` generates type-safe database access logic.
+- **Concurrency:** The service is idempotent; concurrent creation requests for the same identity safely return the single existing CROID.
+
+## Quick Start
+
+To run the service:
+```bash
+go run main.go --addr :8080 --db croid.sqlite3
+```
+To test:
+```bash
+curl -X POST -H "Content-Type: application/json" -d '{"cro_type":"DOI","cro_value":"10.5555/example","system":"nauvis"}' http://localhost:8080/croid
+```
