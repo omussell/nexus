@@ -15,9 +15,7 @@ A prototype monorepo for the Crossref "Research Nexus" data pipeline. It is **mo
 ## Python / tooling
 - Use `uv` for dependency management (root and per-system).
 - Python versions differ by scope: root `pyproject.toml` pins `3.12`; each system pins `3.13` (via `.python-version`). Don't assume one version.
-- `scripts/lint.sh`, `scripts/format.sh`, `scripts/run_tests.sh` are **empty placeholders** — there is no working lint/test harness yet. `ruff` is a dev dep in `systems/nauvis` only.
 
 ## Gotchas
-- Several `README.md` files describe commands for code that does not exist yet (e.g. `nauvis` references `python -m nauvis.extract_pipeline`). Verify a command's module/package is actually present before running or citing it.
-- `0_TODO.md` at the root tracks next steps (e.g. initializing Go projects per system). There are **no Go files** yet despite that intent.
+- Several `README.md` files describe commands for code that does not exist yet. Verify a command's module/package is actually present before running or citing it.
 - `.gitignore` excludes data artifacts (`*.zip *.csv *.parquet *.sqlite`) — large datasets are not committed; do not add them.
