@@ -1,6 +1,3 @@
-We want to write a python script to download the data for ROR and convert it to parquet format.
-
-
 Send request to "https://zenodo.org/api/communities/ror-data/records?q=&sort=newest"
 
 - In the response, the most recent record will be hits.hits[0]

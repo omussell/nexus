@@ -1,4 +1,4 @@
-# Python-generated files
+# Python-generated files (legacy stub)
 __pycache__/
 *.py[oc]
 build/
@@ -8,3 +8,16 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Database (sqlite + WAL sidecar files)
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+
+# Collected data artifacts (keep the system code, not the datasets)
+*/initial_input/
+*/output/
+*.zip
+*.csv
+*.parquet
+*.json.gz
