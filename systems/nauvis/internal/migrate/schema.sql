@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS items (
+    id    INTEGER PRIMARY KEY AUTOINCREMENT,
+    file  TEXT NOT NULL,
+    doi   TEXT NOT NULL UNIQUE
+);
+
+CREATE INDEX IF NOT EXISTS idx_items_file ON items (file);
