@@ -3,9 +3,12 @@
 
 Data pipelines to take the collected data and process it
 
-After Crossref data has been collected by Nauvis and data from other organizations has been collected by Fulgora, we need to process is with Vulcanus. 
+After Crossref data has been collected by Nauvis and data from other organizations has been collected by Fulgora, we need to process it with Vulcanus.
 
 The data in Nauvis should be considered the "main" data, with the data from Fulgora being used to enrich and improve the Nauvis data.
+
+
+
 
 The word "matching" is used to describe a method or algorithm of how to map data to metadata from another data source.
 
