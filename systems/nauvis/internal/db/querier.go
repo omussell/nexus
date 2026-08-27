@@ -6,11 +6,13 @@ package db
 
 import (
 	"context"
+	"database/sql"
 )
 
 type Querier interface {
 	GetItemByDOI(ctx context.Context, doi string) (Item, error)
 	InsertItem(ctx context.Context, arg InsertItemParams) error
+	WithTx(tx *sql.Tx) *Queries
 }
 
 var _ Querier = (*Queries)(nil)

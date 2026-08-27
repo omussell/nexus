@@ -1,4 +1,4 @@
-package main
+package extract
 
 import (
 	"bytes"
@@ -24,9 +24,9 @@ func mustGzip(t *testing.T, b []byte) []byte {
 	return buf.Bytes()
 }
 
-// TestProcessFile_ByteIdentical verifies that ProcessFile writes the decompressed
+// TestProcess_ByteIdentical verifies that Process writes the decompressed
 // payload back out byte-for-byte — no re-serialization, no type coercion.
-func TestProcessFile_ByteIdentical(t *testing.T) {
+func TestProcess_ByteIdentical(t *testing.T) {
 	src := []byte(`{"a": 1, "b" : [ 1 , 2 , 3 ], "c" : "x"}`)
 	dir := t.TempDir()
 	in := filepath.Join(dir, "in.json.gz")
@@ -35,9 +35,9 @@ func TestProcessFile_ByteIdentical(t *testing.T) {
 	}
 	out := filepath.Join(dir, "out.json")
 
-	n, err := ProcessFile(in, out)
+	_, n, err := Process(in, out)
 	if err != nil {
-		t.Fatalf("ProcessFile: %v", err)
+		t.Fatalf("Process: %v", err)
 	}
 	if n != int64(len(src)) {
 		t.Fatalf("returned size %d != expected %d", n, len(src))
@@ -51,9 +51,9 @@ func TestProcessFile_ByteIdentical(t *testing.T) {
 	}
 }
 
-// TestProcessFile_RejectsInvalidJSON ensures non-JSON payloads are rejected
+// TestProcess_RejectsInvalidJSON ensures non-JSON payloads are rejected
 // and no output is written.
-func TestProcessFile_RejectsInvalidJSON(t *testing.T) {
+func TestProcess_RejectsInvalidJSON(t *testing.T) {
 	src := []byte("this is not json at all")
 	dir := t.TempDir()
 	in := filepath.Join(dir, "bad.json.gz")
@@ -62,17 +62,17 @@ func TestProcessFile_RejectsInvalidJSON(t *testing.T) {
 	}
 	out := filepath.Join(dir, "bad.json")
 
-	_, err := ProcessFile(in, out)
+	_, _, err := Process(in, out)
 	if err == nil {
-		t.Fatalf("ProcessFile should have failed on invalid JSON")
+		t.Fatalf("Process should have failed on invalid JSON")
 	}
 	if _, statErr := os.Stat(out); !os.IsNotExist(statErr) {
 		t.Fatalf("output file should not exist on failure")
 	}
 }
 
-// TestProcessFile_RejectsNonGzip ensures a non-gzip input is rejected.
-func TestProcessFile_RejectsNonGzip(t *testing.T) {
+// TestProcess_RejectsNonGzip ensures a non-gzip input is rejected.
+func TestProcess_RejectsNonGzip(t *testing.T) {
 	dir := t.TempDir()
 	in := filepath.Join(dir, "plain.json.gz")
 	if err := os.WriteFile(in, []byte("{\"not\": \"gzipped\"}"), 0o644); err != nil {
@@ -80,42 +80,32 @@ func TestProcessFile_RejectsNonGzip(t *testing.T) {
 	}
 	out := filepath.Join(dir, "plain.json")
 
-	if _, err := ProcessFile(in, out); err == nil {
-		t.Fatalf("ProcessFile should have failed on non-gzip input")
+	if _, _, err := Process(in, out); err == nil {
+		t.Fatalf("Process should have failed on non-gzip input")
 	}
 }
 
 // TestBaseName verifies .gz is stripped from the basename only when present.
 func TestBaseName(t *testing.T) {
 	cases := map[string]string{
-		"/data/0.json.gz":       "0.json",
-		"/data/10.json.gz":      "10.json",
-		"/x/y/5.json":           "5.json",
-		"/x/y/5.json.gz":        "5.json",
-		"noext":                 "noext",
-		"noext.gz":              "noext",
+		"/data/0.json.gz":  "0.json",
+		"/data/10.json.gz": "10.json",
+		"/x/y/5.json":      "5.json",
+		"/x/y/5.json.gz":   "5.json",
+		"noext":            "noext",
+		"noext.gz":         "noext",
 	}
 	for in, want := range cases {
-		if got := baseName(in); got != want {
-			t.Errorf("baseName(%q) = %q, want %q", in, got, want)
+		if got := BaseName(in); got != want {
+			t.Errorf("BaseName(%q) = %q, want %q", in, got, want)
 		}
 	}
 }
 
-// TestJSONValid exercises the small wrapper we expose over json.Valid.
-func TestJSONValid(t *testing.T) {
-	if !jsonValid([]byte(`{"x": 1}`)) {
-		t.Errorf("jsonValid should accept valid JSON")
-	}
-	if jsonValid([]byte(`{x: 1}`)) {
-		t.Errorf("jsonValid should reject invalid JSON")
-	}
-}
-
-// TestProcessFile_RealData is a smoke test that runs the real pipeline against
+// TestProcess_RealData is a smoke test that runs the real pipeline against
 // the sample files in data/, if they exist in the repo. It verifies byte-identical
 // output and valid JSON output for every sample.
-func TestProcessFile_RealData(t *testing.T) {
+func TestProcess_RealData(t *testing.T) {
 	sampleDir := "data"
 	if _, err := os.Stat(sampleDir); err != nil {
 		t.Skipf("sample dir %q not present: %v", sampleDir, err)
@@ -141,12 +131,12 @@ func TestProcessFile_RealData(t *testing.T) {
 			t.Fatalf("sample %s decompressed payload is not valid JSON", e.Name())
 		}
 
-		n, err := ProcessFile(in, out)
+		_, n, err := Process(in, out)
 		if err != nil {
-			t.Fatalf("ProcessFile(%s): %v", e.Name(), err)
+			t.Fatalf("Process(%s): %v", e.Name(), err)
 		}
 		if n != int64(len(expected)) {
-			t.Fatalf("ProcessFile(%s): size %d != %d", e.Name(), n, len(expected))
+			t.Fatalf("Process(%s): size %d != %d", e.Name(), n, len(expected))
 		}
 		got, err := os.ReadFile(out)
 		if err != nil {
@@ -156,24 +146,4 @@ func TestProcessFile_RealData(t *testing.T) {
 			t.Fatalf("output %s differs from decompressed source", e.Name())
 		}
 	}
-}
-
-// readGzip is a small local helper (we can't call the package function on
-// an un-gzipped path since it would try to write).
-func readGzip(path string) ([]byte, error) {
-	in, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer in.Close()
-	gz, err := gzip.NewReader(in)
-	if err != nil {
-		return nil, err
-	}
-	defer gz.Close()
-	var buf bytes.Buffer
-	if _, err := buf.ReadFrom(gz); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
 }
