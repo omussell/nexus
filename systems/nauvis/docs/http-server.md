@@ -11,15 +11,18 @@ request.
 ```
 
 - `-serve` turns on the HTTP handler (and implies `-db`).
-- `-host` (default `localhost:8080`) is the address the listeners on.
+- `-host` (default `localhost:8080`) is the address the server listens on.
 - `-db` and `-in/-out/-jobs` are ignored in this mode.
 
-It logs `nauvis: listening on <host> (...)` on start. Stop with `Ctrl-C`.
+It logs `nauvis: listening on <host>` on start. Stop with `Ctrl-C`.
 
 ## Endpoint
 
 ```
-GET /query?doi=<DOI>
+POST /query
+Content-Type: application/json
+
+{"doi": "10.1001/jama.2023.24766"}
 ```
 
 The response is a JSON object with either a `file` or an `error` field:
@@ -38,28 +41,43 @@ Not recorded (HTTP 404):
 
 ### Responses and status codes
 
-| Case                                             | Status | Body                                                             |
-|--------------------------------------------------|--------|------------------------------------------------------------------|
-| DOI present in the index                         | `200`  | `{"doi":"<DOI>","file":"<file>"}`                                |
-| DOI not recorded                                 | `404`  | `{"doi":"<DOI>","error":"no such item"}`                        |
-| Missing `doi` parameter                          | `400`  | `missing 'doi' query parameter`                                  |
-| More than one `doi` parameter (e.g. `doi=a&doi=b`) | `400`  | `expected a single 'doi' query parameter`                       |
-| Non-`GET` HTTP method                            | `405`  | `method not allowed`, `Allow: GET`                               |
-| Database failure during lookup (rare)         | `500`  | `{"doi":"<DOI>","error":"<err>"}`, logged at `ERROR`             |
+| Case                                    | Status | Body                                             |
+|-----------------------------------------|--------|--------------------------------------------------|
+| DOI present in the index                | `200`  | `{"doi":"<DOI>","file":"<file>"}`                |
+| DOI not recorded                        | `404`  | `{"doi":"<DOI>","error":"no such item"}`         |
+| Missing `doi` field                     | `400`  | `{"error":"missing 'doi' field"}`                |
+| Malformed JSON body                     | `400`  | `{"error":"invalid JSON body"}`                  |
+| Non-`POST` HTTP method                  | `405`  | `method not allowed`, `Allow: POST`              |
+| Database failure during lookup (rare)   | `500`  | `{"doi":"<DOI>","error":"<err>"}`, logged at `ERROR` |
 
 A missing DOI is *not* a server error — it is a normal `404`. Only unexpected
 SQLite errors produce a `500`.
 
+## Why POST with a JSON body?
+
+DOI identifiers routinely contain characters that are illegal in a URL query
+string:
+
+- `#` and `&` are legal and may appear inside the suffix; in a query string they
+  terminate the `doi` value (and `&` begins another) rather than being part of it.
+- `< > { }` are legal as-is in a query string but awkward for clients.
+
+Using a JSON request body lets any DOI be sent verbatim, with no percent-encoding
+required. This also leaves room to extend the endpoint later (e.g. a batch
+lookup in `{"dois": [...]}`).
+
 ## Implementation
 
-The handler lives in `internal/server`. It wraps a `*store.Store` and exposes a
-single `GET /query` route through `net/http`:
+The handler lives in `internal/server`. It wraps a `*store.Store` and exposes the
+`/query` route through `net/http`.
 
 ```go
 func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
-	dois := r.URL.Query()["doi"]
-	// ...single 'doi' param checks...
-	item, err := s.st.GetByDOI(r.Context(), doi)
+	if r.Method != http.MethodPost { ... }
+	var req request
+	dec.Decode(&req)   // {"doi": "<DOI>"}
+	if req.DOI == "" { ... }  // validation
+	item, err := s.st.GetByDOI(r.Context(), req.DOI)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		// 404

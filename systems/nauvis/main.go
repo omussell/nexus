@@ -12,7 +12,7 @@
 //
 //	process  (default) - extract + record (see -in/-out/-db/-jobs)
 //	-query   "DOI"     - look up a recorded DOI and print its file
-//	-serve              - start an HTTP server answering GET /query?doi=<DOI>
+//	-serve              - start an HTTP server answering POST /query
 package main
 
 import (
@@ -76,7 +76,7 @@ func main() {
 		defer conn.Close()
 		srv := server.New(st, slog.New(slog.NewTextHandler(os.Stderr, nil)))
 		httpSrv := &http.Server{Addr: *host, Handler: srv.Handler()}
-		log.Printf("nauvis: listening on %s (GET /query?doi=<DOI>)", *host)
+		log.Printf("nauvis: listening on %s (POST /query)", *host)
 		if err := httpSrv.ListenAndServe(); err != nil {
 			log.Printf("nauvis: server: %v", err)
 			os.Exit(1)

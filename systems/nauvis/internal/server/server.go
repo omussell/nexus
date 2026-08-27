@@ -1,6 +1,6 @@
 // Package server exposes the Nauvis DOI index over HTTP so callers can map a
 // DOI to the input file it was recorded in. It wraps a *store.Store and
-// answers DOI lookups over HTTP.
+// answers lookups over HTTP.
 package server
 
 import (
@@ -19,6 +19,11 @@ type Server struct {
 	lg *slog.Logger
 }
 
+// request is the JSON body accepted by the lookup endpoint.
+type request struct {
+	DOI string `json:"doi"`
+}
+
 // New builds a Server that looks items up through the provided store. lg may be
 // nil, in which case slog.Default() is used.
 func New(st *store.Store, lg *slog.Logger) *Server {
@@ -28,48 +33,57 @@ func New(st *store.Store, lg *slog.Logger) *Server {
 	return &Server{st: st, lg: lg}
 }
 
-// Handler returns an http.Handler exposing the DOI lookup endpoint.
+// Response is returned by the lookup endpoint on success or 404. A missing DOI
+// is normalised into the error field with a 404 status, so callers only need to
+// inspect the file on success.
+type Response struct {
+	DOI   string `json:"doi,omitempty"`
+	File  string `json:"file,omitempty"`
+	Error string `json:"error,omitempty"`
+}
+
+// Handler returns an http.Handler exposing the single /query endpoint, which
+// accepts POST /query with a JSON body of the form {"doi": "<DOI>"}. Using a
+// request body (rather than a query string) means any DOI character is safe to
+// send verbatim.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/query", s.handleQuery)
 	return mux
 }
 
-// handleQuery answers GET /query?doi=<DOI> with the file that DOI was recorded
-// in. The response is {"doi": "<DOI>", "file": "<file>"} on success, or
-// {"doi": "<DOI>", "error": "<message>"} with a 404 status when the DOI is not
-// recorded. A missing DOI is not an error; database failures are logged.
+// handleQuery accepts a single DOI in the JSON request body and returns the file
+// it was recorded in. See Response and writeJSON for the status rules.
 func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", http.MethodGet)
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	dois := r.URL.Query()["doi"]
-	if len(dois) == 0 {
-		http.Error(w, "missing 'doi' query parameter", http.StatusBadRequest)
+	dec := json.NewDecoder(r.Body)
+	var req request
+	if err := dec.Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, Response{Error: "invalid JSON body"})
 		return
 	}
-	if len(dois) > 1 {
-		http.Error(w, "expected a single 'doi' query parameter", http.StatusBadRequest)
+	if req.DOI == "" {
+		writeJSON(w, http.StatusBadRequest, Response{Error: "missing 'doi' field"})
 		return
 	}
-	doi := dois[0]
 
-	item, err := s.st.GetByDOI(r.Context(), doi)
+	item, err := s.st.GetByDOI(r.Context(), req.DOI)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
-		writeJSON(w, http.StatusNotFound, map[string]string{"doi": doi, "error": "no such item"})
+		writeJSON(w, http.StatusNotFound, Response{DOI: req.DOI, Error: "no such item"})
 	case err != nil:
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"doi": doi, "error": err.Error()})
-		s.lg.Error("lookup failed", "doi", doi, "err", err)
+		writeJSON(w, http.StatusInternalServerError, Response{DOI: req.DOI, Error: err.Error()})
+		s.lg.Error("lookup failed", "doi", req.DOI, "err", err)
 	default:
-		writeJSON(w, http.StatusOK, map[string]string{"doi": item.Doi, "file": item.File})
+		writeJSON(w, http.StatusOK, Response{DOI: req.DOI, File: item.File})
 	}
 }
 
-// writeJSON writes v as JSON with the given status.
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

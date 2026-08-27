@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -19,19 +20,20 @@ func TestQuery_Success(t *testing.T) {
 		t.Fatalf("record: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/query?doi=10.1/thing", nil)
+	body, _ := json.Marshal(request{DOI: "10.1/thing"})
+	req := httptest.NewRequest(http.MethodPost, "/query", bytes.NewReader(body))
 	rr := httptest.NewRecorder()
 	New(st, nil).Handler().ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 (body: %s)", rr.Code, rr.Body.String())
 	}
-	var got map[string]string
+	var got Response
 	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
 		t.Fatalf("decode body: %v", err)
 	}
-	if got["file"] != "7.json" || got["doi"] != "10.1/thing" {
-		t.Fatalf("body = %v, want file 7.json", got)
+	if got.File != "7.json" || got.DOI != "10.1/thing" {
+		t.Fatalf("body = %+v, want file 7.json", got)
 	}
 }
 
@@ -42,19 +44,20 @@ func TestQuery_NotRecorded(t *testing.T) {
 	}
 	defer conn.Close()
 
-	req := httptest.NewRequest(http.MethodGet, "/query?doi=10.1/never", nil)
+	body, _ := json.Marshal(request{DOI: "10.1/never"})
+	req := httptest.NewRequest(http.MethodPost, "/query", bytes.NewReader(body))
 	rr := httptest.NewRecorder()
 	New(st, nil).Handler().ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", rr.Code)
 	}
-	var got map[string]string
+	var got Response
 	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
 		t.Fatalf("decode body: %v", err)
 	}
-	if got["error"] == "" {
-		t.Fatalf("expected an error field, got %v", got)
+	if got.Error == "" {
+		t.Fatalf("expected an error field, got %+v", got)
 	}
 }
 
@@ -65,7 +68,8 @@ func TestQuery_MissingDoi(t *testing.T) {
 	}
 	defer conn.Close()
 
-	req := httptest.NewRequest(http.MethodGet, "/query", nil)
+	body, _ := json.Marshal(request{})
+	req := httptest.NewRequest(http.MethodPost, "/query", bytes.NewReader(body))
 	rr := httptest.NewRecorder()
 	New(st, nil).Handler().ServeHTTP(rr, req)
 
@@ -74,14 +78,14 @@ func TestQuery_MissingDoi(t *testing.T) {
 	}
 }
 
-func TestQuery_DuplicateDoiParam(t *testing.T) {
+func TestQuery_InvalidBody(t *testing.T) {
 	st, conn, err := createTestStore(t)
 	if err != nil {
 		t.Fatalf("create store: %v", err)
 	}
 	defer conn.Close()
 
-	req := httptest.NewRequest(http.MethodGet, "/query?doi=a&doi=b", nil)
+	req := httptest.NewRequest(http.MethodPost, "/query", bytes.NewReader([]byte("not json")))
 	rr := httptest.NewRecorder()
 	New(st, nil).Handler().ServeHTTP(rr, req)
 
@@ -97,7 +101,7 @@ func TestQuery_MethodNotAllowed(t *testing.T) {
 	}
 	defer conn.Close()
 
-	req := httptest.NewRequest(http.MethodPost, "/query?doi=10.1/x", nil)
+	req := httptest.NewRequest(http.MethodGet, "/query", nil)
 	rr := httptest.NewRecorder()
 	New(st, nil).Handler().ServeHTTP(rr, req)
 
