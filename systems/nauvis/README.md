@@ -16,3 +16,5 @@ Example workflow:
 - The dataset isn't guaranteed to have created the JSON file in JSON, it may have added unnecessary whitespace, so ensure 5.json is properly formatted as JSON.
 
 Since there are many thousands of files to process, this system runs multiple workers in parallel to quickly extract and process the total dataset.
+
+See [How Nauvis Works](docs/how-it-works.md) for the code-level walkthrough: the three stages (extract, store, ingest), how duplicates and SQLite single-writer concurrency are handled, and the database schema.

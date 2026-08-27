@@ -19,3 +19,13 @@ A prototype monorepo for the Crossref "Research Nexus" data pipeline. It is **mo
 ## Gotchas
 - Several `README.md` files describe commands for code that does not exist yet. Verify a command's module/package is actually present before running or citing it.
 - `.gitignore` excludes data artifacts (`*.zip *.csv *.parquet *.sqlite`) — large datasets are not committed; do not add them.
+
+## Safety
+
+You are not permitted to read or write files outside of the nexus directory. If you need to run tests for a system, run them within that systems directory. Make a temp directory if required.
+
+Do not use `/tmp` or anywhere else for creating temp files. Everything must stay within the nexus directory.
+
+## Git
+
+When commiting changes, at the end of the commit message include your model name in parentheses like `(ornith1.5:35b)`.
