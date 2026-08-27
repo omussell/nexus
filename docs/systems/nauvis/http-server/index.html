@@ -9,26 +9,26 @@
       
       
       
+        <link rel="prev" href="../how-it-works/">
       
-        <link rel="next" href="how-it-works/">
       
       
         
       
       
-      <link rel="icon" href="images/xml.svg">
+      <link rel="icon" href="../images/xml.svg">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
-        <title>systems/nauvis</title>
+        <title>HTTP server - systems/nauvis</title>
       
     
     
-      <link rel="stylesheet" href="assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
         
-        <link rel="stylesheet" href="assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -47,7 +47,7 @@
       
     
     
-    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -70,7 +70,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#nauvis" class="md-skip">
+        <a href="#nauvis-http-server" class="md-skip">
           Skip to content
         </a>
       
@@ -86,7 +86,7 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="." title="systems/nauvis" class="md-header__button md-logo" aria-label="systems/nauvis" data-md-component="logo">
+    <a href=".." title="systems/nauvis" class="md-header__button md-logo" aria-label="systems/nauvis" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14 6h8v16h-8zM2 4h20V2H2zm0 4h10V6H2zm7 14h3V10H9zm-7 0h5V10H2z"/></svg>
@@ -106,7 +106,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              NAUVIS
+              HTTP server
             
           </span>
         </div>
@@ -184,7 +184,7 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="." title="systems/nauvis" class="md-nav__button md-logo" aria-label="systems/nauvis" data-md-component="logo">
+    <a href=".." title="systems/nauvis" class="md-nav__button md-logo" aria-label="systems/nauvis" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14 6h8v16h-8zM2 4h20V2H2zm0 4h10V6H2zm7 14h3V10H9zm-7 0h5V10H2z"/></svg>
@@ -194,6 +194,60 @@
   </label>
   
   <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NAUVIS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-it-works/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How it works
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
     
       
       
@@ -218,7 +272,7 @@
   <span class="md-ellipsis">
     
   
-    NAUVIS
+    HTTP server
   
 
     
@@ -229,14 +283,14 @@
           <span class="md-nav__icon md-icon"></span>
         </label>
       
-      <a href="." class="md-nav__link md-nav__link--active">
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
   <span class="md-ellipsis">
     
   
-    NAUVIS
+    HTTP server
   
 
     
@@ -262,10 +316,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#running-it" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Overview
+        Running it
       
     </span>
   </a>
@@ -273,10 +327,38 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#key-functionalities" class="md-nav__link">
+  <a href="#endpoint" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Key Functionalities
+        Endpoint
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Endpoint">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#responses-and-status-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Responses and status codes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-post-with-a-json-body" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why POST with a JSON body?
       
     </span>
   </a>
@@ -284,10 +366,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#example-workflow" class="md-nav__link">
+  <a href="#implementation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Example Workflow
+        Implementation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#caveats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Caveats
       
     </span>
   </a>
@@ -298,60 +391,6 @@
   
 </nav>
       
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="how-it-works/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    How it works
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="http-server/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    HTTP server
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -383,10 +422,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#running-it" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Overview
+        Running it
       
     </span>
   </a>
@@ -394,10 +433,38 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#key-functionalities" class="md-nav__link">
+  <a href="#endpoint" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Key Functionalities
+        Endpoint
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Endpoint">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#responses-and-status-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Responses and status codes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-post-with-a-json-body" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why POST with a JSON body?
       
     </span>
   </a>
@@ -405,10 +472,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#example-workflow" class="md-nav__link">
+  <a href="#implementation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Example Workflow
+        Implementation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#caveats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Caveats
       
     </span>
   </a>
@@ -432,23 +510,116 @@
 
 
 
-<h1 id="nauvis">NAUVIS</h1>
-<p>The Nauvis system extracts and processes Crossref snapshot data from JSON-L format into JSON files suitable for other systems in the Nexus pipeline.</p>
-<h2 id="overview">Overview</h2>
-<p>This system processes a large dataset where files are individually gzip compressed and named as random integers. The goal is to transform a massive uncompressed dataset (which can reach ~1TB) into properly formatted, individual JSON files for downstream use.</p>
-<p>To handle the scale of the data, Nauvis runs multiple workers in parallel to quickly extract and process files.</p>
-<h2 id="key-functionalities">Key Functionalities</h2>
+<h1 id="nauvis-http-server">Nauvis HTTP Server</h1>
+<p>Nauvis can expose the DOI lookup as an HTTP service, so callers can map a DOI
+to the input file that recorded it without spawning the <code>-query</code> CLI for each
+request.</p>
+<h2 id="running-it">Running it</h2>
+<pre><code>./nauvis -serve [-host :8080] [-db ./nauvis.sqlite3]
+</code></pre>
 <ul>
-<li><strong>Extraction:</strong> Unpacks gzip-compressed JSON-L files.</li>
-<li><strong>Processing:</strong> Converts data into standard, properly formatted JSON files.</li>
-<li><strong>Parallelization:</strong> Utilizes multiple workers to handle thousands of files efficiently.</li>
+<li><code>-serve</code> turns on the HTTP handler (and implies <code>-db</code>).</li>
+<li><code>-host</code> (default <code>localhost:8080</code>) is the address the server listens on.</li>
+<li><code>-db</code> and <code>-in/-out/-jobs</code> are ignored in this mode.</li>
 </ul>
-<h2 id="example-workflow">Example Workflow</h2>
-<ol>
-<li>Identify a compressed file (e.g., <code>5.json.gz</code>).</li>
-<li>Extract and process it into a properly formatted JSON file (<code>5.json</code>).</li>
-<li>The resulting JSON file is then ready for consumption by other systems in the pipeline.</li>
-</ol>
+<p>It logs <code>nauvis: listening on &lt;host&gt;</code> on start. Stop with <code>Ctrl-C</code>.</p>
+<h2 id="endpoint">Endpoint</h2>
+<pre><code>POST /query
+Content-Type: application/json
+
+{&quot;doi&quot;: &quot;10.1001/jama.2023.24766&quot;}
+</code></pre>
+<p>The response is a JSON object with either a <code>file</code> or an <code>error</code> field:</p>
+<p>Recorded:</p>
+<pre><code class="language-json">{&quot;doi&quot;:&quot;10.1001/jama.2023.24766&quot;,&quot;file&quot;:&quot;9.json&quot;}
+</code></pre>
+<p>Not recorded (HTTP 404):</p>
+<pre><code class="language-json">{&quot;doi&quot;:&quot;10.1/never&quot;,&quot;error&quot;:&quot;no such item&quot;}
+</code></pre>
+<h3 id="responses-and-status-codes">Responses and status codes</h3>
+<table>
+<thead>
+<tr>
+<th>Case</th>
+<th>Status</th>
+<th>Body</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DOI present in the index</td>
+<td><code>200</code></td>
+<td><code>{"doi":"&lt;DOI&gt;","file":"&lt;file&gt;"}</code></td>
+</tr>
+<tr>
+<td>DOI not recorded</td>
+<td><code>404</code></td>
+<td><code>{"doi":"&lt;DOI&gt;","error":"no such item"}</code></td>
+</tr>
+<tr>
+<td>Missing <code>doi</code> field</td>
+<td><code>400</code></td>
+<td><code>{"error":"missing 'doi' field"}</code></td>
+</tr>
+<tr>
+<td>Malformed JSON body</td>
+<td><code>400</code></td>
+<td><code>{"error":"invalid JSON body"}</code></td>
+</tr>
+<tr>
+<td>Non-<code>POST</code> HTTP method</td>
+<td><code>405</code></td>
+<td><code>method not allowed</code>, <code>Allow: POST</code></td>
+</tr>
+<tr>
+<td>Database failure during lookup (rare)</td>
+<td><code>500</code></td>
+<td><code>{"doi":"&lt;DOI&gt;","error":"&lt;err&gt;"}</code>, logged at <code>ERROR</code></td>
+</tr>
+</tbody>
+</table>
+<p>A missing DOI is <em>not</em> a server error — it is a normal <code>404</code>. Only unexpected
+SQLite errors produce a <code>500</code>.</p>
+<h2 id="why-post-with-a-json-body">Why POST with a JSON body?</h2>
+<p>DOI identifiers routinely contain characters that are illegal in a URL query
+string:</p>
+<ul>
+<li><code>#</code> and <code>&amp;</code> are legal and may appear inside the suffix; in a query string they
+  terminate the <code>doi</code> value (and <code>&amp;</code> begins another) rather than being part of it.</li>
+<li><code>&lt; &gt; { }</code> are legal as-is in a query string but awkward for clients.</li>
+</ul>
+<p>Using a JSON request body lets any DOI be sent verbatim, with no percent-encoding
+required. This also leaves room to extend the endpoint later (e.g. a batch
+lookup in <code>{"dois": [...]}</code>).</p>
+<h2 id="implementation">Implementation</h2>
+<p>The handler lives in <code>internal/server</code>. It wraps a <code>*store.Store</code> and exposes the
+<code>/query</code> route through <code>net/http</code>.</p>
+<pre><code class="language-go">func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodPost { ... }
+    var req request
+    dec.Decode(&amp;req)   // {&quot;doi&quot;: &quot;&lt;DOI&gt;&quot;}
+    if req.DOI == &quot;&quot; { ... }  // validation
+    item, err := s.st.GetByDOI(r.Context(), req.DOI)
+    switch {
+    case errors.Is(err, sql.ErrNoRows):
+        // 404
+    case err != nil:
+        // 500 + log
+    default:
+        // 200 {&quot;doi&quot;:&quot;&lt;DOI&gt;&quot;,&quot;file&quot;:&quot;&lt;file&gt;&quot;}
+    }
+}
+</code></pre>
+<h2 id="caveats">Caveats</h2>
+<ul>
+<li><strong>Read-only, no auth.</strong> The server offers an unauthenticated read-only view on
+  the local index. Run it only where that's acceptable, or behind a network or
+  reverse proxy.</li>
+<li><strong>Read concurrency.</strong> <code>store.Open</code> opens SQLite in WAL mode, so the server can
+  serve reads without contending with (in-process) writers. Nauvis does not
+  currently expose a process-mode server, so in practice there is no writer
+  contending with the server.</li>
+</ul>
 
 
 
@@ -498,10 +669,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": [], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>
