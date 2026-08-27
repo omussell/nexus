@@ -24,10 +24,10 @@ func mustGzip(t *testing.T, b []byte) []byte {
 	return buf.Bytes()
 }
 
-// TestProcess_ByteIdentical verifies that Process writes the decompressed
-// payload back out byte-for-byte — no re-serialization, no type coercion.
-func TestProcess_ByteIdentical(t *testing.T) {
-	src := []byte(`{"a": 1, "b" : [ 1 , 2 , 3 ], "c" : "x"}`)
+// TestProcess_NDJSON verifies that Process writes each input item on its own line
+// as NDJSON, compacting the original formatting while preserving content.
+func TestProcess_NDJSON(t *testing.T) {
+	src := []byte(`{"items":[{"DOI":"10.1/1"},{"DOI":"10.1/2"}]}`)
 	dir := t.TempDir()
 	in := filepath.Join(dir, "in.json.gz")
 	if err := os.WriteFile(in, mustGzip(t, src), 0o644); err != nil {
@@ -35,19 +35,17 @@ func TestProcess_ByteIdentical(t *testing.T) {
 	}
 	out := filepath.Join(dir, "out.json")
 
-	_, n, err := Process(in, out)
+	_, _, err := Process(in, out)
 	if err != nil {
 		t.Fatalf("Process: %v", err)
-	}
-	if n != int64(len(src)) {
-		t.Fatalf("returned size %d != expected %d", n, len(src))
 	}
 	got, err := os.ReadFile(out)
 	if err != nil {
 		t.Fatalf("read output: %v", err)
 	}
-	if !bytes.Equal(got, src) {
-		t.Fatalf("output differs from decompressed source:\n got:  %s\n want: %s", got, src)
+	want := "{\"DOI\":\"10.1/1\"}\n{\"DOI\":\"10.1/2\"}\n"
+	if string(got) != want {
+		t.Fatalf("\n got:  %q\nwant: %q", got, want)
 	}
 }
 
@@ -103,8 +101,8 @@ func TestBaseName(t *testing.T) {
 }
 
 // TestProcess_RealData is a smoke test that runs the real pipeline against
-// the sample files in data/, if they exist in the repo. It verifies byte-identical
-// output and valid JSON output for every sample.
+// the sample files in data/, if they exist in the repo. It verifies NDJSON
+// output that matches the decompressed source, one item per line.
 func TestProcess_RealData(t *testing.T) {
 	sampleDir := "data"
 	if _, err := os.Stat(sampleDir); err != nil {
@@ -122,28 +120,51 @@ func TestProcess_RealData(t *testing.T) {
 		in := filepath.Join(sampleDir, e.Name())
 		out := filepath.Join(dir, strings.TrimSuffix(e.Name(), ".gz"))
 
-		// Compute expected bytes ourselves before running so we can compare.
-		expected, err := readGzip(in)
+		// Compute the expected NDJSON output ourselves before running so we
+		// can compare, and read back the DOIs to verify.
+		data, err := readGzip(in)
 		if err != nil {
 			t.Fatalf("read sample %s: %v", e.Name(), err)
 		}
-		if !json.Valid(expected) {
+		if !json.Valid(data) {
 			t.Fatalf("sample %s decompressed payload is not valid JSON", e.Name())
 		}
 
-		_, n, err := Process(in, out)
+		var doc struct {
+			Items []json.RawMessage `json:"items"`
+		}
+		if err := json.Unmarshal(data, &doc); err != nil {
+			t.Fatalf("parse sample %s: %v", e.Name(), err)
+		}
+		want := buildNDJSON(t, doc.Items)
+
+		got, _, err := Process(in, out)
 		if err != nil {
 			t.Fatalf("Process(%s): %v", e.Name(), err)
 		}
-		if n != int64(len(expected)) {
-			t.Fatalf("Process(%s): size %d != %d", e.Name(), n, len(expected))
+		if len(got) != len(doc.Items) {
+			t.Fatalf("Process(%s): got %d DOIs, want %d", e.Name(), len(got), len(doc.Items))
 		}
-		got, err := os.ReadFile(out)
+		gotb, err := os.ReadFile(out)
 		if err != nil {
 			t.Fatalf("read output %s: %v", e.Name(), err)
 		}
-		if !bytes.Equal(got, expected) {
-			t.Fatalf("output %s differs from decompressed source", e.Name())
+		if string(gotb) != want {
+			t.Fatalf("output %s differs from expected NDJSON\n got:  %s\nwant: %s", e.Name(), gotb, want)
 		}
 	}
+}
+
+func buildNDJSON(t *testing.T, items []json.RawMessage) string {
+	t.Helper()
+	var w bytes.Buffer
+	for _, item := range items {
+		line := new(bytes.Buffer)
+		if err := json.Compact(line, item); err != nil {
+			t.Fatalf("compact: %v", err)
+		}
+		w.Write(line.Bytes())
+		w.WriteByte('\n')
+	}
+	return w.String()
 }

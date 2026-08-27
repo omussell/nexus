@@ -3,6 +3,7 @@ package ror
 import (
 	"archive/zip"
 	"context"
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -105,11 +106,16 @@ func TestProcessConvertsToOneJSON(t *testing.T) {
 		t.Fatalf("read output: %v", err)
 	}
 	var got []map[string]any
-	if err := json.Unmarshal(b, &got); err != nil {
-		t.Fatalf("output is not valid JSON: %v", err)
+	dec := json.NewDecoder(bytes.NewReader(b))
+	for dec.More() {
+		var rec map[string]any
+		if err := dec.Decode(&rec); err != nil {
+			t.Fatalf("output is not valid NDJSON: %v", err)
+		}
+		got = append(got, rec)
 	}
 	if len(got) != 2 || got[1]["id"] != "https://ror.org/0002" {
-		t.Fatalf("unexpected output %s", b)
+		t.Fatalf("unexpected output %v", got)
 	}
 }
 

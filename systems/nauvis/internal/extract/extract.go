@@ -1,11 +1,12 @@
 // Package extract reads the Crossref snapshot files: it decompresses a
 // gzip-compressed item file, validates that it is a single well-formed JSON
-// value, writes the decompressed bytes out as a plain .json file
-// byte-for-byte unchanged (so no value or formatting is altered), and reports
-// the DOIs of the items it contains.
+// value, and writes each item in the input's "items" array out on its own line
+// as an NDJSON file. This lets downstream systems consume the items row by row
+// instead of as a single array.
 package extract
 
 import (
+	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
@@ -15,9 +16,10 @@ import (
 	"strings"
 )
 
-// Process decompresses inPath, validates the payload as one JSON value, writes
-// it unchanged to outPath, and returns the DOIs of its items in input order.
-// n is the number of decompressed bytes written.
+// Process decompresses inPath, validates the payload as one JSON value, and
+// writes each item in its "items" array out on its own line as an NDJSON file.
+// It returns the DOIs of the items in input order, and n is the number of bytes
+// written.
 func Process(inPath, outPath string) (dois []string, n int64, err error) {
 	buf, err := readGzip(inPath)
 	if err != nil {
@@ -28,23 +30,40 @@ func Process(inPath, outPath string) (dois []string, n int64, err error) {
 	if !json.Valid(buf) {
 		return nil, 0, fmt.Errorf("%s: decompressed payload is not valid JSON", inPath)
 	}
-	if err := atomicWrite(outPath, buf, 0o644); err != nil {
-		return nil, 0, fmt.Errorf("write %s: %w", outPath, err)
-	}
-
 	var doc struct {
-		Items []struct {
-			DOI string `json:"DOI"`
-		} `json:"items"`
+		Items []json.RawMessage `json:"items"`
 	}
 	if err := json.Unmarshal(buf, &doc); err != nil {
 		return nil, 0, fmt.Errorf("parse %s: %w", inPath, err)
 	}
-	dois = make([]string, 0, len(doc.Items))
-	for _, it := range doc.Items {
-		dois = append(dois, it.DOI)
+
+	var w bytes.Buffer
+	for _, item := range doc.Items {
+		if doi := readDOI(item); doi != "" {
+			dois = append(dois, doi)
+		}
+		line := new(bytes.Buffer)
+		if err := json.Compact(line, item); err != nil {
+			return nil, 0, fmt.Errorf("compact item in %s: %w", inPath, err)
+		}
+		w.Write(line.Bytes())
+		w.WriteByte('\n')
 	}
-	return dois, int64(len(buf)), nil
+	if err := atomicWrite(outPath, w.Bytes(), 0o644); err != nil {
+		return nil, 0, fmt.Errorf("write %s: %w", outPath, err)
+	}
+	return dois, int64(w.Len()), nil
+}
+
+// readDOI returns the DOI field of a single item, or "" if absent.
+func readDOI(item json.RawMessage) string {
+	var d struct {
+		DOI string `json:"DOI"`
+	}
+	if err := json.Unmarshal(item, &d); err != nil {
+		return ""
+	}
+	return d.DOI
 }
 
 // Files returns an ordered list of every input file in dir. A file qualifies

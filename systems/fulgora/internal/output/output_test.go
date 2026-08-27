@@ -30,17 +30,26 @@ func TestJSONFileWritesSingleDocument(t *testing.T) {
 		t.Fatalf("path = %q", out)
 	}
 
-	b, err := os.ReadFile(out)
+	f, err := os.Open(out)
 	if err != nil {
-		t.Fatalf("read output: %v", err)
+		t.Fatalf("open output: %v", err)
 	}
+	defer f.Close()
 
 	var got []map[string]string
-	if err := json.Unmarshal(b, &got); err != nil {
-		t.Fatalf("output not valid JSON: %v", err)
+	dec := json.NewDecoder(f)
+	for dec.More() {
+		var m map[string]string
+		if err := dec.Decode(&m); err != nil {
+			t.Fatalf("decode NDJSON line: %v", err)
+		}
+		got = append(got, m)
 	}
-	if len(got) != 2 || got[1]["id"] != "roo" {
-		t.Fatalf("unexpected content: %s", b)
+	if err := f.Close(); err != nil {
+		t.Fatalf("close output: %v", err)
+	}
+	if len(got) != 2 || got[1]["id"] != "roo" || got[1]["note"] != "second" {
+		t.Fatalf("unexpected content: %v", got)
 	}
 }
 
@@ -54,16 +63,22 @@ func TestJSONFileCreatesNestedDir(t *testing.T) {
 	if filepath.Dir(out) != sub {
 		t.Fatalf("output dir = %q", filepath.Dir(out))
 	}
-	b, err := os.ReadFile(out)
+	f, err := os.Open(out)
 	if err != nil {
-		t.Fatalf("read output: %v", err)
+		t.Fatalf("open output: %v", err)
 	}
+	defer f.Close()
 	var items []string
-	if err := json.Unmarshal(b, &items); err != nil {
-		t.Fatalf("output not valid JSON: %v", err)
+	dec := json.NewDecoder(f)
+	for dec.More() {
+		var item string
+		if err := dec.Decode(&item); err != nil {
+			t.Fatalf("output not valid NDJSON: %v", err)
+		}
+		items = append(items, item)
 	}
 	if len(items) != 1 || items[0] != "only" {
-		t.Fatalf("unexpected content: %s", b)
+		t.Fatalf("unexpected content: %v", items)
 	}
 }
 
