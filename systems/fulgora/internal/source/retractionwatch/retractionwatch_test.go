@@ -1,6 +1,7 @@
 package retractionwatch
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -100,8 +101,13 @@ func TestProcessConvertsCSV(t *testing.T) {
 		t.Fatalf("read output: %v", err)
 	}
 	var gotRecords []map[string]string
-	if err := json.Unmarshal(b, &gotRecords); err != nil {
-		t.Fatalf("output is not valid JSON: %v", err)
+	dec := json.NewDecoder(bytes.NewReader(b))
+	for dec.More() {
+		var rec map[string]string
+		if err := dec.Decode(&rec); err != nil {
+			t.Fatalf("output is not valid NDJSON: %v", err)
+		}
+		gotRecords = append(gotRecords, rec)
 	}
 	if len(gotRecords) != 2 {
 		t.Fatalf("expected 2 records, got %d", len(gotRecords))
@@ -111,6 +117,44 @@ func TestProcessConvertsCSV(t *testing.T) {
 	}
 	if gotRecords[1]["title"] != "Title B;" {
 		t.Errorf("unexpected second record: %v", gotRecords[1])
+	}
+}
+
+func TestProcessDropsEmptyHeaderColumn(t *testing.T) {
+	dir := t.TempDir()
+	raw := filepath.Join(dir, "input", "retraction_watch.csv")
+	if err := os.MkdirAll(filepath.Dir(raw), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	// Trailing comma leaves an empty final column name, which must not appear
+	// as an "" key in the NDJSON output.
+	if err := os.WriteFile(raw, []byte("id,title,\ndoi1,Title A\n,Title B;\n"), 0o644); err != nil {
+		t.Fatalf("write raw: %v", err)
+	}
+
+	s := New()
+	out, err := s.Process(context.Background(), "2026-08-15", raw, filepath.Join(dir, "output"))
+	if err != nil {
+		t.Fatalf("Process: %v", err)
+	}
+
+	b, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("read output: %v", err)
+	}
+	var gotRecords []map[string]string
+	dec := json.NewDecoder(bytes.NewReader(b))
+	for dec.More() {
+		var rec map[string]string
+		if err := dec.Decode(&rec); err != nil {
+			t.Fatalf("output is not valid NDJSON: %v", err)
+		}
+		gotRecords = append(gotRecords, rec)
+	}
+	for _, rec := range gotRecords {
+		if _, bad := rec[""]; bad || len(rec) != 2 {
+			t.Fatalf("empty header column leaked into output: %v", rec)
+		}
 	}
 }
 

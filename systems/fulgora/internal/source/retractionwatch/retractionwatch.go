@@ -119,6 +119,9 @@ func (s *Source) Process(ctx context.Context, version, rawPath, outRoot string) 
 	for _, rec := range records {
 		row := make(map[string]string, len(cols))
 		for i, col := range cols {
+			if col == "" {
+				continue
+			}
 			if i < len(rec) {
 				row[col] = rec[i]
 			}
