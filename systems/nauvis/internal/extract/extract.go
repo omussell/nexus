@@ -61,7 +61,7 @@ func Files(dir string) ([]string, error) {
 			continue
 		}
 		name := e.Name()
-		if strings.HasSuffix(name, ".json.gz") || strings.HasSuffix(name, ".json") {
+		if strings.HasSuffix(name, ".json.gz") {
 			files = append(files, filepath.Join(dir, name))
 		}
 	}
