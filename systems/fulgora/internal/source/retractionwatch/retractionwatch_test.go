@@ -2,10 +2,12 @@ package retractionwatch
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -57,28 +59,58 @@ func TestCheckLatestErrorStatus(t *testing.T) {
 	}
 }
 
-func TestProcessCopies(t *testing.T) {
+func TestProcessConvertsCSV(t *testing.T) {
 	dir := t.TempDir()
-	raw := filepath.Join(dir, "retraction_watch.csv")
-	if err := os.WriteFile(raw, []byte("id,doi\n1,10.1234/retracted\n"), 0o644); err != nil {
+	raw := filepath.Join(dir, "input", "retraction_watch.csv")
+	if err := os.MkdirAll(filepath.Dir(raw), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(raw, []byte("id,title\ndoi1,Title A\n,Title B;\n"), 0o644); err != nil {
 		t.Fatalf("write raw: %v", err)
 	}
 
 	s := New()
-	out, err := s.Process(context.Background(), "2026-08-15", raw, dir)
+	outRoot := filepath.Join(dir, "output")
+	out, err := s.Process(context.Background(), "2026-08-15", raw, outRoot)
 	if err != nil {
 		t.Fatalf("Process: %v", err)
 	}
-	want := filepath.Join(dir, "retractionwatch-2026-08-15.csv")
+	want := filepath.Join(outRoot, "retractionwatch-2026-08-15.json")
 	if out != want {
 		t.Fatalf("output = %q, want %q", out, want)
 	}
-	b, err := os.ReadFile(want)
+	// Only a JSON file should be produced; no legacy CSV in the output dir.
+	entries, err := os.ReadDir(outRoot)
+	if err != nil {
+		t.Fatalf("read dir: %v", err)
+	}
+	csvs, files := 0, 0
+	for _, e := range entries {
+		files++
+		if strings.HasSuffix(e.Name(), ".csv") {
+			csvs++
+		}
+	}
+	if files != 1 || csvs != 0 {
+		t.Fatalf("want exactly one .json and no .csv in output, got csv=%d files=%d", csvs, files)
+	}
+
+	b, err := os.ReadFile(out)
 	if err != nil {
 		t.Fatalf("read output: %v", err)
 	}
-	if string(b) == "" {
-		t.Error("output file is empty")
+	var gotRecords []map[string]string
+	if err := json.Unmarshal(b, &gotRecords); err != nil {
+		t.Fatalf("output is not valid JSON: %v", err)
+	}
+	if len(gotRecords) != 2 {
+		t.Fatalf("expected 2 records, got %d", len(gotRecords))
+	}
+	if gotRecords[0]["id"] != "doi1" || gotRecords[0]["title"] != "Title A" {
+		t.Errorf("unexpected first record: %v", gotRecords[0])
+	}
+	if gotRecords[1]["title"] != "Title B;" {
+		t.Errorf("unexpected second record: %v", gotRecords[1])
 	}
 }
 

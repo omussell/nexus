@@ -3,6 +3,7 @@ package ror
 import (
 	"archive/zip"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -75,11 +76,12 @@ func TestCheckLatestErrorStatus(t *testing.T) {
 	}
 }
 
-func TestProcessUnpacks(t *testing.T) {
+func TestProcessConvertsToOneJSON(t *testing.T) {
 	dir := t.TempDir()
 	raw := filepath.Join(dir, "v1.34-2023-10-12-ror-data.zip")
 	if err := writeZip(raw, map[string]string{
-		"ror.csv": "id,display_name\n0000-0001-2229-186X,Institute of Example",
+		"v.1.34.json":          `[{"id":"https://ror.org/0001"},{"id":"https://ror.org/0002"}]`,
+		"v2.12-2026-08-25.csv": "id,name\nhttps://ror.org/0003,Some Org",
 	}); err != nil {
 		t.Fatalf("writeZip: %v", err)
 	}
@@ -90,16 +92,24 @@ func TestProcessUnpacks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Process: %v", err)
 	}
-	want := filepath.Join(outRoot, "1.34")
+	want := filepath.Join(outRoot, "ror-1.34.json")
 	if out != want {
-		t.Fatalf("output dir = %q, want %q", out, want)
+		t.Fatalf("output = %q, want %q", out, want)
 	}
-	b, err := os.ReadFile(filepath.Join(want, "ror.csv"))
+	// The CSV entry of the same dump must not be written to the output.
+	if _, err := os.Stat(filepath.Join(outRoot, "v2.12-2026-08-25.csv")); !os.IsNotExist(err) {
+		t.Fatal("csv entry leaked into the output directory")
+	}
+	b, err := os.ReadFile(out)
 	if err != nil {
-		t.Fatalf("read unpacked: %v", err)
+		t.Fatalf("read output: %v", err)
 	}
-	if string(b) == "" {
-		t.Error("unpacked ror.csv is empty")
+	var got []map[string]any
+	if err := json.Unmarshal(b, &got); err != nil {
+		t.Fatalf("output is not valid JSON: %v", err)
+	}
+	if len(got) != 2 || got[1]["id"] != "https://ror.org/0002" {
+		t.Fatalf("unexpected output %s", b)
 	}
 }
 

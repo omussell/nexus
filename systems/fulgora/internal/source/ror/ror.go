@@ -22,11 +22,11 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/nexus/fulgora/internal/output"
 	"github.com/nexus/fulgora/internal/source"
 )
 
@@ -133,17 +133,25 @@ func (s *Source) CheckLatest(ctx context.Context) (*source.Latest, error) {
 	}, nil
 }
 
-// Process unpacks the raw zip at rawPath into a versioned output directory
-// under outRoot and returns the output directory.
+// Process converts the ROR dump (the JSON entry of the raw zip at rawPath)
+// into a single JSON file under outRoot named "ror-<version>.json" and returns
+// its path. The CSV entry of the same dump is not written to the output.
 func (s *Source) Process(ctx context.Context, version, rawPath, outRoot string) (string, error) {
 	if version == "" {
 		return "", fmt.Errorf("ror: empty version")
 	}
-	outDir := filepath.Join(outRoot, version)
-	if err := unpackZip(rawPath, outDir); err != nil {
-		return "", err
+
+	data, err := zipJSONFrom(rawPath)
+	if err != nil {
+		return "", fmt.Errorf("ror: read json from zip %s: %w", rawPath, err)
 	}
-	return outDir, nil
+
+	var rows []json.RawMessage
+	if err := json.Unmarshal(data, &rows); err != nil {
+		return "", fmt.Errorf("ror: parse ror dump: %w", err)
+	}
+
+	return output.JSONFile(rows, outRoot, fmt.Sprintf("ror-%s", version))
 }
 
 // Name implements source.Source.
@@ -167,39 +175,46 @@ func versionFromFilename(name string) string {
 	return base
 }
 
-// unpackZip extracts every entry of zipPath into outDir, refusing entries
-// that would escape the target (zip-slip).
-func unpackZip(zipPath, outDir string) error {
+// zipJSONFrom returns the content of the JSON (.json) entry of the raw ROR dump
+// at zipPath. The dataset ships as both JSON and CSV; the JSON entry is the
+// canonical structure, so the CSV entry is ignored.
+func zipJSONFrom(zipPath string) ([]byte, error) {
+	f, err := zipOpenEntry(zipPath, func(name string) bool {
+		return strings.HasSuffix(name, ".json")
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	b, err := io.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+	if len(b) == 0 {
+		return nil, fmt.Errorf("empty json entry")
+	}
+	return b, nil
+}
+
+// zipOpenEntry opens the first entry of zipPath whose name passes keep, or an
+// error if there is none. It refuses entries that would escape the target.
+func zipOpenEntry(zipPath string, keep func(string) bool) (io.ReadCloser, error) {
 	r, err := zip.OpenReader(zipPath)
 	if err != nil {
-		return fmt.Errorf("ror: open zip %s: %w", zipPath, err)
+		return nil, fmt.Errorf("ror: open zip %s: %w", zipPath, err)
 	}
-	defer r.Close()
-
-	if err := os.MkdirAll(outDir, 0o755); err != nil {
-		return err
-	}
-
-	for _, f := range r.File {
-		target, err := safeJoin(outDir, f.Name)
-		if err != nil {
-			return err
-		}
-
-		if f.FileInfo().IsDir() {
-			if err := os.MkdirAll(target, 0o755); err != nil {
-				return err
+	for _, e := range r.File {
+		if keep(e.Name) {
+			rc, err := e.Open()
+			if err != nil {
+				r.Close()
+				return nil, err
 			}
-			continue
-		}
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-			return err
-		}
-		if err := writeEntry(f, target); err != nil {
-			return err
+			return rc, nil
 		}
 	}
-	return nil
+	r.Close()
+	return nil, fmt.Errorf("ror: no matching entry in %s", zipPath)
 }
 
 func safeJoin(outDir, name string) (string, error) {
@@ -209,23 +224,4 @@ func safeJoin(outDir, name string) (string, error) {
 		return "", fmt.Errorf("ror: unsafe zip entry %q", name)
 	}
 	return target, nil
-}
-
-func writeEntry(f *zip.File, target string) error {
-	rc, err := f.Open()
-	if err != nil {
-		return err
-	}
-	defer rc.Close()
-
-	dst, err := os.Create(target)
-	if err != nil {
-		return err
-	}
-	defer dst.Close()
-
-	if _, err := io.Copy(dst, rc); err != nil {
-		return err
-	}
-	return dst.Close()
 }
