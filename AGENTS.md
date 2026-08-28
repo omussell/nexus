@@ -22,9 +22,9 @@ A prototype monorepo for the Crossref "Research Nexus" data pipeline. It is **mo
 
 ## Safety
 
-You are not permitted to read or write files outside of the nexus directory. If you need to run tests for a system, run them within that systems directory. Make a temp directory if required.
+You are not permitted to read or write files outside of the nexus directory. If you need to run tests for a system, run them within that systems directory. Make a temp directory inside the system directory if required.
 
-Do not use `/tmp` or anywhere else for creating temp files. Everything must stay within the nexus directory.
+Do not use `/tmp` or anywhere else for creating temp files. Everything must stay within the nexus directory structure.
 
 ## Git
 
