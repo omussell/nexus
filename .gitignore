@@ -18,6 +18,7 @@ wheels/
 *.sqlite3
 *.sqlite3-shm
 *.sqlite3-wal
+*.duckdb
 
 *.json.gz
 
@@ -26,8 +27,13 @@ systems/nauvis/nauvis
 systems/nauvis/nauvis.sqlite3
 systems/nauvis/nauvis.sqlite3-shm
 systems/nauvis/nauvis.sqlite3-wal
+systems/nauvis/out
 
 # Fulgora: collected data artifacts (keep the system code, not the datasets)
+systems/fulgora/fulgora
 systems/fulgora/initial_input/
 systems/fulgora/ror/output/
 systems/fulgora/retractionwatch/output/
+
+# Vulcanus
+systems/vulcanus/vulcanus
