@@ -8,6 +8,3 @@ theme:
   favicon: images/xml.svg
 nav:
   - CROID: "index.md"
-plugins:
-- mkdocstrings:
-    default_handler: python
