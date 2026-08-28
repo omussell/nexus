@@ -110,7 +110,7 @@ func processOne(ctx context.Context, inPath, outDir string, st *store.Store) fil
 		return fileResult{name: name, outPath: outPath, err: err}
 	}
 
-	dupes, inserted, err := st.RecordMany(ctx, name, dois)
+	dupes, inserted, err := st.RecordMany(ctx, outPath, dois)
 	if err != nil {
 		return fileResult{name: name, outPath: outPath, items: len(dois), dupes: dupes, err: err}
 	}

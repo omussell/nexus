@@ -123,6 +123,24 @@ func TestRun_InvalidJSONFails(t *testing.T) {
 	}
 }
 
+func TestRun_StoresFullPathNotBareName(t *testing.T) {
+	inDir := t.TempDir()
+	writeGz(t, inDir, "0.json.gz", []byte(`{"items":[{"DOI":"10.1/full-path"}]}`))
+	outDir := t.TempDir()
+
+	st := openStore(t)
+	if _, _, err := Run(context.Background(), inDir, outDir, st, 1, log()); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	item, err := st.GetByDOI(context.Background(), "10.1/full-path")
+	if err != nil {
+		t.Fatalf("GetByDOI: %v", err)
+	}
+	if item.File != outDir+"/0.json" {
+		t.Fatalf("stored file = %q, want full path %q", item.File, filepath.Join(outDir, "0.json"))
+	}
+}
+
 func TestRun_Empty(t *testing.T) {
 	inDir := t.TempDir()
 	ok, failed, err := Run(context.Background(), inDir, t.TempDir(), openStore(t), 0, log())
