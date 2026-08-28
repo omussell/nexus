@@ -10,3 +10,4 @@ theme:
 
 nav:
   - VULCANUS: "index.md"
+  - How It Works: "how-it-works.md"

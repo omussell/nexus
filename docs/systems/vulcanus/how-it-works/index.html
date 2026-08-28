@@ -1,0 +1,711 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="..">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../images/xml.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>How It Works - systems/vulcanus</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="red" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#how-vulcanus-works" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="systems/vulcanus" class="md-header__button md-logo" aria-label="systems/vulcanus" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m21 13-2 2h-.21a2.5 2.5 0 0 0-4.58 0H13V7H9.79a2.5 2.5 0 0 0-4.58 0H5L3 5H2v6h1l2-2h.21a2.5 2.5 0 0 0 4.58 0H11v8h3.21a2.5 2.5 0 0 0 4.58 0H19l2 2h1v-6M7.5 9a1 1 0 1 1 1-1 1 1 0 0 1-1 1m9 8a1 1 0 1 1 1-1 1 1 0 0 1-1 1"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            systems/vulcanus
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              How It Works
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="systems/vulcanus" class="md-nav__button md-logo" aria-label="systems/vulcanus" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m21 13-2 2h-.21a2.5 2.5 0 0 0-4.58 0H13V7H9.79a2.5 2.5 0 0 0-4.58 0H5L3 5H2v6h1l2-2h.21a2.5 2.5 0 0 0 4.58 0H11v8h3.21a2.5 2.5 0 0 0 4.58 0H19l2 2h1v-6M7.5 9a1 1 0 1 1 1-1 1 1 0 0 1-1 1m9 8a1 1 0 1 1 1-1 1 1 0 0 1-1 1"/></svg>
+
+    </a>
+    systems/vulcanus
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VULCANUS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How It Works
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How It Works
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#at-a-glance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        At a glance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-three-stages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The three stages
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The three stages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-nauvis-store-internalnauvis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Nauvis store — internal/nauvis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-ingest-internalingest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Ingest — internal/ingest
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-entry-point-maingo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Entry point — main.go
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-database" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The database
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-vulcanus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running Vulcanus
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#at-a-glance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        At a glance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-three-stages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The three stages
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The three stages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-nauvis-store-internalnauvis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Nauvis store — internal/nauvis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-ingest-internalingest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Ingest — internal/ingest
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-entry-point-maingo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Entry point — main.go
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-database" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The database
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-vulcanus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running Vulcanus
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="how-vulcanus-works">How Vulcanus Works</h1>
+<p>This page explains how the Vulcanus program operates, from the NDJSON files
+Nauvis wrote out on disk to the DuckDB it maintains. It is a companion to the
+<a href="../">Overview</a>; see there for what Vulcanus is and what it aims to.</p>
+<h2 id="at-a-glance">At a glance</h2>
+<p>Vulcanus reverses Nauvis's index. Nauvis records which <code>(file, doi)</code> pairs it
+saw; Vulcanus reads that SQLite index back, follows each recorded output file,
+and loads the <strong>complete contents</strong> of every JSON line into a DuckDB. Each line
+of each NDJSON file becomes one row of a single <code>items</code> table, storing the raw
+JSON document as-is.</p>
+<pre><code>Nauvis SQLite   ──list──▶   NDJSON files on disk   ──read──▶   DuckDB items table
+ (file, doi)                        *.ndjson                         record
+</code></pre>
+<p>This is not transformation: Vulcanus never parses or normalises the payload. It
+only preserves it, one line at a time, in a single column of JSON text. Every
+record that Nauvis saw is ingested; nothing is filtered by DOI.</p>
+<h2 id="the-three-stages">The three stages</h2>
+<p>The pipeline is split into three packages, each with one job.</p>
+<h3 id="1-nauvis-store-internalnauvis">1. Nauvis store — <code>internal/nauvis</code></h3>
+<p><code>nauvis.Open(path)</code> reads the SQLite database Nauvis wrote and returns a <code>Store</code>.
+Because Nauvis is the source of truth for which files exist, Vulcanus does not
+scan the filesystem itself — it asks the store.</p>
+<p><code>store.Items()</code> returns every output file Nauvis recorded, with its DOI count:</p>
+<pre><code class="language-sql">SELECT file, COUNT(*)
+FROM items
+GROUP BY file
+ORDER BY file
+</code></pre>
+<p>Each <code>Item</code> carries the <code>Path</code> (relative to the Nauvis output directory) and the
+<code>Count</code> of DOIs in that file. The query is grouping over the per-item rows
+Nauvis produced, so the count is derived, not stored.</p>
+<p><code>store.ByDOI</code> is the inverse lookup: given a DOI, which file first recorded it,
+or <code>sql.ErrNoRows</code> if unknown. This matches the read side Nauvis exposes and can
+underpin lookups when Vulcanus needs to decide where an item came from.</p>
+<p><code>Open</code> caps the pool to a single connection (<code>SetMaxOpenConns(1)</code>) so reads never
+races; this matches Nauvis's own single-writer discipline the way DuckDB's
+serialised access serialises every write on Vulcanus's side.</p>
+<h3 id="2-ingest-internalingest">2. Ingest — <code>internal/ingest</code></h3>
+<p><code>ingest.Run</code> ties the two halves together:</p>
+<pre><code>for each file Nauvis listed:
+    open the DuckDB (once, in a single transaction)
+    ensure items(record JSON) exists
+    for each file:
+        read it as NDJSON, one line at a time
+        skip blank lines
+        reject any line that is not valid JSON
+        bind each raw line as one INSERT into items
+    commit everything
+</code></pre>
+<p>The method takes a <code>*nauvis.Store</code>, the base <code>outDir</code> every Nauvis path is
+joined against, and the <code>outDB</code> DuckDB file to write. It returns the total number
+of rows ingested across every file.</p>
+<p>The implementation:
+- <strong>One transaction</strong> — all rows are written in a single <code>BEGIN … COMMIT</code>. This
+  keeps the DuckDB load atomic: either the whole run lands, or nothing does.
+- <strong>A prepared statement</strong> — <code>INSERT INTO items (record) VALUES (?)</code> is prepared
+  once and reused per line, so the bind cost is minimal.
+- <strong>Line-by-line scanning</strong> — each file is read with a <code>bufio.Scanner</code> that grows
+  up to an <code>8 MiB</code> line, so large JSON documents can still be inserted.
+- <strong>Faithful preservation</strong> — the bytes of each line are bound verbatim into the
+  <code>JSON</code> column. No round-tripping through a struct, no re-serialising, no field
+  selection: whatever Nauvis emitted is exactly what lands in DuckDB.
+- <strong><code>CREATE TABLE IF NOT EXISTS</code></strong> — the schema uses the same idempotent guard
+  Nauvis uses, so reloading never errors and the table is safe to re-run.</p>
+<p><code>ingestFile</code> is the per-file worker. Invalid JSON aborts the run with an error
+(never silently skipped), because a corrupt record almost certainly means a
+corrupt upstream write that should be traced rather than hidden.</p>
+<h3 id="3-entry-point-maingo">3. Entry point — <code>main.go</code></h3>
+<p><code>main.go</code> is dispatcher only. It parses three flags, opens the Nauvis store,
+defers its close, and calls <code>ingest.Run</code>:</p>
+<pre><code>-db       path to the Nauvis SQLite database (default nauvis.sqlite3)
+-visdir   path to the Nauvis output directory (no default)
+-duckdb   the DuckDB file to write (default vulcanus.duckdb)
+</code></pre>
+<p>On success it prints a one-line summary — the row count and the cleaned output
+path — and exits. Any earlier failure logs and exits non-zero; <code>Run</code>'s returned
+error is never swallowed.</p>
+<h2 id="the-database">The database</h2>
+<p>A single table, a single column:</p>
+<table>
+<thead>
+<tr>
+<th>column</th>
+<th>type</th>
+<th>notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>record</code></td>
+<td>JSON</td>
+<td>one row per NDJSON line; the raw document as Nauvis wrote it</td>
+</tr>
+</tbody>
+</table>
+<p>Each row is a full JSON object from a Nauvis output file. Vulcanus stores every
+line it is handed — one record per input record — which is what makes the DB
+useful for downstream work: reading a <code>record</code> gives back the entire item, not a
+projection. Because the column is declared <code>JSON</code>, DuckDB's JSON functions
+(<code>JSON_SCHEMA</code>, <code>JSON_EXTRACT</code>, <code>...</code>) are available directly against the stored
+text once the load has happened.</p>
+<h2 id="running-vulcanus">Running Vulcanus</h2>
+<pre><code>go run . [-db nauvis.sqlite3] [-visdir &lt;nauvis-out&gt;] [-duckdb vulcanus.duckdb]
+</code></pre>
+<ul>
+<li><strong>process</strong> (default): <code>-db</code> the Nauvis SQLite file, <code>-visdir</code> the Nauvis
+  output directory it wrote (this is where the NDJSON files live, joined against
+  the paths returned by the store), and <code>-duckdb</code> the DuckDB file to write.</li>
+</ul>
+<p>The key contract is faithfulness: Vulcanus treats the bytes coming out of Nauvis
+as the data, and DuckDB as the place to store them for later analysis.</p>
+<h2 id="design-notes">Design notes</h2>
+<ul>
+<li><strong>DuckDB for the work, SQLite for the map.</strong> Nauvis's SQLite <code>items</code> is an
+  index of file-to-DOI relationships; DuckDB is the wide column store that makes
+  it cheap to run queries over the full records once they are on disk.</li>
+<li><strong>Round-trip preservation over transformation.</strong> The ingest step preserves
+  bytes, not parse results. There is no value in re-serialising JSON that is
+  already compact.</li>
+<li><strong>Faithful line counts.</strong> Blank lines are skipped but every non-blank line is
+  counted and bound, so the returned total equals the number of actual records
+  loaded — a useful cross-check against Nauvis's own DOIs.</li>
+<li><strong><code>main.go</code> is dispatcher only.</strong> All logic lives in <code>nauvis</code> and <code>ingest</code>;
+  <code>main.go</code> only parses flags and picks a mode.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
