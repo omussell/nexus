@@ -18,12 +18,12 @@ import (
 func main() {
 	only := flag.String("only", "all", "which provider to ingest: nauvis, fulgora, or all")
 	nauvisDB :=
-		flag.String("db", "nauvis.sqlite3", "path to the nauvis SQLite database")
-	nauvisPath := flag.String("visdir", "", "path to the nauvis system directory (data root)")
+		flag.String("nauvis-db", "nauvis.sqlite3", "path to the nauvis SQLite database")
+	nauvisPath := flag.String("nauvis-dir", "", "path to the nauvis system directory (data root)")
 	fulgoraDB :=
-		flag.String("fd", "fulgora.sqlite3", "path to the fulgora SQLite database")
+		flag.String("fulgora-db", "fulgora.sqlite3", "path to the fulgora SQLite database")
 	fulgoraPath :=
-		flag.String("fdir", "", "path to the fulgora data root (output dir)")
+		flag.String("fulgora-dir", "", "path to the fulgora data root (output dir)")
 	outDB :=
 		flag.String("duckdb", "vulcanus.duckdb", "path to the DuckDB database to write")
 	flag.Parse()
@@ -32,13 +32,13 @@ func main() {
 		log.Fatalf("vulcanus: -only must be nauvis, fulgora, or all (got %q)", *only)
 	}
 	if *only == "nauvis" && *nauvisPath == "" {
-		log.Fatal("vulcanus: -visdir is required to ingest nauvis data")
+		log.Fatal("vulcanus: -nauvis-dir is required to ingest nauvis data")
 	}
 	if *only == "fulgora" && *fulgoraPath == "" {
-		log.Fatal("vulcanus: -fdir is required to ingest fulgora data")
+		log.Fatal("vulcanus: -fulgora-dir is required to ingest fulgora data")
 	}
 	if *only == "all" && (*nauvisPath == "" || *fulgoraPath == "") {
-		log.Fatal("vulcanus: both -visdir and -fdir are required when -only=all")
+		log.Fatal("vulcanus: both -nauvis-dir and -fulgora-dir are required when -only=all")
 	}
 
 	ctx := context.Background()

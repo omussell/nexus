@@ -131,16 +131,16 @@ corrupt upstream write that should be traced rather than hidden.
 stores are selected, defers their close, and calls `ingest.Run` for each:
 
 ```
--only      which provider to ingest: nauvis, fulgora, or all (default all)
--db        path to the Nauvis SQLite database (default nauvis.sqlite3)
--visdir    path to the Nauvis data root (no default)
--fd        path to the Fulgora SQLite database (default fulgora.sqlite3)
--fdir      path to the Fulgora data root (no default)
--duckdb    the DuckDB file to write (default vulcanus.duckdb)
+-only        which provider to ingest: nauvis, fulgora, or all (default all)
+-nauvis-db   path to the Nauvis SQLite database (default nauvis.sqlite3)
+-nauvis-dir  path to the Nauvis data root (needs `-only nauvis`)
+-fulgora-db  path to the Fulgora SQLite database (default fulgora.sqlite3)
+-fulgora-dir path to the Fulgora data root (only used with `-only fulgora`)
+-duckdb      the DuckDB file to write (all modes write here)
 ```
 
-The two providers are independent: `-only nauvis` needs only `-visdir` and
-`-db`, `-only fulgora` needs only `-fdir` and `-fd`. This is what lets a run
+The two providers are independent: `-only nauvis` needs only `-nauvis-dir` and
+`-nauvis-db`, `-only fulgora` needs only `-fulgora-db` and `-fulgora-dir`. This is what lets a run
 import Nauvis now and Fulgora later (or any subset) into the same DuckDB
 database.
 
@@ -174,15 +174,15 @@ clobbering each other.
 
 ```
 go run . -only {nauvis|fulgora|all} \
-    [-db nauvis.sqlite3] [-visdir <nauvis-root>] \
-    [-fd fulgora.sqlite3] [-fdir <fulgora-root>] \
+     [-nauvis-db nauvis.sqlite3] [-nauvis-dir <nauvis-root>] \
+     [-fulgora-db fulgora.sqlite3] [-fulgora-dir <fulgora-root>] \
     [-duckdb vulcanus.duckdb]
 ```
 
-- **`-only nauvis`**: `-db` the Nauvis SQLite file, `-visdir` the Nauvis data
+- **`-only nauvis`**: `-nauvis-db` the Nauvis SQLite file, `-nauvis-dir` the Nauvis data
   root (where the NDJSON files live, joined against the paths returned by the
   store), and `-duckdb` the DuckDB file to write.
-- **`-only fulgora`**: `-fd` the Fulgora SQLite registry, `-fdir` the Fulgora
+- **`-only fulgora`**: `-fulgora-db` the Fulgora SQLite registry, `-fulgora-dir` the Fulgora
   data root (under which each source's `output/...` file lives), and `-duckdb`.
 - **`-only all`** (default): both, using all six flags.
 
