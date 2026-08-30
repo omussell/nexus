@@ -186,6 +186,25 @@ go run . -only {nauvis|fulgora|all} \
   data root (under which each source's `output/...` file lives), and `-duckdb`.
 - **`-only all`** (default): both, using all six flags.
 
+`-only all` ran against the Nauvis and Fulgora test data produced:
+
+```
+$ go run . -only all \
+    -nauvis-db ../nauvis/nauvis.sqlite3 -nauvis-dir ../nauvis \
+    -fulgora-db ../fulgora/fulgora.sqlite3 -fulgora-dir ../fulgora
+vulcanus: ingested 55000 nauvis records into vulcanus.duckdb
+vulcanus: ingested 209438 fulgora records into vulcanus.duckdb
+```
+
+The resulting `vulcanus.duckdb` holds one table per source; list them with the
+DuckDB CLI:
+
+```
+$ duckdb vulcanus.duckdb
+duckdb> .tables
+items            retractionwatch  ror
+```
+
 The key contract is faithfulness: Vulcanus treats the bytes coming out of each
 provider as the data, and DuckDB as the place to store them for later analysis.
 
