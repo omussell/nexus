@@ -10,7 +10,7 @@ import (
 )
 
 type Querier interface {
-	GetItemByDOI(ctx context.Context, doi string) (Item, error)
+	GetItemByDOI(ctx context.Context, doi string) (Nauvis, error)
 	InsertItem(ctx context.Context, arg InsertItemParams) error
 	WithTx(tx *sql.Tx) *Queries
 }

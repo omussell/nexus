@@ -4,7 +4,7 @@
 
 package db
 
-type Item struct {
+type Nauvis struct {
 	ID   int64
 	File string
 	Doi  string

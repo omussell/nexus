@@ -1,9 +1,9 @@
 -- name: InsertItem :exec
-INSERT INTO items (file, doi)
+INSERT INTO nauvis (file, doi)
 VALUES (?, ?);
 
 -- name: GetItemByDOI :one
 SELECT id, file, doi
-FROM items
+FROM nauvis
 WHERE doi = ?
 LIMIT 1;

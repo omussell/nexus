@@ -10,8 +10,8 @@ import (
 )
 
 func TestSchema(t *testing.T) {
-	if !strings.Contains(Schema(), "CREATE TABLE IF NOT EXISTS items") {
-		t.Fatalf("Schema missing items table:\n%s", Schema())
+	if !strings.Contains(Schema(), "CREATE TABLE IF NOT EXISTS nauvis") {
+		t.Fatalf("Schema missing nauvis table:\n%s", Schema())
 	}
 }
 
@@ -21,7 +21,7 @@ func TestApply_CreatesTable(t *testing.T) {
 		t.Fatalf("Apply: %v", err)
 	}
 
-	rows, err := conn.Query(`PRAGMA table_info(items)`)
+	rows, err := conn.Query(`PRAGMA table_info(nauvis)`)
 	if err != nil {
 		t.Fatalf("pragma: %v", err)
 	}

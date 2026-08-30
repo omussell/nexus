@@ -11,20 +11,20 @@ import (
 
 const getItemByDOI = `-- name: GetItemByDOI :one
 SELECT id, file, doi
-FROM items
+FROM nauvis
 WHERE doi = ?
 LIMIT 1
 `
 
-func (q *Queries) GetItemByDOI(ctx context.Context, doi string) (Item, error) {
+func (q *Queries) GetItemByDOI(ctx context.Context, doi string) (Nauvis, error) {
 	row := q.db.QueryRowContext(ctx, getItemByDOI, doi)
-	var i Item
+	var i Nauvis
 	err := row.Scan(&i.ID, &i.File, &i.Doi)
 	return i, err
 }
 
 const insertItem = `-- name: InsertItem :exec
-INSERT INTO items (file, doi)
+INSERT INTO nauvis (file, doi)
 VALUES (?, ?)
 `
 
