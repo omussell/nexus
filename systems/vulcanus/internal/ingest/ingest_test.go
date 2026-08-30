@@ -23,12 +23,12 @@ func openStore(t *testing.T, rows map[string][]string) *nauvis.Store {
 		t.Fatalf("open conn: %v", err)
 	}
 	t.Cleanup(func() { _ = conn.Close() })
-	if _, err := conn.Exec(`CREATE TABLE items (file TEXT, doi TEXT)`); err != nil {
+	if _, err := conn.Exec(`CREATE TABLE nauvis (file TEXT, doi TEXT)`); err != nil {
 		t.Fatalf("create table: %v", err)
 	}
 	for file, dois := range rows {
 		for _, doi := range dois {
-			if _, err := conn.Exec(`INSERT INTO items (file, doi) VALUES (?, ?)`, file, doi); err != nil {
+			if _, err := conn.Exec(`INSERT INTO nauvis (file, doi) VALUES (?, ?)`, file, doi); err != nil {
 				t.Fatalf("insert row: %v", err)
 			}
 		}

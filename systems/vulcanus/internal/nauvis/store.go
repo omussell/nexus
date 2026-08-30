@@ -39,7 +39,7 @@ func (s *Store) Close() error {
 func (s *Store) Items() ([]Item, error) {
 	rows, err := s.db.Query(
 		`SELECT file, COUNT(*)
-		 FROM items
+		 FROM nauvis
 		 GROUP BY file
 		 ORDER BY file`,
 	)
@@ -62,6 +62,6 @@ func (s *Store) Items() ([]Item, error) {
 // ByDOI returns the file nauvis recorded a DOI in, or sql.ErrNoRows if unknown.
 func (s *Store) ByDOI(ctx context.Context, doi string) (string, error) {
 	var file string
-	err := s.db.QueryRowContext(ctx, `SELECT file FROM items WHERE doi = ?`, doi).Scan(&file)
+	err := s.db.QueryRowContext(ctx, `SELECT file FROM nauvis WHERE doi = ?`, doi).Scan(&file)
 	return file, err
 }
