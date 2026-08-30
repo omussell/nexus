@@ -103,15 +103,15 @@ func TestRun_Basic(t *testing.T) {
 }
 
 func TestRun_Empty(t *testing.T) {
-store := openStore(t, map[string][]string{})
-duckDB := t.TempDir() + "/out.duckdb"
-total, err := Run(context.Background(), store, t.TempDir(), duckDB)
-if err != nil {
-	t.Fatalf("Run: %v", err)
-}
-if total != 0 {
-	t.Fatalf("total = %d, want 0", total)
-}
+	store := openStore(t, map[string][]string{})
+	duckDB := t.TempDir() + "/out.duckdb"
+	total, err := Run(context.Background(), store, t.TempDir(), duckDB)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if total != 0 {
+		t.Fatalf("total = %d, want 0", total)
+	}
 }
 
 func TestRun_InvalidJSONFails(t *testing.T) {
@@ -145,16 +145,16 @@ func TestRun_SkipsEmptyLines(t *testing.T) {
 
 func TestRun_StoresFullItemContents(t *testing.T) {
 	visDir := t.TempDir()
-writeNDJSON(t, visDir, "0.ndjson", []string{`{"DOI":"10.1/a","title":"The Whole Thing"}`})
-store := openStore(t, map[string][]string{
-	"0.ndjson": {"10.1/a"},
-})
+	writeNDJSON(t, visDir, "0.ndjson", []string{`{"DOI":"10.1/a","title":"The Whole Thing"}`})
+	store := openStore(t, map[string][]string{
+		"0.ndjson": {"10.1/a"},
+	})
 
-duckDB := t.TempDir() + "/out.duckdb"
-if _, err := Run(context.Background(), store, visDir, duckDB); err != nil {
-	t.Fatalf("Run: %v", err)
-}
-recs := readRecords(t, duckDB)
+	duckDB := t.TempDir() + "/out.duckdb"
+	if _, err := Run(context.Background(), store, visDir, duckDB); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	recs := readRecords(t, duckDB)
 	if len(recs) != 1 {
 		t.Fatalf("stored rows = %d, want 1", len(recs))
 	}

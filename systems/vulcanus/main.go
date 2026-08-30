@@ -1,5 +1,6 @@
-// Command vulcanus ingests the NDJSON files Nauvis wrote out into a DuckDB
-// database.
+// Command vulcanus ingests the NDJSON files the nauvis and fulgora systems
+// wrote out into a DuckDB database, into separate tables (Nauvis into a single
+// `items` table, each Fulgora source into its own table).
 package main
 
 import (
@@ -9,27 +10,84 @@ import (
 	"log"
 	"path/filepath"
 
+	"github.com/nexus/vulcanus/internal/fulgora"
 	"github.com/nexus/vulcanus/internal/ingest"
 	"github.com/nexus/vulcanus/internal/nauvis"
 )
 
 func main() {
-	nauvisDB := flag.String("db", "nauvis.sqlite3", "path to the Nauvis SQLite database")
-	nauvisPath := flag.String("visdir", "", "path to the Nauvis system directory")
-	outDB := flag.String("duckdb", "vulcanus.duckdb", "path to the DuckDB database to write")
+	only := flag.String("only", "all", "which provider to ingest: nauvis, fulgora, or all")
+	nauvisDB :=
+		flag.String("db", "nauvis.sqlite3", "path to the nauvis SQLite database")
+	nauvisPath := flag.String("visdir", "", "path to the nauvis system directory (data root)")
+	fulgoraDB :=
+		flag.String("fd", "fulgora.sqlite3", "path to the fulgora SQLite database")
+	fulgoraPath :=
+		flag.String("fdir", "", "path to the fulgora data root (output dir)")
+	outDB :=
+		flag.String("duckdb", "vulcanus.duckdb", "path to the DuckDB database to write")
 	flag.Parse()
+
+	if *only != "nauvis" && *only != "fulgora" && *only != "all" {
+		log.Fatalf("vulcanus: -only must be nauvis, fulgora, or all (got %q)", *only)
+	}
+	if *only == "nauvis" && *nauvisPath == "" {
+		log.Fatal("vulcanus: -visdir is required to ingest nauvis data")
+	}
+	if *only == "fulgora" && *fulgoraPath == "" {
+		log.Fatal("vulcanus: -fdir is required to ingest fulgora data")
+	}
+	if *only == "all" && (*nauvisPath == "" || *fulgoraPath == "") {
+		log.Fatal("vulcanus: both -visdir and -fdir are required when -only=all")
+	}
 
 	ctx := context.Background()
 
-	vis, err := nauvis.Open(*nauvisDB)
+	if doNauvis(*only) {
+		n, err := runNauvis(ctx, *nauvisDB, *nauvisPath, *outDB)
+		if err != nil {
+			log.Fatalf("vulcanus: nauvis ingest: %v", err)
+		}
+		fmt.Printf("vulcanus: ingested %d nauvis records into %s\n", n, filepath.Clean(*outDB))
+	}
+
+	if doFulgora(*only) {
+		n, err := runFulgora(ctx, *fulgoraDB, *fulgoraPath, *outDB)
+		if err != nil {
+			log.Fatalf("vulcanus: fulgora ingest: %v", err)
+		}
+		fmt.Printf("vulcanus: ingested %d fulgora records into %s\n", n, filepath.Clean(*outDB))
+	}
+}
+
+// doNauvis reports whether the selected provider includes Nauvis.
+func doNauvis(only string) bool {
+	return only == "nauvis" || only == "all"
+}
+
+// doFulgora reports whether the selected provider includes Fulgora.
+func doFulgora(only string) bool {
+	return only == "fulgora" || only == "all"
+}
+
+// runNauvis opens the Nauvis store and ingests it into outDB, returning the
+// number of records loaded.
+func runNauvis(ctx context.Context, dbPath, outDir, outDB string) (int, error) {
+	vis, err := nauvis.Open(dbPath)
 	if err != nil {
-		log.Fatalf("vulcanus: open nauvis store: %v", err)
+		return 0, fmt.Errorf("open nauvis store: %w", err)
 	}
 	defer vis.Close()
+	return ingest.Run(ctx, vis, outDir, outDB)
+}
 
-	total, err := ingest.Run(ctx, vis, *nauvisPath, *outDB)
+// runFulgora opens the Fulgora store and ingests it into outDB, returning the
+// number of records loaded.
+func runFulgora(ctx context.Context, dbPath, outDir, outDB string) (int, error) {
+	store, err := fulgora.Open(dbPath, outDir)
 	if err != nil {
-		log.Fatalf("vulcanus: ingest: %v", err)
+		return 0, fmt.Errorf("open fulgora store: %w", err)
 	}
-	fmt.Printf("vulcanus: ingested %d items into %s\n", total, filepath.Clean(*outDB))
+	defer store.Close()
+	return ingest.Run(ctx, store, outDir, outDB)
 }
