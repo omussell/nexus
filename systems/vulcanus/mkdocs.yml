@@ -11,3 +11,5 @@ theme:
 nav:
   - VULCANUS: "index.md"
   - How It Works: "how-it-works.md"
+  - Matching Extensions: "matchers.md"
+  - Matching Extensions: "matchers.md"

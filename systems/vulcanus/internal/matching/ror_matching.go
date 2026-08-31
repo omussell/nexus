@@ -7,7 +7,7 @@
 // like 10.5555/12345678 (the doi.org prefix, when present, is stripped). This
 // package assumes every record has a DOI key; scanning simply gathers those
 // values.
-package ror_matching
+package matching
 
 import (
 	"context"
