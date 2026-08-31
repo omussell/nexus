@@ -1,20 +1,16 @@
 # VULCANUS
-
-The Vulcanus system is responsible for processing and enriching the data collected by other systems like Nauvis and Fulgora.
-
+ 
+The Vulcanus system is responsible for ingesting and indexing the data collected by other systems like Nauvis and Fulgora into a DuckDB database.
+ 
 ## Overview
-
-Vulcanus takes the "main" data collected by Nauvis and enriches it with data from Fulgora. A key part of this process is "matching"—using algorithms to map data from one source to metadata from another.
-
+ 
+Vulcanus takes the "main" data collected by Nauvis and the data from Fulgora, loading it into a central DuckDB database. It handles the mapping of output files from these systems into structured tables, preserving the raw records for efficient downstream querying and analysis.
+ 
 ## Key Functionalities
+ 
+* **Data Ingestion:** Consumes NDJSON files from Nauvis and Fulgora systems and loads them into DuckDB.
+* **Provider Isolation:** Loads Nauvis data into a single `items` table and each Fulgora source into its own dedicated table.
+* **Relational Mapping:** Uses SQLite indices from the source systems to resolve file paths and identify records.
+* **Faithful Preservation:** Ingests raw JSON records verbatim into a `JSON` column in DuckDB, preserving the original data structure.
+* **DuckDB Integration:** Provides a structured database for downstream analysis using DuckDB's JSON functions.
 
-* **Data Enrichment:** Enhances Nauvis data with additional information from Fulgora.
-* **Data Matching:**
-    * Maps citation strings to DOIs.
-    * Maps journal articles to preprint DOIs.
-    * Maps funder info to grant DOIs.
-    * Maps funder names to ROR/Funder IDs.
-    * Maps affiliations to ROR IDs.
-    * Maps person information to ORCID.
-* **Data Output:** Produces single files per CRO, ideally in Parquet format.
-* **Processing Engine:** Utilizes DuckDB to assist with processing Parquet files.
