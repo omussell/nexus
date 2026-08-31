@@ -1,13 +1,13 @@
-// Package dois scans the items table of a DuckDB database, reading each record's
-// DOI value out of the stored JSON payload and writing the collected DOIs into a
-// dedicated table.
+// Package ror_matching scans the items table of a DuckDB database, reading each
+// record's DOI value out of the stored JSON payload and writing the collected
+// DOIs into a dedicated table.
 //
 // Every row of items holds a single record column with the raw JSON a provider
 // emitted. In that JSON the DOI key identifies the resource, with values shaped
 // like 10.5555/12345678 (the doi.org prefix, when present, is stripped). This
 // package assumes every record has a DOI key; scanning simply gathers those
 // values.
-package dois
+package ror_matching
 
 import (
 	"context"
@@ -18,17 +18,17 @@ import (
 	"github.com/duckdb/duckdb-go/v2"
 )
 
-// dois is the DuckDB table the DOIs are written to, quoted so it stays a valid
-// DuckDB table identifier in the DDL.
-const dois = `"dois"`
+// ror_matching is the DuckDB table the DOIs are written to, quoted so it stays
+// a valid DuckDB table identifier in the DDL.
+const ror_matching = `"ror_matching"`
 
 // errDoiKey is returned when a record has no DOI key to extract.
-var errDoiKey = errors.New("dois: record missing DOI key")
+var errDoiKey = errors.New("ror_matching: record missing DOI key")
 
 // Run scans the items table in outDB, extracting each record's DOI and writing
-// them into the dois table. The dois table is dropped and recreated on every
-// run, so it holds exactly the DOIs from the latest call. Run returns the
-// number of DOI values written.
+// them into the ror_matching table. The ror_matching table is dropped and
+// recreated on every run, so it holds exactly the DOIs from the latest call.
+// Run returns the number of DOI values written.
 func Run(ctx context.Context, outDB string) (int, error) {
 	conn, err := duckdb.NewConnector(outDB, nil)
 	if err != nil {
@@ -55,15 +55,15 @@ func Run(ctx context.Context, outDB string) (int, error) {
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	if _, err := tx.ExecContext(ctx, "DROP TABLE IF EXISTS "+dois); err != nil {
+	if _, err := tx.ExecContext(ctx, "DROP TABLE IF EXISTS "+ror_matching); err != nil {
 		return 0, err
 	}
 
-	if _, err := tx.ExecContext(ctx, `CREATE TABLE `+dois+` (doi VARCHAR)`); err != nil {
+	if _, err := tx.ExecContext(ctx, `CREATE TABLE `+ror_matching+` (doi VARCHAR)`); err != nil {
 		return 0, err
 	}
 
-	stmt, err := tx.PrepareContext(ctx, "INSERT INTO "+dois+" (doi) VALUES (?)")
+	stmt, err := tx.PrepareContext(ctx, "INSERT INTO "+ror_matching+" (doi) VALUES (?)")
 	if err != nil {
 		return 0, err
 	}

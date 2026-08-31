@@ -1,4 +1,4 @@
-package dois
+package ror_matching
 
 import (
 	"context"
@@ -57,16 +57,16 @@ func TestRun_ExtractsDOI(t *testing.T) {
 	db := sql.OpenDB(conn)
 
 	var count int64
-	if err := db.QueryRow(`SELECT COUNT(*) FROM dois`).Scan(&count); err != nil {
+	if err := db.QueryRow(`SELECT COUNT(*) FROM ror_matching`).Scan(&count); err != nil {
 		t.Fatalf("count: %v", err)
 	}
 	if count != 2 {
-		t.Fatalf("dois table has %d rows, want 2", count)
+		t.Fatalf("table has %d rows, want 2", count)
 	}
 
-	rows, err := db.Query(`SELECT doi FROM dois ORDER BY doi`)
+	rows, err := db.Query(`SELECT doi FROM ror_matching ORDER BY doi`)
 	if err != nil {
-		t.Fatalf("query dois: %v", err)
+		t.Fatalf("ror_matching: %v", err)
 	}
 	defer rows.Close()
 	if err := wantDOIs(t, rows, []string{"10.1021/jo020170p", "10.1093/biostatistics/1.2.203"}); err != nil {
@@ -89,7 +89,7 @@ func TestRun_StripsDoiOrgPrefix(t *testing.T) {
 	db := sql.OpenDB(conn)
 
 	var got string
-	if err := db.QueryRow(`SELECT doi FROM dois`).Scan(&got); err != nil {
+	if err := db.QueryRow(`SELECT doi FROM ror_matching`).Scan(&got); err != nil {
 		t.Fatalf("scan: %v", err)
 	}
 	if got != "10.5555/9999" {
