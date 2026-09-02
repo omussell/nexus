@@ -1,6 +1,6 @@
 // Command vulcanus ingests the NDJSON files the nauvis and fulgora systems
 // wrote out into a DuckDB database, into separate tables (Nauvis into a single
-// `items` table, each Fulgora source into its own table).
+// `nauvis` table, each Fulgora source into its own table).
 package main
 
 import (

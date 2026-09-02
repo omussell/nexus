@@ -29,49 +29,49 @@ func openStore(t *testing.T, rows map[string][]string) *Store {
 	return store
 }
 
-func TestItems_Basic(t *testing.T) {
+func TestNauvis_Basic(t *testing.T) {
 	store := openStore(t, map[string][]string{
 		"a.ndjson": {"10.1/a"},
 		"b.ndjson": {"10.1/b", "10.1/c"},
 	})
 
-	items, err := store.Items()
+	navis, err := store.Nauvis()
 	if err != nil {
-		t.Fatalf("Items: %v", err)
+		t.Fatalf("Nauvis: %v", err)
 	}
-	want := []Item{{Path: "a.ndjson", Count: 1}, {Path: "b.ndjson", Count: 2}}
-	if len(items) != len(want) {
-		t.Fatalf("Items len = %d, want %d: %+v", len(items), len(want), items)
+	want := []Nauvis{{Path: "a.ndjson", Count: 1}, {Path: "b.ndjson", Count: 2}}
+	if len(navis) != len(want) {
+		t.Fatalf("Nauvis len = %d, want %d: %+v", len(navis), len(want), navis)
 	}
 	for i, w := range want {
-		if items[i] != w {
-			t.Fatalf("Items[%d] = %+v, want %+v", i, items[i], w)
+		if navis[i] != w {
+			t.Fatalf("Nauvis[%d] = %+v, want %+v", i, navis[i], w)
 		}
 	}
 }
 
-func TestItems_SortsByPath(t *testing.T) {
+func TestNauvis_SortsByPath(t *testing.T) {
 	store := openStore(t, map[string][]string{
 		"z.ndjson": {"10.1/z"},
 		"a.ndjson": {"10.1/a"},
 	})
-	items, err := store.Items()
+	navis, err := store.Nauvis()
 	if err != nil {
-		t.Fatalf("Items: %v", err)
+		t.Fatalf("Nauvis: %v", err)
 	}
-	if items[0].Path != "a.ndjson" {
-		t.Fatalf("first item = %q, want a.ndjson", items[0].Path)
+	if navis[0].Path != "a.ndjson" {
+		t.Fatalf("first nauvis = %q, want a.ndjson", navis[0].Path)
 	}
 }
 
-func TestItems_NoRows(t *testing.T) {
+func TestNauvis_NoRows(t *testing.T) {
 	store := openStore(t, map[string][]string{})
-	items, err := store.Items()
+	navis, err := store.Nauvis()
 	if err != nil {
-		t.Fatalf("Items: %v", err)
+		t.Fatalf("Nauvis: %v", err)
 	}
-	if items != nil {
-		t.Fatalf("Items = %+v, want nil", items)
+	if navis != nil {
+		t.Fatalf("Nauvis = %+v, want nil", navis)
 	}
 }
 

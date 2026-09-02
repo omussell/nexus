@@ -1,6 +1,6 @@
 // Package ingest loads the NDJSON files the nauvis and fulgora systems wrote
-// out into a DuckDB database, one row per item, storing the complete contents
-// of each item.
+// out into a DuckDB database, one row per record, storing the complete contents
+// of each record.
 package ingest
 
 import (
@@ -21,7 +21,7 @@ import (
 )
 
 // Run ingests the data held by vis (a *nauvis.Store, landing in a single
-// `items` table) or store (a *fulgora.Store, landing in one table per
+// `nauvis` table) or store (a *fulgora.Store, landing in one table per
 // source) into outDB. outDir is the base directory each of the provider's
 // recorded paths is joined against.
 //

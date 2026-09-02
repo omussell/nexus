@@ -62,7 +62,7 @@ func readRecords(t *testing.T, duckDB string) [][]byte {
 	t.Cleanup(func() { _ = conn.Close() })
 	db := sql.OpenDB(conn)
 
-	rows, err := db.Query(`SELECT record FROM items ORDER BY rowid`)
+	rows, err := db.Query(`SELECT record FROM nauvis ORDER BY rowid`)
 	if err != nil {
 		t.Fatalf("query: %v", err)
 	}
@@ -143,7 +143,7 @@ func TestRun_SkipsEmptyLines(t *testing.T) {
 	}
 }
 
-func TestRun_StoresFullItemContents(t *testing.T) {
+func TestRun_StoresFullContents(t *testing.T) {
 	visDir := t.TempDir()
 	writeNDJSON(t, visDir, "0.ndjson", []string{`{"DOI":"10.1/a","title":"The Whole Thing"}`})
 	store := openStore(t, map[string][]string{

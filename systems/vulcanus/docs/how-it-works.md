@@ -14,14 +14,14 @@ contents** of every JSON line into DuckDB. Each line of each NDJSON file becomes
 one row, storing the raw JSON document as-is.
 
 ```
-Nauvis SQLite   ──list──▶   NDJSON files on disk   ──read──▶   DuckDB `items` table
+Nauvis SQLite   ──list──▶   NDJSON files on disk   ──read──▶   DuckDB `nauvis` table
  (file, doi)                        *.ndjson                         record
 
 Fulgora SQLite  ──list──▶   NDJSON files on disk   ──read──▶   DuckDB `<source>` tables
  (source, output)                 <source>/output/*.json          record
 ```
 
-The two providers stay separate: Nauvis lands in a single `items` table, while
+The two providers stay separate: Nauvis lands in a single `nauvis` table, while
 each Fulgora source (e.g. `ror`, `retractionwatch`) gets its own table. They can
 be imported at different times without clobbering each other.
 
@@ -39,17 +39,17 @@ The pipeline is split into three packages and one entry point, each with one job
 Because Nauvis is the source of truth for which files exist, Vulcanus does not
 scan the filesystem itself — it asks the store.
 
-`store.Items()` returns every output file Nauvis recorded, with its DOI count:
+`store.Nauvis()` returns every output file Nauvis recorded, with its DOI count:
 
 ```sql
 SELECT file, COUNT(*)
-FROM items
+FROM nauvis
 GROUP BY file
 ORDER BY file
 ```
 
-Each `Item` carries the `Path` (relative to the Nauvis output directory) and the
-`Count` of DOIs in that file. The query is grouping over the per-item rows
+Each `Nauvis` record carries the `Path` (relative to the Nauvis output directory)
+and the `Count` of DOIs in that file. The query is grouping over the per-item rows
 Nauvis produced, so the count is derived, not stored.
 
 `store.ByDOI` is the inverse lookup: given a DOI, which file first recorded it,
@@ -86,7 +86,7 @@ store, `Open` caps the pool to a single connection so reads never race.
 ### 3. Ingest — `internal/ingest`
 
 `ingest.Run` is provider-aware and ties the halves of either provider together.
-Given a `*nauvis.Store` it loads into the single `items` table; given a
+Given a `*nauvis.Store` it loads into the single `nauvis` table; given a
 `*fulgora.Store` it loads into one table per source:
 
 ```
@@ -155,17 +155,17 @@ NDJSON line, the raw JSON document preserved as-is:
 
 | table | column   | type    | notes |
 |-------|----------|---------|-------|
-| `items` (Nauvis) | `record` | JSON    | one row per NDJSON line; the raw document as Nauvis wrote it |
-| `<source>` (Fulgora, one per source) | `record` | JSON    | e.g. `ror`, `retractionwatch`; same shape as `items`, but each source has its own table |
+| `nauvis` (Nauvis) | `record` | JSON    | one row per NDJSON line; the raw document as Nauvis wrote it |
+| `<source>` (Fulgora, one per source) | `record` | JSON    | e.g. `ror`, `retractionwatch`; same shape as `nauvis`, but each source has its own table |
 
 Nauvis and Fulgora are kept **separate**: Nauvis always lands in the single
-`items` table, while each Fulgora source gets its own table named after the
+`nauvis` table, while each Fulgora source gets its own table named after the
 source. A row in any table is a full JSON object from that provider's output —
 one record per input record. Because the column is declared `JSON`,
 DuckDB's JSON functions (`JSON_SCHEMA`, `JSON_EXTRACT`, ...) are available
 directly against the stored text once the load has happened.
 
-Re-running a provider replaces its own tables (the single `items` table for
+Re-running a provider replaces its own tables (the single `nauvis` table for
 Nauvis, one table per source for Fulgora) and leaves the other provider's tables
 untouched, so imports of the two can happen at different times without
 clobbering each other.
@@ -202,7 +202,7 @@ DuckDB CLI:
 ```
 $ duckdb vulcanus.duckdb
 duckdb> .tables
-items            retractionwatch  ror
+nauvis            retractionwatch  ror
 ```
 
 The key contract is faithfulness: Vulcanus treats the bytes coming out of each
@@ -221,7 +221,7 @@ provider as the data, and DuckDB as the place to store them for later analysis.
   counted and bound, so the returned total equals the number of actual records
   loaded for that provider — a useful cross-check against the provider's own
   records.
-- **Separate tables per provider.** Nauvis is the "main" data in `items`; Fulgora
+- **Separate tables per provider.** Nauvis is the "main" data in `nauvis`; Fulgora
   sources are enrichment data, each in its own table. Keeping them separate
   preserves that distinction and lets either be imported independently.
 - **`main.go` is dispatcher only.** All logic lives in `nauvis`, `fulgora`, and

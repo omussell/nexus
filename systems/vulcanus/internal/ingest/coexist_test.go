@@ -11,7 +11,7 @@ import (
 
 // TestNauvisAndFulgoraCoexist ingests both providers into the same DuckDB
 // database — possibly at different times — and confirms both the single
-// `items` table and each Fulgora source table are present and uncorrupted.
+// `nauvis` table and each Fulgora source table are present and uncorrupted.
 func TestNauvisAndFulgoraCoexist(t *testing.T) {
 	ctx := context.Background()
 
@@ -37,8 +37,8 @@ func TestNauvisAndFulgoraCoexist(t *testing.T) {
 
 	db := freshDB(t, outDB)
 
-	if got := countRows(t, db, "items"); got != 1 {
-		t.Fatalf("items rows = %d, want 1", got)
+	if got := countRows(t, db, "nauvis"); got != 1 {
+		t.Fatalf("nauvis rows = %d, want 1", got)
 	}
 	for _, name := range fSources {
 		if got := countRows(t, db, name); got != 1 {
@@ -46,7 +46,7 @@ func TestNauvisAndFulgoraCoexist(t *testing.T) {
 		}
 	}
 
-	want := append([]string{"items"}, fSources...)
+	want := append([]string{"nauvis"}, fSources...)
 	sort.Strings(want)
 
 	got := append([]string{}, tableNames(t, db)...)
@@ -67,8 +67,8 @@ func TestNauvisAndFulgoraCoexist(t *testing.T) {
 		t.Fatalf("fulgora re-Run: %v", err)
 	}
 	db = freshDB(t, outDB)
-	if got := countRows(t, db, "items"); got != 1 {
-		t.Fatalf("items rows after fulgora re-run = %d, want 1", got)
+	if got := countRows(t, db, "nauvis"); got != 1 {
+		t.Fatalf("nauvis rows after fulgora re-run = %d, want 1", got)
 	}
 	if got := countRows(t, db, "ror"); got != 1 {
 		t.Fatalf("ror rows after re-run = %d, want 1", got)

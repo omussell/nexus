@@ -8,10 +8,10 @@ import (
 	"github.com/nexus/vulcanus/internal/nauvis"
 )
 
-// runNauvis ingests the Nauvis store into a single `items` table, joining
+// runNauvis ingests the Nauvis store into a single `nauvis` table, joining
 // each recorded path against outDir.
 func runNauvis(ctx context.Context, vis *nauvis.Store, outDir, outDB string) (int, error) {
-	files, err := vis.Items()
+	files, err := vis.Nauvis()
 	if err != nil {
 		return 0, fmt.Errorf("list output files: %w", err)
 	}
@@ -28,11 +28,11 @@ func runNauvis(ctx context.Context, vis *nauvis.Store, outDir, outDB string) (in
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	if err := resetTable(ctx, tx, "items"); err != nil {
+	if err := resetTable(ctx, tx, "nauvis"); err != nil {
 		return 0, err
 	}
 
-	insert, err := tx.PrepareContext(ctx, "INSERT INTO items (record) VALUES (?)")
+	insert, err := tx.PrepareContext(ctx, "INSERT INTO nauvis (record) VALUES (?)")
 	if err != nil {
 		return 0, fmt.Errorf("prepare insert: %w", err)
 	}

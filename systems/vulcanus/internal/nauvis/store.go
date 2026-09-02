@@ -14,8 +14,8 @@ type Store struct {
 	db *sql.DB
 }
 
-// Item is one of nauvis's output files and the DOI count it wrote.
-type Item struct {
+// Nauvis is one of nauvis's output files and the DOI count it wrote.
+type Nauvis struct {
 	Path  string
 	Count int
 }
@@ -35,8 +35,8 @@ func (s *Store) Close() error {
 	return s.db.Close()
 }
 
-// Items returns every output file nauvis recorded with its DOI count.
-func (s *Store) Items() ([]Item, error) {
+// Nauvis returns every output file nauvis recorded with its DOI count.
+func (s *Store) Nauvis() ([]Nauvis, error) {
 	rows, err := s.db.Query(
 		`SELECT file, COUNT(*)
 		 FROM nauvis
@@ -48,15 +48,15 @@ func (s *Store) Items() ([]Item, error) {
 	}
 	defer rows.Close()
 
-	var items []Item
+	var navis []Nauvis
 	for rows.Next() {
-		var i Item
+		var i Nauvis
 		if err := rows.Scan(&i.Path, &i.Count); err != nil {
 			return nil, err
 		}
-		items = append(items, i)
+		navis = append(navis, i)
 	}
-	return items, rows.Err()
+	return navis, rows.Err()
 }
 
 // ByDOI returns the file nauvis recorded a DOI in, or sql.ErrNoRows if unknown.
