@@ -50,6 +50,10 @@ func runFulgora(ctx context.Context, store *fulgora.Store, outDir, outDB string)
 		total += n
 	}
 
+	if err := buildRetractionsView(ctx, tx); err != nil {
+		return total, err
+	}
+
 	if err := tx.Commit(); err != nil {
 		return total, fmt.Errorf("commit transaction: %w", err)
 	}

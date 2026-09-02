@@ -47,6 +47,10 @@ func runNauvis(ctx context.Context, vis *nauvis.Store, outDir, outDB string) (in
 		total += n
 	}
 
+	if err := buildRetractionsView(ctx, tx); err != nil {
+		return total, err
+	}
+
 	if err := tx.Commit(); err != nil {
 		return total, fmt.Errorf("commit transaction: %w", err)
 	}

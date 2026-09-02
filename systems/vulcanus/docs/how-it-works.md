@@ -25,6 +25,13 @@ The two providers stay separate: Nauvis lands in a single `nauvis` table, while
 each Fulgora source (e.g. `ror`, `retractionwatch`) gets its own table. They can
 be imported at different times without clobbering each other.
 
+After both source tables exist, Vulcanus also builds a thin **derived view**
+`retractions` that pairs each Nauvis record with its matching
+`retractionwatch` notice on the paper's DOI (`nauvis.DOI` =
+`retractionwatch.OriginalPaperDOI`), exposing both full records plus the
+matching DOI. The view is rebuilt idempotently on every ingest and is a
+projection over the loaded tables — it never copies data.
+
 This is not transformation: Vulcanus never parses or normalises the payload. It
 only preserves it, one line at a time, in a single column of JSON text. Every
 record a provider saw is ingested; nothing is filtered away.
@@ -150,13 +157,26 @@ cleaned output path — and exits. Any earlier failure logs and exits non-zero;
 
 ## The database
 
-Every table has a single column and is loaded identically — one row per
+Every *table* has a single column and is loaded identically — one row per
 NDJSON line, the raw JSON document preserved as-is:
 
 | table | column   | type    | notes |
 |-------|----------|---------|-------|
 | `nauvis` (Nauvis) | `record` | JSON    | one row per NDJSON line; the raw document as Nauvis wrote it |
 | `<source>` (Fulgora, one per source) | `record` | JSON    | e.g. `ror`, `retractionwatch`; same shape as `nauvis`, but each source has its own table |
+
+In addition, the ingest derives one **view** that joins Nauvis's "main" record
+against Fulgora's retraction notices on the paper's DOI, so downstream consumers
+can pull the full pair in one query. The view is a derived object — it is not a
+table that gets loaded, and never holds a copy of the bytes; it is rebuilt on
+`CREATE OR REPLACE VIEW` every time a provider ingests, and only becomes
+queryable once **both** source tables exist.
+
+| view | columns | type | notes |
+|------|---------|------|-------|
+| `retractions` | `nauvis_record` | JSON | the full Nauvis record (Crossref item) |
+| | `retractionwatch_record` | JSON | the full retractionwatch record |
+| | `matched_doi` | VARCHAR | the DOI that linked the two (Nauvis's `DOI`) |
 
 Nauvis and Fulgora are kept **separate**: Nauvis always lands in the single
 `nauvis` table, while each Fulgora source gets its own table named after the
@@ -207,6 +227,32 @@ nauvis            retractionwatch  ror
 
 The key contract is faithfulness: Vulcanus treats the bytes coming out of each
 provider as the data, and DuckDB as the place to store them for later analysis.
+
+The derived `retractions` view is the one exception to "preserve bytes, do not
+transform": its purpose is to *link* two existing bytes columns by a key — the
+Nauvis record's `DOI` and the `retractionwatch` record's `OriginalPaperDOI` —
+and expose both alongside the key that tied them together. No record's content
+is rewritten, re-serialised, or pruned; the view is a thin projection over the
+two already-loaded tables:
+
+```sql
+CREATE OR REPLACE VIEW retractions AS
+SELECT
+    n.record AS nauvis_record,
+    r.record AS retractionwatch_record,
+    json_extract_string(n.record, '$.DOI') AS matched_doi
+FROM nauvis AS n
+JOIN retractionwatch AS r
+  ON json_extract_string(n.record, '$.DOI') =
+     json_extract_string(r.record, '$.OriginalPaperDOI')
+```
+
+Because it is a view (not a table), it is always in sync with whatever is
+currently in the two source tables: re-running a provider simply clears and
+rewrites that provider's table, and the view's result set updates
+automatically on the next query. There is no "refresh table" step to remember.
+The view is also idempotent across re-runs: the SQL uses `CREATE OR REPLACE`,
+so repeated ingests leave a single, up-to-date view.
 
 ## Design notes
 

@@ -202,7 +202,10 @@ func countRows(t *testing.T, db *sql.DB, table string) int {
 
 func tableNames(t *testing.T, db *sql.DB) []string {
 	t.Helper()
-	rows, err := db.Query(`SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'`)
+	// Base tables only — the `retractions` view (a derived object) is not
+	// treated as a table the way a provider's own table is.
+	rows, err := db.Query(`SELECT table_name FROM information_schema.tables
+		WHERE table_schema = 'main' AND table_type = 'BASE TABLE'`)
 	if err != nil {
 		t.Fatalf("query table names: %v", err)
 	}
