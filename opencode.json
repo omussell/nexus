@@ -27,8 +27,8 @@
         "gemma4:12b-it-qat": {
           "name": "Documentation and Prose - Gemma 4 12b" 
 	},
-        "ornith-1.5:35b": {
-          "name": "ORNITH" 
+        "qwen3.6:35b-a3b-mtp-q4_K_M": {
+          "name": "Coding - Qwen3.6 35b-a3b" 
 	},
         "qwen3.8:27b": {
           "name": "Coding - Qwen3.8 27b",
@@ -72,8 +72,7 @@
             }
           }
 	}
-      },
-      "small_model": "gemma3:270m"
+      }
     }
   }
 }
