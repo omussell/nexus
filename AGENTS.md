@@ -34,3 +34,7 @@ The repository is divided into systems in the `systems/` directory:
 ## Verification
 - Check `systems/<name>/docs/how-it-works.md` for specific logic flow of a component.
 - Verify database migrations in `internal/migrate/schema.sql`.
+
+## Git
+
+When commiting changes, at the end of the commit message include your model name in parentheses like `(ornith1.5:35b)`.
