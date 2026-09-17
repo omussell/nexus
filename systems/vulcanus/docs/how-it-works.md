@@ -165,18 +165,27 @@ NDJSON line, the raw JSON document preserved as-is:
 | `nauvis` (Nauvis) | `record` | JSON    | one row per NDJSON line; the raw document as Nauvis wrote it |
 | `<source>` (Fulgora, one per source) | `record` | JSON    | e.g. `ror`, `retractionwatch`; same shape as `nauvis`, but each source has its own table |
 
-In addition, the ingest derives one **view** that joins Nauvis's "main" record
-against Fulgora's retraction notices on the paper's DOI, so downstream consumers
-can pull the full pair in one query. The view is a derived object — it is not a
-table that gets loaded, and never holds a copy of the bytes; it is rebuilt on
-`CREATE OR REPLACE VIEW` every time a provider ingests, and only becomes
-queryable once **both** source tables exist.
+In addition, the ingest derives two **views** that sit on the same Nauvis↔
+retractionwatch `JOIN`. The `retractions` view pairs each Nauvis record with
+its `retractionwatch` notice on the paper's DOI so a consumer can pull the full
+pair in one query; the narrower `retraction_provenance` view reduces exactly
+those matches to two consumer-ready provenance strings per match — one from
+Nauvis's perspective (`X is-retracted-by Y`) and one from the retraction
+notice's (`Y retracts X`). Both are derived objects — they are not tables that
+get loaded, and never hold a copy of the bytes; they are rebuilt on `CREATE OR
+REPLACE VIEW` every time a provider ingests, and only become queryable once
+**both** source tables exist.
 
 | view | columns | type | notes |
 |------|---------|------|-------|
 | `retractions` | `nauvis_record` | JSON | the full Nauvis record (Crossref item) |
 | | `retractionwatch_record` | JSON | the full retractionwatch record |
 | | `matched_doi` | VARCHAR | the DOI that linked the two (Nauvis's `DOI`) |
+| `retraction_provenance` | `nauvis_record` | JSON | the Nauvis record for the passive row; swapped for the active row |
+| | `retractionwatch_record` | JSON | the retractionwatch record for the passive row; swapped for the active row |
+| | `paper_doi` | VARCHAR | Nauvis's `DOI` in the passive row; retraction notices' `RetractionDOI` in the active. Equals the join key in the passive row. |
+| | `retraction_doi` | VARCHAR | Retraction notice's own DOI (`RetractionDOI`) in the passive row; Nauvis's `DOI` in the active. |
+| | `provenance` | VARCHAR | bidirectional provenance: `X is-retracted-by Y` and `Y retracts X` per match, two rows per join result |
 
 Nauvis and Fulgora are kept **separate**: Nauvis always lands in the single
 `nauvis` table, while each Fulgora source gets its own table named after the
@@ -253,6 +262,27 @@ rewrites that provider's table, and the view's result set updates
 automatically on the next query. There is no "refresh table" step to remember.
 The view is also idempotent across re-runs: the SQL uses `CREATE OR REPLACE`,
 so repeated ingests leave a single, up-to-date view.
+
+### `retraction_provenance` view
+
+Each Nauvis↔retractionwatch match produces **two** rows — one passive and one
+active — in a `UNION ALL`:
+
+| direction | format | example |
+|-----------|--------|---------|
+| passive (existing) | `<DOI> is-retracted-by <RetractionDOI>` | `10.1/paper is-retracted-by 10.1/retract` |
+| active | `<RetractionDOI> retracts <DOI>` | `10.1/retract retracts 10.1/paper` |
+
+The passive row keeps its original column semantics (Nauvis columns stay in the
+`nauvis_record` and `paper_doi` columns). In the active row, both the record
+columns and column assignments are swapped so that `paper_doi` reflects the
+retraction notice's DOI while `provenance` reads naturally from the retraction
+notice's perspective. The `(paper_doi, retraction_doi)` pair is identical across
+both directions.
+
+Because the same join key drives both sides, the view is always in sync with the
+`retractions` view — a consumer can query either to discover which pairs exist,
+then use `provenance` for exports or joins without per-row string assembly.
 
 ## Design notes
 

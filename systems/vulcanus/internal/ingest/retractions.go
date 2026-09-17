@@ -12,6 +12,11 @@ import (
 // full records side by side.
 const retractionsViewName = "retractions"
 
+// retractionProvenanceViewName is the DuckDB view that reduces each
+// Nauvis↔retractionwatch match to a single provenance string asserting which
+// retraction notice (by its own RetractionDOI) retracts which Nauvis record.
+const retractionProvenanceViewName = "retraction_provenance"
+
 // buildRetractionsView atomically creates (or replaces) the `retractions` view
 // inside the caller's transaction, so the view lands or rolls back exactly with
 // the rest of the ingest. It is a no-op if the `nauvis` or `retractionwatch`
@@ -36,6 +41,49 @@ func buildRetractionsView(ctx context.Context, tx *sql.Tx) error {
 		  	json_extract_string(r.record, '$.OriginalPaperDOI')`
 	if _, err := tx.ExecContext(ctx, stmt); err != nil {
 		return fmt.Errorf("create view %s: %w", retractionsViewName, err)
+	}
+	return buildRetractionProvenanceView(ctx, tx)
+}
+
+// buildRetractionProvenanceView atomically creates (or replaces) the
+// `retraction_provenance` view inside the caller's transaction, deriving a
+// single consumer-ready provenance string from each Nauvis↔retractionwatch
+// match. Like `buildRetractionsView`, it is a no-op if either source table is
+// absent, so both provider tables must be present before the view becomes
+// queryable.
+func buildRetractionProvenanceView(ctx context.Context, tx *sql.Tx) error {
+	if exist, err := tablesExist(ctx, tx, "nauvis", "retractionwatch"); err != nil {
+		return fmt.Errorf("check for source tables: %w", err)
+	} else if !exist {
+		return nil
+	}
+	stmt := `
+		CREATE OR REPLACE VIEW ` + retractionProvenanceViewName + ` AS
+		SELECT
+			n.record AS nauvis_record,
+			r.record AS retractionwatch_record,
+			json_extract_string(n.record, '$.DOI') AS paper_doi,
+			json_extract_string(r.record, '$.RetractionDOI') AS retraction_doi,
+			json_extract_string(n.record, '$.DOI') || ' is-retracted-by ' || json_extract_string(r.record, '$.RetractionDOI') AS provenance
+		FROM nauvis AS n
+		JOIN retractionwatch AS r
+		  ON json_extract_string(n.record, '$.DOI') =
+		  	json_extract_string(r.record, '$.OriginalPaperDOI')
+
+		UNION ALL
+
+		SELECT
+			r.record AS nauvis_record,
+			n.record AS retractionwatch_record,
+			json_extract_string(r.record, '$.RetractionDOI') AS paper_doi,
+			json_extract_string(n.record, '$.DOI') AS retraction_doi,
+			json_extract_string(r.record, '$.RetractionDOI') || ' retracts ' || json_extract_string(n.record, '$.DOI') AS provenance
+		FROM retractionwatch AS r
+		JOIN nauvis AS n
+		  ON json_extract_string(n.record, '$.DOI') =
+		  	json_extract_string(r.record, '$.OriginalPaperDOI')`
+	if _, err := tx.ExecContext(ctx, stmt); err != nil {
+		return fmt.Errorf("create view %s: %w", retractionProvenanceViewName, err)
 	}
 	return nil
 }
