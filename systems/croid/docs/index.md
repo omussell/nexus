@@ -55,12 +55,26 @@ Fetches the metadata associated with a specific CROID.
 - **Concurrency:** The service is idempotent; concurrent creation requests for the same identity safely return the single existing CROID.
 
 ## Quick Start
-
 To run the service:
 ```bash
 go run main.go --addr :8080 --db croid.sqlite3
 ```
-To test:
+
+To test via HTTP:
 ```bash
 curl -X POST -H "Content-Type: application/json" -d '{"cro_type":"DOI","cro_value":"10.5555/example","system":"nauvis"}' http://localhost:8080/croid
+```
+
+### CLI: Generate a CROID from the command line
+The CLI also supports generating a CROID without starting the HTTP server, using the `--generate` flag:
+
+```bash
+go run . --generate
+# Output: {"croid":"<32-char-id>"}
+```
+
+Or with JSON identity input:
+```bash
+go run . --input '{"cro_type":"DOI","cro_value":"10.5555/example","system":"nauvis"}' --generate
+# Output: {"croid":"<32-char-id>"}
 ```
