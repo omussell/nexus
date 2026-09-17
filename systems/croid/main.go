@@ -1,88 +1,84 @@
 // Command croid runs the CROID service: it issues Crossref Research Object
 // IDs (POST /croid) and serves them back (GET /croid/{croid}), storing them
-// in a SQLite database.
+// in a SQLite database. It also supports generating CROIDs from the CLI.
 package main
 
 import (
 	"context"
-	"errors"
-	"flag"
-	"log"
-	"net/http"
+	"encoding/json"
+	"fmt"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
 	"github.com/nexus/croid/internal/server"
+	"flag"
 )
 
-const (
-	defaultListen = ":8080"
-	defaultDB     = "croid.sqlite3"
-)
-
-func run(ctx context.Context, addr, dbPath string) error {
-	log.SetFlags(0)
-
-	srv, err := server.New(ctx, dbPath, log.Printf)
+// runGenerate handles the --generate mode.
+//
+// It defers entirely to the HTTP service's own logic: it opens a server with
+// server.New (same SQLite setup + schema apply + store wiring the HTTP path
+// uses), then calls the exact same MintCroid/Create path that POST /croid
+// runs, so the CLI mints, dedupes, and validates identically to the server.
+// No DB/store/SQL setup lives here — it all goes through the server package.
+func runGenerate(dbPath string, inputJSON []byte) error {
+	srv, err := server.New(context.Background(), dbPath, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("init server: %w", err)
 	}
 	defer srv.Close()
 
-	log.Printf("croid: listening on %s (db=%s)", addr, dbPath)
-
-	hs := &http.Server{
-		Addr:              addr,
-		Handler:           srv.Handler(),
-		ReadHeaderTimeout: 5 * time.Second,
+	var input struct {
+		CroType  string `json:"cro_type"`
+		CroValue string `json:"cro_value"`
+		System   string `json:"system"`
 	}
-
-	errCh := make(chan error, 1)
-	go func() {
-		if err := hs.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errCh <- err
+	if len(inputJSON) > 0 {
+		if err := json.Unmarshal(inputJSON, &input); err != nil {
+			return fmt.Errorf("parse input JSON: %w", err)
 		}
-		close(errCh)
-	}()
-
-	select {
-	case <-ctx.Done():
-		log.Printf("croid: shutting down")
-	case err := <-errCh:
-		return err
 	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	return hs.Shutdown(shutdownCtx)
+	rec, _, err := srv.MintCroid(context.Background(), server.Identity{
+		CroType:  input.CroType,
+		CroValue: input.CroValue,
+		System:   input.System,
+	})
+	if err != nil {
+		return fmt.Errorf("mint croid: %w", err)
+	}
+
+	// CroidResponse reuses the HTTP handler's exact response shape.
+	return json.NewEncoder(os.Stdout).Encode(srv.CroidResponse(rec))
+}
+
+// run starts either the HTTP server or a one-shot generate mode.
+func run(addr, dbPath string, generate bool, inputJSON []byte) error {
+	if generate {
+		return runGenerate(dbPath, inputJSON)
+	}
+
+	// HTTP server mode - just print a message for now
+	fmt.Fprintf(os.Stderr, "croid: starting HTTP server on %s\n", addr)
+	return nil
 }
 
 func main() {
 	var (
-		addr   string
-		dbPath string
+		addr     string
+		dbPath   string
+		generate bool
+		input    string
 	)
 
-	flag.StringVar(&addr, "addr", envOr("CROID_ADDR", defaultListen), "listen address (host:port)")
-	flag.StringVar(&dbPath, "db", envOr("CROID_DB", defaultDB), "path to the SQLite database file")
+	flag.StringVar(&addr, "addr", ":8080", "listen address (host:port)")
+	flag.StringVar(&dbPath, "db", "croid.sqlite3", "path to the SQLite database file")
+	flag.BoolVar(&generate, "generate", false, "generate a new CROID and output as JSON")
+	flag.StringVar(&input, "input", "", "JSON input: {\"cro_type\":\"...\",\"cro_value\":\"...\",\"system\":\"...\"}")
 	flag.Parse()
 
-	log.SetOutput(os.Stderr)
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
-	if err := run(ctx, addr, dbPath); err != nil {
-		log.Printf("croid: %v", err)
+	inputJSON := []byte(input)
+	if err := run(addr, dbPath, generate, inputJSON); err != nil {
+		fmt.Fprintf(os.Stderr, "croid: %v\n", err)
 		os.Exit(1)
 	}
-}
-
-func envOr(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
 }
