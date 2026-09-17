@@ -66,15 +66,28 @@ curl -X POST -H "Content-Type: application/json" -d '{"cro_type":"DOI","cro_valu
 ```
 
 ### CLI: Generate a CROID from the command line
-The CLI also supports generating a CROID without starting the HTTP server, using the `--generate` flag:
+The CLI can mint a CROID without starting the HTTP server, using the `--generate` flag. It runs the exact same code path as `POST /croid` (same SQLite setup, schema, and `store.Create`), so it mints, dedupes, and validates identically:
 
 ```bash
-go run . --generate
-# Output: {"croid":"<32-char-id>"}
+go run . --generate --db croid.sqlite3
 ```
 
-Or with JSON identity input:
+With a JSON identity input, the CLI resolves or mints a CROID for that identity (deduplicating against whatever already lives in `--db`):
+
 ```bash
-go run . --input '{"cro_type":"DOI","cro_value":"10.5555/example","system":"nauvis"}' --generate
-# Output: {"croid":"<32-char-id>"}
+go run . --generate --db croid.sqlite3 --input '{"cro_type":"DOI","cro_value":"10.5555/example","system":"nauvis"}'
 ```
+
+The output matches the `POST /croid` response body:
+
+```json
+{
+  "cro_type": "DOI",
+  "cro_value": "10.5555/example",
+  "system": "nauvis",
+  "croid": "aaaaa12345_aaaaa12345-aaaaa12345",
+  "created_at": "2026-09-17T20:11:10Z"
+}
+```
+
+Re-running the command for the same identity returns the same CROID (`"created_at"` unchanged) rather than minting a new one. If `--input` omits a required field (`cro_type`, `cro_value`, or `system`) the command exits non-zero with an error, mirroring the `400 Bad Request` the HTTP endpoint returns.
