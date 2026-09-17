@@ -4,71 +4,57 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 
-	"github.com/nexus/croid/internal/croid"
+	"github.com/nexus/croid/internal/server"
 	"flag"
 )
 
-// Identity is the (cro_type, cro_value, system) triple a CROID is minted for.
-type Identity struct {
-	CroType  string
-	CroValue string
-	System   string
-}
-
-// Record is a CROID and the research-object identity it was issued for.
-type Record struct {
-	Croid     string `json:"croid"`
-	Created   bool   `json:"-"`
-	CreatedAt string `json:"created_at"`
-}
-
 // runGenerate handles the --generate mode.
-// If JSON input is provided, it looks up or creates a CROID for the given identity.
-// Otherwise it generates a random CROID and prints it as JSON to stdout.
-func runGenerate(inputJSON []byte) error {
-	var id Identity
+//
+// It defers entirely to the HTTP service's own logic: it opens a server with
+// server.New (same SQLite setup + schema apply + store wiring the HTTP path
+// uses), then calls the exact same MintCroid/Create path that POST /croid
+// runs, so the CLI mints, dedupes, and validates identically to the server.
+// No DB/store/SQL setup lives here — it all goes through the server package.
+func runGenerate(dbPath string, inputJSON []byte) error {
+	srv, err := server.New(context.Background(), dbPath, nil)
+	if err != nil {
+		return fmt.Errorf("init server: %w", err)
+	}
+	defer srv.Close()
 
+	var input struct {
+		CroType  string `json:"cro_type"`
+		CroValue string `json:"cro_value"`
+		System   string `json:"system"`
+	}
 	if len(inputJSON) > 0 {
-		if err := json.Unmarshal(inputJSON, &id); err != nil {
+		if err := json.Unmarshal(inputJSON, &input); err != nil {
 			return fmt.Errorf("parse input JSON: %w", err)
 		}
 	}
 
-	// Generate a random CROID
-	croidStr, err := croid.Generate()
-	if err != nil {
-		return fmt.Errorf("generate croid: %w", err)
-	}
-	if !croid.Valid(croidStr) {
-		return fmt.Errorf("generated croid failed validation")
-	}
-
-	if len(inputJSON) > 0 {
-		// Look up or create CROID for the given identity (minimal impl)
-		// For now, just return the generated one
-		_ = id
-	}
-
-	// Output as JSON
-	enc, err := json.Marshal(map[string]string{
-		"croid": croidStr,
+	rec, _, err := srv.MintCroid(context.Background(), server.Identity{
+		CroType:  input.CroType,
+		CroValue: input.CroValue,
+		System:   input.System,
 	})
 	if err != nil {
-		return fmt.Errorf("marshal croid: %w", err)
+		return fmt.Errorf("mint croid: %w", err)
 	}
 
-	fmt.Println(string(enc))
-	return nil
+	// CroidResponse reuses the HTTP handler's exact response shape.
+	return json.NewEncoder(os.Stdout).Encode(srv.CroidResponse(rec))
 }
 
 // run starts either the HTTP server or a one-shot generate mode.
 func run(addr, dbPath string, generate bool, inputJSON []byte) error {
 	if generate {
-		return runGenerate(inputJSON)
+		return runGenerate(dbPath, inputJSON)
 	}
 
 	// HTTP server mode - just print a message for now
@@ -78,10 +64,10 @@ func run(addr, dbPath string, generate bool, inputJSON []byte) error {
 
 func main() {
 	var (
-		addr    string
-		dbPath  string
+		addr     string
+		dbPath   string
 		generate bool
-		input   string
+		input    string
 	)
 
 	flag.StringVar(&addr, "addr", ":8080", "listen address (host:port)")

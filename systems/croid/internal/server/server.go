@@ -68,6 +68,37 @@ func (s *Server) Close() error {
 	return nil
 }
 
+// Record adapts the store record for output shared by the CLI and the HTTP
+// handlers, so they serialise identically.
+type Record = store.Record
+
+// Identity is the store's (cro_type, cro_value, system) identity, re-exported
+// so the CLI can build one without importing the store package directly.
+type Identity = store.Identity
+
+// CroidResponse converts a minted record into the exact JSON body served by the
+// HTTP handlers, so the CLI and POST /croid emit identical output.
+func (s *Server) CroidResponse(r Record) any {
+	return toResponse(r)
+}
+
+// MintCroid resolves or mints a CROID for the given identity using the exact
+// same store path as POST /croid. It trims the identity fields exactly as the
+// HTTP handler does before minting, so the CLI and POST /croid behave
+// identically. It returns the record and whether a new COID was minted (as
+// opposed to returning a pre-existing one). An invalid identity returns an
+// error, matching the 400 the HTTP handler returns.
+func (s *Server) MintCroid(ctx context.Context, id Identity) (Record, bool, error) {
+	id.CroType = strings.TrimSpace(id.CroType)
+	id.CroValue = strings.TrimSpace(id.CroValue)
+	id.System = strings.TrimSpace(id.System)
+	rec, err := s.store.Create(ctx, id)
+	if err != nil {
+		return Record{}, false, err
+	}
+	return rec, rec.Created, nil
+}
+
 // Handler returns the http.Handler exposing:
 //
 //	GET  /croid/{croid}  -> record (200) or 404
