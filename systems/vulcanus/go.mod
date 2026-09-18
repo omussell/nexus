@@ -9,6 +9,7 @@ require (
 )
 
 require (
+	github.com/adrg/strutil v0.3.1 // indirect
 	github.com/apache/arrow-go/v18 v18.5.1 // indirect
 	github.com/duckdb/duckdb-go-bindings v0.10505.0 // indirect
 	github.com/duckdb/duckdb-go-bindings/lib/darwin-amd64 v0.10505.0 // indirect
