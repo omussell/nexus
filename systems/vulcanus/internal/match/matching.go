@@ -66,26 +66,9 @@ func (c *DuckDBClient) Query(keyword string, maxCandidates int) []Candidate {
 			Country: o.Country,
 			Status:  o.Status,
 		}
-		if o.AllNames != "" {
-			for _, n := range strings.Split(o.AllNames, ",") {
-				trimmed := strings.TrimSpace(n)
-				if trimmed != "" {
-					cand.Names = append(cand.Names, trimmed)
-				}
-			}
-		}
-		// Also use Primary if available as a fallback
-		if o.Primary != "" {
-			found := false
-			for _, n := range cand.Names {
-				if strings.EqualFold(n, o.Primary) {
-					found = true
-					break
-				}
-			}
-			if !found {
-				cand.Names = append(cand.Names, o.Primary)
-			}
+		cand.Names = o.Names
+		if len(cand.Names) == 0 {
+			continue
 		}
 		candidates = append(candidates, cand)
 	}

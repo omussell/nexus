@@ -1,7 +1,7 @@
 // Command vulcanus ingests the NDJSON files the nauvis and fulgora systems
 // wrote out into a DuckDB database, into separate tables (Nauvis into a single
-// `nauvis` table, each Fulgora source into its own table). It can also start an
-// HTTP matching server against the resulting DuckDB database.
+// `nauvis` table, each Fulgora source into its own table). After ingestion it
+// can optionally run ROR matching against the nauvis records.
 package main
 
 import (
@@ -14,7 +14,6 @@ import (
 	"github.com/nexus/vulcanus/internal/fulgora"
 	"github.com/nexus/vulcanus/internal/ingest"
 	"github.com/nexus/vulcanus/internal/nauvis"
-	"github.com/nexus/vulcanus/internal/server"
 )
 
 func main() {
@@ -28,6 +27,7 @@ func main() {
 		flag.String("fulgora-dir", "", "path to the fulgora data root (output dir)")
 	outDB :=
 		flag.String("duckdb", "vulcanus.duckdb", "path to the DuckDB database to write")
+	matchROR := flag.Bool("match-ror", false, "run ROR matching against nauvis records after ingestion")
 	flag.Parse()
 
 	if *only != "nauvis" && *only != "fulgora" && *only != "all" {
@@ -61,23 +61,12 @@ func main() {
 		fmt.Printf("vulcanus: ingested %d fulgora records into %s\n", n, filepath.Clean(*outDB))
 	}
 
-	// Try to start the matching server if the DuckDB exists and a server port is provided.
-	serverPort := flag.Int("server-port", 0, "start HTTP matching server on this port (0 to disable)")
-	if *serverPort > 0 {
-		cfg := server.Config{
-			Host:   "0.0.0.0",
-			Port:   *serverPort,
-			DBPath: *outDB,
+	// Optionally run ROR matching if requested.
+	if *matchROR {
+		if err := ingest.RunRORMatches(ctx, *outDB); err != nil {
+			log.Fatalf("vulcanus: ROR matching: %v", err)
 		}
-
-		srv, err := server.New(cfg)
-		if err != nil {
-			log.Fatalf("vulcanus: create server: %v", err)
-		}
-		defer srv.Close()
-		if err := srv.Start(); err != nil {
-			log.Fatalf("vulcanus: server: %v", err)
-		}
+		fmt.Printf("vulcanus: ROR matching complete\n")
 	}
 }
 

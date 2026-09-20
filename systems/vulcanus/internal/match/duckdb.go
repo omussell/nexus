@@ -5,8 +5,8 @@ package match
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/duckdb/duckdb-go/v2"
@@ -66,27 +66,17 @@ func (c *Client) Query(keyword string, max int) []Org {
 		return nil
 	}
 
-	// Use DuckDB's JSON functions to extract fields from the `ror` table.
-	// json_extract_string(record, '$.names[*].name') collects all name variants.
 	q := `
 		SELECT
 			json_extract_string(record, '$.id') AS id,
-			json_extract_string(record, '$.country') AS country,
-			json_extract_string(record, '$.status') AS status,
-			json_extract_string(record, '$.primary.name') AS primary_name,
-			COALESCE(
-				json_extract_string(record, '$.primary.name') ||
-				COALESCE(',' || json_extract_string(record, '$.names[*].name'), '')
-			) AS all_names
+			COALESCE(json_extract_string(record, '$.country'), '') AS country,
+			COALESCE(json_extract_string(record, '$.status'), '') AS status,
+			CAST(json_extract(record, '$.names[*].value') AS VARCHAR) AS name_values
 		FROM ror
-		WHERE LOWER(json_extract_string(record, '$.primary.name')) LIKE LOWER(?)
-		   OR LOWER(COALESCE(
-				json_extract_string(record, '$.primary.name') ||
-				COALESCE(',' || json_extract_string(record, '$.names[*].name'), '')
-			   )) LIKE LOWER(?)
+		WHERE LOWER(array_to_string(json_extract_string(record, '$.names[*].value'), ',')) LIKE LOWER(?)
 		LIMIT ?
 	`
-	rows, err := c.db.Query(q, keyword+"%", keyword+"%", max)
+	rows, err := c.db.Query(q, keyword+"%", max)
 	if err != nil {
 		return nil
 	}
@@ -95,19 +85,18 @@ func (c *Client) Query(keyword string, max int) []Org {
 	var orgs []Org
 	for rows.Next() {
 		var org Org
-		if err := rows.Scan(&org.ID, &org.Country, &org.Status, &org.Primary, &org.AllNames); err != nil {
-			return orgs // skip bad rows
+		if err := rows.Scan(&org.ID, &org.Country, &org.Status, &org.AllNames); err != nil {
+			continue // skip bad rows
 		}
-		// Split AllNames into Names slice.
-		if org.AllNames != "" {
-			for _, n := range strings.Split(org.AllNames, ",") {
-				trimmed := strings.TrimSpace(n)
-				if trimmed != "" {
-					org.Names = append(org.Names, trimmed)
-				}
+		// Parse AllNames (JSON array string like '["A","B"]') into Names slice.
+		if org.AllNames != "" && org.AllNames != "[]" {
+			if err := json.Unmarshal([]byte(org.AllNames), &org.Names); err != nil {
+				continue
 			}
 		}
-		orgs = append(orgs, org)
+		if len(org.Names) > 0 {
+			orgs = append(orgs, org)
+		}
 	}
 	return orgs
 }
