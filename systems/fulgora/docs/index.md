@@ -34,6 +34,9 @@ is already recorded in the database is skipped rather than downloaded again.
   latest available data.
 * **Data Enrichment:** Provides additional information used to enhance and
   improve the primary Crossref data collected by other systems.
+* **CROID Minting:** Each processed record is minted with a CROID via the shared
+  CROID HTTP client (`github.com/nexus/croid/client`). CROIDs are published to
+  RabbitMQ for downstream systems (Vulcanus) to consume.
 
 ## How it works
 
@@ -88,7 +91,14 @@ For each requested source, `internal/collect/collect.go` runs:
    partial file is removed.
 4. **Process** — the source's `Process` produces the standardized output under
    `<root>/<source>/output/`.
-5. **Record** — insert a `datasets` row and upsert the `latest` pointer for the
+5. **CROID minting** — for each record in the processed output, the fetch calls
+   the CROID client (`github.com/nexus/croid/client`) to mint a CROID. The client
+   is shared across Nauvis and Fulgora, providing a uniform HTTP interface to the
+   CROID service.
+6. **RabbitMQ publish** — after minting, each CROID event is published to RabbitMQ
+   (exchange: `croid`), enabling downstream consumers like Vulcanus to react to
+   new records.
+7. **Record** — insert a `datasets` row and upsert the `latest` pointer for the
    source (both done by `internal/store`).
 
 ### Storage layout
@@ -194,7 +204,7 @@ internal/source/source.go      ->  the Source interface + shared download helper
 internal/source/ror            ->  ROR (Zenodo) source
 internal/source/retractionwatch->  Retraction Watch (GitLab) source
 internal/sources               ->  the registry: map of name -> constructor
-internal/collect               ->  the fetch workflow (check, skip, download, process, record)
+internal/collect               ->  the fetch workflow (check, skip, download, process, mint CROID, publish, record)
 internal/store                 ->  the query/persistence layer
 internal/db                    ->  sqlc-generated code (DO NOT EDIT)
 internal/migrate               ->  schema.sql + Apply()

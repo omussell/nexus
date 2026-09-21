@@ -13,9 +13,14 @@ To handle the scale of the data, Nauvis runs multiple workers in parallel to qui
 * **Extraction:** Unpacks gzip-compressed JSON-L files.
 * **Processing:** Converts data into standard, properly formatted JSON files.
 * **Parallelization:** Utilizes multiple workers to handle thousands of files efficiently.
+* **CROID Minting:** Each processed DOI is minted with a CROID via the shared
+  CROID HTTP client (`github.com/nexus/croid/client`). CROIDs are published to
+  RabbitMQ for downstream systems (Vulcanus) to consume.
 
 ## Example Workflow
 
 1. Identify a compressed file (e.g., `5.json.gz`).
 2. Extract and process it into a properly formatted JSON file (`5.json`).
-3. The resulting JSON file is then ready for consumption by other systems in the pipeline.
+3. For each DOI in the file, mint a CROID by calling the CROID service.
+4. Publish the CROID event to RabbitMQ.
+5. The resulting JSON file and CROID event are then ready for consumption by other systems in the pipeline.

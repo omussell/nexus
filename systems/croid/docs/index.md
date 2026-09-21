@@ -54,6 +54,25 @@ Fetches the metadata associated with a specific CROID.
 - **Querying:** `sqlc` generates type-safe database access logic.
 - **Concurrency:** The service is idempotent; concurrent creation requests for the same identity safely return the single existing CROID.
 
+## Client Usage
+
+Other systems mint CROIDs by importing the shared HTTP client package:
+
+```go
+import "github.com/nexus/croid/client"
+
+c := client.New("http://localhost:8080")
+minted, err := c.Mint(ctx, client.Identity{
+    Type:     "DOI",
+    Value:    "10.1/paper",
+    System:   "nauvis",
+    Record:   []byte(`{"title":"...","DOI":"10.1/paper"}`),
+})
+```
+
+The client is used by both Nauvis and Fulgora, providing a uniform interface for
+minting CROIDs and publishing them to RabbitMQ.
+
 ## Quick Start
 To run the service:
 ```bash

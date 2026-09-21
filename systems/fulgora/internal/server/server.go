@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/nexus/fulgora/internal/db"
@@ -23,11 +25,13 @@ type Server struct {
 	db    *sql.DB
 	store *store.Store
 	logf  func(format string, args ...any)
+	root  string // data root for resolving output paths
 }
 
 // New opens the SQLite database at dbPath, applies the schema, and returns a
-// ready Server. Call Close to release the underlying connection.
-func New(ctx context.Context, dbPath string, logf func(format string, args ...any)) (*Server, error) {
+// ready Server. root is the data root directory under which output files live.
+// Call Close to release the underlying connection.
+func New(ctx context.Context, dbPath, root string, logf func(format string, args ...any)) (*Server, error) {
 	if logf == nil {
 		logf = func(string, ...any) {}
 	}
@@ -58,7 +62,7 @@ func New(ctx context.Context, dbPath string, logf func(format string, args ...an
 		return nil, err
 	}
 
-	return &Server{db: conn, store: store.New(db.New(conn)), logf: logf}, nil
+	return &Server{db: conn, store: store.New(conn, db.New(conn)), logf: logf, root: filepath.Clean(root)}, nil
 }
 
 // Close releases the SQLite connection.
@@ -76,6 +80,7 @@ func (s *Server) Close() error {
 //	GET  /latest                 -> every source's latest version
 //	GET  /latest/{source}        -> one source's latest version
 //	GET  /latest/{source}/history -> every version of a source
+//	GET  /record?source=X&version=Y -> serve the full dataset record JSON
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.handleRoot)
@@ -83,6 +88,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /latest", s.handleAllLatest)
 	mux.HandleFunc("GET /latest/{source}", s.handleLatest)
 	mux.HandleFunc("GET /latest/{source}/history", s.handleHistory)
+	mux.HandleFunc("GET /record", s.handleRecord)
 	return withLogging(mux, s.logf)
 }
 
@@ -190,4 +196,36 @@ func withLogging(next http.Handler, logf func(string, ...any)) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// handleRecord serves the full dataset record JSON for the given source and
+// version. It reads the output file from the Fulgora data root.
+func (s *Server) handleRecord(w http.ResponseWriter, r *http.Request) {
+	source := r.URL.Query().Get("source")
+	version := r.URL.Query().Get("version")
+	if source == "" || version == "" {
+		writeJSON(w, http.StatusBadRequest, errorBody{Error: "source and version required"})
+		return
+	}
+
+	path, err := s.store.OutputPath(r.Context(), source, version)
+	if errors.Is(err, sql.ErrNoRows) {
+		writeJSON(w, http.StatusNotFound, errorBody{Error: "source/version not found"})
+		return
+	}
+	if err != nil {
+		s.logf("GET /record?source=%s&version=%s: %v", source, version, err)
+		writeJSON(w, http.StatusInternalServerError, errorBody{Error: "internal error"})
+		return
+	}
+
+	fullPath := filepath.Join(s.root, path)
+	data, err := os.ReadFile(fullPath)
+	if err != nil {
+		s.logf("GET /record: read %s: %v", fullPath, err)
+		writeJSON(w, http.StatusInternalServerError, errorBody{Error: "failed to read record"})
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(data)
 }

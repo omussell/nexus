@@ -34,12 +34,13 @@ type LatestInfo struct {
 // Store is the persistence backend for dataset metadata. Safe for concurrent
 // use: the underlying *sql.DB is serialized by SQLite (WAL + single-writer).
 type Store struct {
-	q *db.Queries
+	db *sql.DB
+	q  *db.Queries
 }
 
-// New builds a Store over the given sqlc Queries handle.
-func New(q *db.Queries) *Store {
-	return &Store{q: q}
+// New builds a Store over the given sqlc Queries handle and the underlying DB.
+func New(d *sql.DB, q *db.Queries) *Store {
+	return &Store{db: d, q: q}
 }
 
 // Record inserts a new dataset row and upserts the latest pointer for its
@@ -169,4 +170,17 @@ func latestInfoFrom(source, version, collectedAt, initialInput, output string) L
 		InitialInput: initialInput,
 		Output:       output,
 	}
+}
+
+// OutputPath returns the recorded output path for the given source and version,
+// or sql.ErrNoRows if not found.
+func (s *Store) OutputPath(ctx context.Context, source, version string) (string, error) {
+	var output string
+	err := s.db.QueryRowContext(ctx,
+		"SELECT output FROM datasets WHERE source = ? AND version = ?", source, version,
+	).Scan(&output)
+	if err != nil {
+		return "", err
+	}
+	return output, nil
 }

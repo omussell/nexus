@@ -17,7 +17,7 @@ import (
 func newServer(t *testing.T, seed ...store.Dataset) *Server {
 	t.Helper()
 	ctx := context.Background()
-	s, err := New(ctx, filepath.Join(t.TempDir(), "srv.sqlite3"), nil)
+	s, err := New(ctx, filepath.Join(t.TempDir(), "srv.sqlite3"), filepath.Join(t.TempDir(), "data"), nil)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

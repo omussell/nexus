@@ -25,6 +25,7 @@ import (
 
 	_ "modernc.org/sqlite" // registers the "sqlite" database/sql driver (pure Go)
 
+	"github.com/nexus/croid/client"
 	"github.com/nexus/fulgora/internal/collect"
 	"github.com/nexus/fulgora/internal/db"
 	"github.com/nexus/fulgora/internal/migrate"
@@ -104,7 +105,7 @@ func openStore(ctx context.Context, dbPath string) (*store.Store, func() error, 
 		closeFn()
 		return nil, nil, err
 	}
-	return store.New(db.New(conn)), closeFn, nil
+	return store.New(conn, db.New(conn)), closeFn, nil
 }
 
 // runFetch implements `fulgora fetch [source ...]`.
@@ -112,6 +113,7 @@ func runFetch(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("fetch", flag.ContinueOnError)
 	dbPath := fs.String("db", envOr("FULGORA_DB", "fulgora.sqlite3"), "path to the SQLite database file")
 	root := fs.String("root", envOr("FULGORA_ROOT", "."), "root directory under which per-source dirs live")
+	croidURL := fs.String("croid", "", "CROID service URL (e.g. http://croid:8080); if empty, no CROID minting")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -128,6 +130,11 @@ func runFetch(ctx context.Context, args []string) error {
 	}
 	defer closeFn()
 
+	var croidClient *client.Client
+	if strings.TrimSpace(*croidURL) != "" {
+		croidClient = client.New(*croidURL)
+	}
+
 	var anyErr error
 	for _, name := range names {
 		src, err := sources.Get(name)
@@ -135,7 +142,7 @@ func runFetch(ctx context.Context, args []string) error {
 			anyErr = err
 			continue
 		}
-		res, err := collect.Collect(ctx, src, s, *root)
+		res, err := collect.Collect(ctx, src, s, *root, croidClient)
 		if err != nil {
 			log.Printf("[%s] %v", name, err)
 			anyErr = err
@@ -191,13 +198,14 @@ func runServe(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
 	addr := fs.String("addr", envOr("FULGORA_ADDR", defaultAddr), "listen address (host:port)")
 	dbPath := fs.String("db", envOr("FULGORA_DB", "fulgora.sqlite3"), "path to the SQLite database file")
+	root := fs.String("root", envOr("FULGORA_ROOT", "."), "root directory under which per-source dirs live")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 
 	log.SetOutput(os.Stderr)
 
-	srv, err := server.New(ctx, *dbPath, log.Printf)
+	srv, err := server.New(ctx, *dbPath, *root, log.Printf)
 	if err != nil {
 		return err
 	}

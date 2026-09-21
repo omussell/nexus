@@ -18,9 +18,9 @@ input file first contained it.
 
 Two things distinguish Nauvis from a plain `gunzip` loop:
 
-- **byte-for-byte fidelity** – it re-emits the decompressed payload exactly as
-  produced, without re-formatting, re-ordering, or dropping fields; every input
-  file has exactly one matching output file; and
+- **byte-for-byte fidelity** – the output uses `json.Compact` which may reorder
+  or compact fields compared to the raw decompressed payload; every input file
+  has exactly one matching output file; and
 - **an index** – it tracks which DOI appears in which file, deduplicating DOIs
   that occur in more than one file.
 
@@ -50,16 +50,19 @@ The pipeline is split into three packages, each with one job.
    (`json.Valid`). This catches truncated or corrupt payloads before anything is
    written.
 3. **Write** — emit the bytes to the output path using an *atomic write* (write
-   to `out/<n>.json.tmp`, then rename into place), so a process that is killed
-   mid-file never leaves a half-written `.json`.
+   to `out/<n>.json.tmp`, then rename into place`), so a process that is killed
+   mid-file never leaves a half-written `.json`. Note: the output uses
+   `json.Compact` which may reorder/compact fields compared to the raw decompressed
+   payload.
 4. **Extract** — unmarshal just the `items[].DOI` fields, in input order.
 
 `extract.Files(dir)` lists the directory and returns the files it knows how to
 process: anything ending in `.json.gz` or (uncompressed) `.json`. This is what
 lets the same folder hold both the compressed inputs and the example file.
 
-The key contract is that the written bytes equal the decompressed bytes — Nauvis
-does not interpret or normalise the data, it only preserves it.
+The key contract is that the written bytes are valid JSON — Nauvis extracts DOIs
+from the decompressed payload and writes each item as a compacted JSON line. The
+output may differ from the raw decompressed payload due to `json.Compact`.
 
 ### 2. Store — `internal/store`
 
@@ -105,6 +108,12 @@ outcome:
 - **workers** — a fixed pool of `jobs` goroutines (default `GOMAXPROCS`) reading
   from a shared work channel. Each worker does `extract` + `store` for the next
   file handed to it.
+- **CROID minting** — for each DOI processed, the ingest calls the CROID client
+  (`github.com/nexus/croid/client`) to mint a CROID. The client is shared across
+  Nauvis and Fulgora, providing a uniform HTTP interface to the CROID service.
+- **RabbitMQ publish** — after minting, the CROID event is published to RabbitMQ
+  (exchange: `croid`), enabling downstream consumers like Vulcanus to react
+  to new records.
 - **deduplication** — duplicates detected by `store` are logged, and a file that
   fails to process increments the failure count.
 - **result** — on success it logs the output path and the number of items
@@ -175,6 +184,9 @@ go tool sqlc generate          # from the repo root
   may already be compact.
 - **`doi` uniqueness is the central invariant.** Everything — dedup, query, the
   "first file wins" promise — hangs off the `UNIQUE` constraint on `doi`.
+- **CROID client is shared across systems.** Nauvis and Fulgora both use the
+  shared `croid/client` package for minting CROIDs, providing a uniform HTTP
+  interface to the CROID service.
 - **`main.go` is dispatcher only.** All logic lives in `extract`, `store`, and
   `ingest`; `main.go` exists to parse flags and pick a mode.
 - **Build writes go via atomic rename** (`out/<n>.json.tmp` → `out/<n>.json`) so

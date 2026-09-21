@@ -26,7 +26,7 @@ func openStore(t *testing.T) *store.Store {
 	if err := migrate.Apply(context.Background(), conn); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	return store.New(db.New(conn))
+	return store.New(conn, db.New(conn))
 }
 
 func TestRecordAndLatest(t *testing.T) {
