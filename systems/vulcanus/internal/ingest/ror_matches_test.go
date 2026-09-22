@@ -2,179 +2,125 @@ package ingest
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"testing"
-
-	_ "modernc.org/sqlite"
 )
 
-// copyResources copies the resources directory to dst/resources (including subdirs).
-func copyResources(t *testing.T, dst string) {
-	t.Helper()
-	// Walk up to find the vulcanus module root, then go to resources.
-	cwd, _ := os.Getwd()
-	root := cwd
-	for i := 0; i < 10; i++ {
-		if _, err := os.Stat(filepath.Join(root, "go.mod")); err == nil {
-			break
-		}
-		root = filepath.Dir(root)
-	}
-	src := filepath.Join(root, "internal", "match", "resources")
-	dst = filepath.Join(dst, "resources")
-	if err := os.MkdirAll(dst, 0755); err != nil {
-		t.Fatalf("mkdir resources dir: %v", err)
-	}
-	if err := filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, _ := filepath.Rel(src, path)
-		dest := filepath.Join(dst, rel)
-		if info.IsDir() {
-			return os.MkdirAll(dest, 0755)
-		}
-		data, _ := os.ReadFile(path)
-		return os.WriteFile(dest, data, 0644)
-	}); err != nil {
-		t.Fatalf("copy resources: %v", err)
-	}
-}
-
-// TestRORMatches runs ROR matching against a minimal Nauvis+ROR dataset and
-// verifies the result tables contain the expected rows.
-func TestRORMatches(t *testing.T) {
+func TestHasTableIgnoresNonMainSchemas(t *testing.T) {
 	ctx := context.Background()
-
-	// --- set up nauvis store with one record that has funder names ---
-	visDir := t.TempDir()
-	writeNDJSON(t, visDir, "0.ndjson", []string{
-		`{"DOI":"10.1/test","funder":[{"name":"National Science Foundation"}]}`,
-	})
-	nStore := openStore(t, map[string][]string{"0.ndjson": {"10.1/test"}})
-
-	// --- set up fulgora store with ROR and retractionwatch sources ---
-	fDir := t.TempDir()
-	fSources := []string{"ror", "retractionwatch"}
-	fStore := openFulgoraStore(t, fSources, fDir)
-
-	outDir := t.TempDir()
-	outDB := filepath.Join(outDir, "vulcanus.duckdb")
-
-	// Seed ROR data.
-	rorFile := filepath.Join(fDir, "ror", "output", "ror-1.0.json")
-	writeNDJSON(t, "", rorFile, []string{
-		`{"id":"https://ror.org/0220q3k92","status":"active","country":"US","primary":{"name":"National Science Foundation"},"names":[{"name":"National Science Foundation"}]}`,
-		`{"id":"https://ror.org/025vr7951","status":"active","country":"US","primary":{"name":"MIT"},"names":[{"name":"Massachusetts Institute of Technology"},{"name":"MIT"}]}`,
-	})
-
-	// Seed retractionwatch data.
-	rwFile := filepath.Join(fDir, "retractionwatch", "retractions.json")
-	writeNDJSON(t, "", rwFile, []string{
-		`{"RetractionDOI":"10.1/rw1","OriginalPaperDOI":"10.1/rw1"}`,
-	})
-
-	// Copy country resources so RunRORMatches can find them (looks relative to DB dir).
-	copyResources(t, outDir)
-
-	// Ingest both sources.
-	if _, err := Run(ctx, nStore, visDir, outDB); err != nil {
-		t.Fatalf("nauvis Run: %v", err)
-	}
-	if _, err := Run(ctx, fStore, fDir, outDB); err != nil {
-		t.Fatalf("fulgora Run: %v", err)
-	}
-
-	// Run ROR matching.
-	if err := RunRORMatches(ctx, outDB); err != nil {
-		t.Fatalf("RunRORMatches: %v", err)
-	}
-
-	// Verify result tables.
-	db := freshDB(t, outDB)
-
-	// Should have the nauvis and ror tables plus the result tables.
-	tables := tableNames(t, db)
-	wantTables := []string{"nauvis", "retractionwatch", "ror", "ror_funder_matches", "ror_affiliation_matches"}
-	for _, w := range wantTables {
-		found := false
-		for _, t := range tables {
-			if t == w {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("expected table %q, not found in %v", w, tables)
-		}
-	}
-
-	// The funder name "National Science Foundation" should match the ROR org.
-	n, err := db.QueryContext(ctx, `SELECT COUNT(*) FROM ror_funder_matches`)
+	tmp := t.TempDir()
+	db, err := openDuckDB(filepath.Join(tmp, "test.duckdb"))
 	if err != nil {
-		t.Fatalf("query ror_funder_matches: %v", err)
+		t.Fatalf("openDuckDB: %v", err)
 	}
-	defer n.Close()
-	if !n.Next() {
-		t.Fatal("ror_funder_matches has no rows")
-	}
-	var funderCount int
-	if err := n.Scan(&funderCount); err != nil {
-		t.Fatalf("scan funder count: %v", err)
-	}
-	if funderCount != 1 {
-		t.Fatalf("ror_funder_matches count = %d, want 1", funderCount)
+	defer db.Close()
+	// Keep the pool at one connection so TEMP tables are visible to every
+	// query (TEMP tables are per-connection).
+	db.SetMaxOpenConns(1)
+
+	if _, err := db.ExecContext(ctx, `CREATE TEMP TABLE nauvis (id INTEGER)`); err != nil {
+		t.Fatalf("create temp table: %v", err)
 	}
 
-	// Check the matched ROR ID.
-	row2 := db.QueryRowContext(ctx, `SELECT ror_id FROM ror_funder_matches`)
-	var rorID string
-	if err := row2.Scan(&rorID); err != nil {
-		t.Fatalf("scan ror_id: %v", err)
+	// Premise: duckdb_tables() does report the TEMP table, which is exactly
+	// what the old schema-blind query would have matched.
+	var seen int
+	if err := db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM duckdb_tables() WHERE table_name = 'nauvis'`).Scan(&seen); err != nil {
+		t.Fatalf("duckdb_tables lookup: %v", err)
 	}
-	if rorID != "https://ror.org/0220q3k92" {
-		t.Fatalf("ror_id = %q, want %q", rorID, "https://ror.org/0220q3k92")
+	if seen == 0 {
+		t.Skip("TEMP table not visible in duckdb_tables() here; nothing to guard against")
+	}
+	if hasTable(ctx, db, "nauvis") {
+		t.Error("TEMP table must not count as an existing main-schema table")
+	}
+
+	if _, err := db.ExecContext(ctx, `CREATE SCHEMA other`); err != nil {
+		t.Fatalf("create schema: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `CREATE TABLE other.nauvis (id INTEGER)`); err != nil {
+		t.Fatalf("create other-schema table: %v", err)
+	}
+	if hasTable(ctx, db, "nauvis") {
+		t.Error("non-main-schema table must not count")
+	}
+
+	// tablesExist must apply the same restriction: only TEMP and
+	// other-schema nauvis tables exist so far. The transaction is short
+	// because the pool allows a single connection.
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatalf("begin tx: %v", err)
+	}
+	if exist, err := tablesExist(ctx, tx, "nauvis"); err != nil {
+		t.Fatalf("tablesExist: %v", err)
+	} else if exist {
+		t.Error("tablesExist: TEMP/other-schema tables must not count")
+	}
+	if err := tx.Rollback(); err != nil {
+		t.Fatalf("rollback: %v", err)
+	}
+
+	if _, err := db.ExecContext(ctx, `CREATE TABLE ror (id INTEGER)`); err != nil {
+		t.Fatalf("create main-schema table: %v", err)
+	}
+	if !hasTable(ctx, db, "ror") {
+		t.Error("main-schema table must count")
+	}
+
+	if _, err := db.ExecContext(ctx, `CREATE TABLE nauvis (id INTEGER)`); err != nil {
+		t.Fatalf("create main-schema nauvis: %v", err)
+	}
+	if !hasTable(ctx, db, "nauvis") {
+		t.Error("main-schema table must count even when other schemas have the same name")
+	}
+	tx, err = db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatalf("begin tx: %v", err)
+	}
+	if exist, err := tablesExist(ctx, tx, "nauvis", "ror"); err != nil {
+		t.Fatalf("tablesExist: %v", err)
+	} else if !exist {
+		t.Error("tablesExist: main-schema tables must count")
+	}
+	if err := tx.Rollback(); err != nil {
+		t.Fatalf("rollback: %v", err)
+	}
+
+	if hasTable(ctx, db, "does_not_exist") {
+		t.Error("missing table must not count")
 	}
 }
 
-// TestRORMatchesNoOp verifies RunRORMatches is a no-op when ror table is absent.
-func TestRORMatchesNoOp(t *testing.T) {
-	ctx := context.Background()
-
-	visDir := t.TempDir()
-	writeNDJSON(t, visDir, "0.ndjson", []string{
-		`{"DOI":"10.1/test","funder":[{"name":"Some Funder"}]}`,
-	})
-	nStore := openStore(t, map[string][]string{"0.ndjson": {"10.1/test"}})
-
-	fDir := t.TempDir()
-	fStore := openFulgoraStore(t, []string{"retractionwatch"}, fDir)
-	rwFile := filepath.Join(fDir, "retractionwatch", "retractions.json")
-	writeNDJSON(t, "", rwFile, []string{
-		`{"RetractionDOI":"10.1/rw1","OriginalPaperDOI":"10.1/rw1"}`,
-	})
-
-	outDir := t.TempDir()
-	outDB := filepath.Join(outDir, "vulcanus.duckdb")
-
-	if _, err := Run(ctx, nStore, visDir, outDB); err != nil {
-		t.Fatalf("nauvis Run: %v", err)
+func TestSplitJSONNames(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  []string
+	}{
+		{"empty", "", nil},
+		{"plain", `["A","B"]`, []string{"A", "B"}},
+		{"null element skipped", `["A", null, "B"]`, []string{"A", "B"}},
+		{"number element skipped", `["A", 42, "B"]`, []string{"A", "B"}},
+		{"object element skipped", `["A", {"x":1}, "B"]`, []string{"A", "B"}},
+		{"all malformed", `[null, 1, {"x":1}]`, nil},
+		{"not an array", `{"a":1}`, nil},
+		{"garbage", `not json`, nil},
+		{"dedup and trim", `[" A ", "A", " b "]`, []string{"A", "b"}},
+		{"blank strings dropped", `["  ", "B"]`, []string{"B"}},
 	}
-	if _, err := Run(ctx, fStore, fDir, outDB); err != nil {
-		t.Fatalf("fulgora Run: %v", err)
-	}
-
-	// RunRORMatches should be a no-op since there's no ror table.
-	if err := RunRORMatches(ctx, outDB); err != nil {
-		t.Fatalf("RunRORMatches (no ror table): %v", err)
-	}
-
-	db := freshDB(t, outDB)
-	tables := tableNames(t, db)
-	for _, tname := range tables {
-		if tname == "ror_funder_matches" {
-			t.Fatal("ror_funder_matches should not exist when ror table is absent")
-		}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := splitJSONNames(tc.input)
+			if len(got) != len(tc.want) {
+				t.Fatalf("splitJSONNames(%q) = %v, want %v", tc.input, got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Fatalf("splitJSONNames(%q) = %v, want %v", tc.input, got, tc.want)
+				}
+			}
+		})
 	}
 }

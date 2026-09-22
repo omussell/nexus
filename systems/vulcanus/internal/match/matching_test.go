@@ -1,6 +1,7 @@
 package match
 
 import (
+	"path/filepath"
 	"testing"
 )
 
@@ -40,8 +41,10 @@ func TestPartialRatio(t *testing.T) {
 	if s < 99 || s > 100 {
 		t.Errorf("Expected ~100, got %v", s)
 	}
-	// "university" is an exact substring of "university of tokyo", so PartialRatio = 100
-	s = PartialRatio("University of Tokyo", "university")
+	// "university" is an exact substring of "university of tokyo", so
+	// PartialRatio = 100. Callers pass lowercased (normalized) strings, so
+	// the comparison is case-consistent.
+	s = PartialRatio("university of tokyo", "university")
 	if s != 100 {
 		t.Errorf("Expected 100 for exact substring, got %v", s)
 	}
@@ -113,6 +116,38 @@ func TestFindCountries(t *testing.T) {
 	if len(FindCountries(input, nil, New(input))) > 0 {
 		// With no countries loaded, should return nil
 		t.Error("Expected no countries with nil country list")
+	}
+}
+
+func TestFindRegionsDetectsJapan(t *testing.T) {
+	regions := findRegions("University of Tokyo, Japan")
+	for _, r := range regions {
+		if r == "APSC" {
+			return
+		}
+	}
+	t.Errorf("Expected APSC region for Japan, got %v", regions)
+}
+
+func TestRegionAllowed(t *testing.T) {
+	if !regionAllowed("JP", []string{"APSC"}) {
+		t.Error("JP should be allowed in the APSC region")
+	}
+	if regionAllowed("US", []string{"APSC"}) {
+		t.Error("US should not be allowed in the APSC region")
+	}
+	if regionAllowed("JP", nil) {
+		t.Error("No detected regions should not allow any candidate")
+	}
+}
+
+func TestEligibleCandidateFilterRegion(t *testing.T) {
+	japan := Candidate{Status: "active", Country: "JP"}
+	if !eligibleCandidateFilter(&japan, []string{"APSC"}) {
+		t.Error("Japan candidate should pass the APSC region filter")
+	}
+	if eligibleCandidateFilter(&japan, []string{"US-PR"}) {
+		t.Error("Japan candidate should fail the US-PR region filter")
 	}
 }
 
@@ -233,10 +268,12 @@ func TestPartialRatioAlignment(t *testing.T) {
 }
 
 func TestPartialRatioWithDifferentLengths(t *testing.T) {
-	// Test partial matching with different length strings
+	// Test partial matching with different length strings. The acronym NSF
+	// best matches the 3-char window "Nat" (distance 2 of 3), so the score
+	// is ~33, mirroring rapidfuzz.
 	s := PartialRatio("National Science Foundation", "NSF")
-	if s < 50 || s > 100 {
-		t.Errorf("Expected reasonable score for NSF vs National Science Foundation, got %v", s)
+	if s < 30 || s > 40 {
+		t.Errorf("Expected ~33 for NSF vs National Science Foundation, got %v", s)
 	}
 }
 
@@ -252,7 +289,7 @@ func TestTokenSortRatioOrderIndependence(t *testing.T) {
 func TestMatchFunderNoResults(t *testing.T) {
 	// Test with nil DuckDBClient to ensure graceful handling
 	client := &DuckDBClient{}
-	result := client.MatchFunder("Test", nil)
+	result := client.MatchFunder("Test")
 	if result != nil {
 		t.Error("Expected nil result for invalid client")
 	}
@@ -261,7 +298,7 @@ func TestMatchFunderNoResults(t *testing.T) {
 func TestMatchAffiliationNoResults(t *testing.T) {
 	// Test with nil DuckDBClient to ensure graceful handling
 	client := &DuckDBClient{}
-	result := client.MatchAffiliation("Test", nil)
+	result := client.MatchAffiliation("Test")
 	if result != nil {
 		t.Error("Expected nil result for invalid client")
 	}
@@ -291,6 +328,27 @@ func TestDuckDBClientMethods(t *testing.T) {
 	}
 	if err := client.Close(); err != nil {
 		t.Errorf("Expected no error closing nil client, got %v", err)
+	}
+}
+
+func TestNewDuckDBClientErrorOnBadPath(t *testing.T) {
+	// Regression (bug #4): an unopenable path must surface as an error
+	// instead of panicking.
+	bad := filepath.Join(t.TempDir(), "missing-dir", "db.duckdb")
+	if _, err := NewDuckDBClient(bad); err == nil {
+		t.Fatal("expected error for unopenable path, got nil")
+	}
+}
+
+func TestNewDuckDBClientValidPath(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.duckdb")
+	c, err := NewDuckDBClient(path)
+	if err != nil {
+		t.Fatalf("NewDuckDBClient(valid path) unexpected error: %v", err)
+	}
+	defer c.Close()
+	if c.Count() != 0 {
+		t.Errorf("expected 0 count on empty db, got %d", c.Count())
 	}
 }
 
@@ -368,8 +426,10 @@ func TestMatchAffiliationPartialMatch(t *testing.T) {
 		t.Error("Expected a scored candidate")
 		return
 	}
-	if scored.Score < 80 {
-		t.Errorf("Expected reasonable score for partial match, got %v", scored.Score)
+	// Partial ratio cannot compensate for the swapped word order, so the
+	// score stays low (~25), matching rapidfuzz's behavior for this pair.
+	if scored.Score < 0 || scored.Score > 50 {
+		t.Errorf("Expected low score for word-order-swapped name, got %v", scored.Score)
 	}
 }
 
@@ -554,6 +614,25 @@ func TestPartialRatioAlignmentWithDifferentLengths(t *testing.T) {
 	}
 	if alignment.SrcStart < 0 || alignment.SrcEnd <= alignment.SrcStart {
 		t.Errorf("Invalid alignment position: [%d:%d]", alignment.SrcStart, alignment.SrcEnd)
+	}
+}
+
+func TestFindPartialRatioAlignmentCoordinatesAlwaysInSource(t *testing.T) {
+	// Source shorter than target: coordinates must still be within source
+	// (regression: they used to be reported within the longer string).
+	src := "university of tokyo"
+	alignment := FindPartialRatioAlignment(src, "the university of tokyo")
+	if alignment.Score < 99 {
+		t.Errorf("expected near-perfect score, got %v", alignment.Score)
+	}
+	if alignment.SrcStart != 0 || alignment.SrcEnd != len(src) {
+		t.Errorf("expected full-source range [0:%d], got [%d:%d]", len(src), alignment.SrcStart, alignment.SrcEnd)
+	}
+
+	// Source longer than target: coordinates are the window position in source.
+	alignment = FindPartialRatioAlignment("The University of Tokyo", "University of Tokyo")
+	if alignment.SrcStart != 4 || alignment.SrcEnd != 4+len("University of Tokyo") {
+		t.Errorf("expected window [4:%d] in source, got [%d:%d]", 4+len("University of Tokyo"), alignment.SrcStart, alignment.SrcEnd)
 	}
 }
 
@@ -854,7 +933,7 @@ func TestScoreCandidateWithNoNames(t *testing.T) {
 func TestMatchFunderWithEmptyInput(t *testing.T) {
 	// Test matching with empty input
 	client := &DuckDBClient{}
-	result := client.MatchFunder("", nil)
+	result := client.MatchFunder("")
 	if result != nil {
 		t.Error("Expected nil result for empty input")
 	}
@@ -863,7 +942,7 @@ func TestMatchFunderWithEmptyInput(t *testing.T) {
 func TestMatchAffiliationWithEmptyInput(t *testing.T) {
 	// Test matching with empty input
 	client := &DuckDBClient{}
-	result := client.MatchAffiliation("", nil)
+	result := client.MatchAffiliation("")
 	if result != nil {
 		t.Error("Expected nil result for empty input")
 	}
@@ -872,7 +951,7 @@ func TestMatchAffiliationWithEmptyInput(t *testing.T) {
 func TestMatchFunderWithNoCandidates(t *testing.T) {
 	// Test matching with no candidates found
 	client := &DuckDBClient{}
-	result := client.MatchFunder("zzzzzzzzzz", nil)
+	result := client.MatchFunder("zzzzzzzzzz")
 	if result != nil {
 		t.Error("Expected nil result when no candidates found")
 	}
@@ -881,7 +960,7 @@ func TestMatchFunderWithNoCandidates(t *testing.T) {
 func TestMatchAffiliationWithNoCandidates(t *testing.T) {
 	// Test matching with no candidates found
 	client := &DuckDBClient{}
-	result := client.MatchAffiliation("zzzzzzzzzz", nil)
+	result := client.MatchAffiliation("zzzzzzzzzz")
 	if result != nil {
 		t.Error("Expected nil result when no candidates found")
 	}
@@ -1708,6 +1787,34 @@ func TestRescoreWithMixedCase(t *testing.T) {
 	rescored := Rescore(fund, candidates)
 	if len(rescored) != 2 {
 		t.Fatalf("Expected 2 candidates, got %d", len(rescored))
+	}
+}
+
+func TestChooseBestMatchUsesOriginalScoreThreshold(t *testing.T) {
+	fund := New("National Science Foundation")
+	candidates := []*CandidateMatch{
+		{ID: "1", Name: New("National Science Foundation"), Score: 100, Start: 0, End: 27},
+		{ID: "2", Name: New("National Science Foundation"), Score: 97, Start: 0, End: 27},
+	}
+
+	best := chooseBestMatch(fund, candidates)
+	if best == nil {
+		t.Fatal("Expected a match above the original fuzzy-score threshold")
+	}
+	if best.Score < 96.0 || best.Score > 100.0 {
+		t.Errorf("Expected original fuzzy score to be preserved, got %v", best.Score)
+	}
+}
+
+func TestChooseBestMatchRejectsBelowThreshold(t *testing.T) {
+	fund := New("National Science Foundation")
+	candidates := []*CandidateMatch{
+		{ID: "1", Name: New("National Science Foundation"), Score: 95, Start: 0, End: 27},
+		{ID: "2", Name: New("National Science Foundation"), Score: 90, Start: 0, End: 27},
+	}
+
+	if best := chooseBestMatch(fund, candidates); best != nil {
+		t.Errorf("Expected no match below threshold, got %v", best)
 	}
 }
 

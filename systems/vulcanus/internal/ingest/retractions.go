@@ -90,13 +90,16 @@ func buildRetractionProvenanceView(ctx context.Context, tx *sql.Tx) error {
 
 // tablesExist reports whether every one of names exists in the main schema of
 // the transaction's DuckDB database. A missing table is not an error — it just
-// yields false; anything else is propagated.
+// yields false; anything else is propagated. TEMP tables do not count: they
+// live in a separate "temp" database whose schema is also named "main", so
+// filtering on the schema alone is not enough — the temporary flag is
+// required.
 func tablesExist(ctx context.Context, tx *sql.Tx, names ...string) (bool, error) {
 	for _, n := range names {
 		var got string
 		err := tx.QueryRowContext(ctx,
-			`SELECT table_name FROM information_schema.tables
-			 WHERE table_schema = 'main' AND table_name = ?`,
+			`SELECT table_name FROM duckdb_tables()
+			 WHERE table_name = ? AND temporary = false AND schema_name = 'main'`,
 			n).Scan(&got)
 		if errors.Is(err, sql.ErrNoRows) {
 			return false, nil

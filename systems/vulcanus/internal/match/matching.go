@@ -15,17 +15,51 @@
 package match
 
 import (
+	_ "embed"
 	"regexp"
 	"strings"
 
 	"github.com/nexus/vulcanus/internal/match/country"
 )
 
+// countriesData is the country reference table, embedded so matching has no
+// runtime dependency on an external resources directory.
+//go:embed resources/countries.txt
+var countriesData string
+
+// embeddedCountries is the parsed country table used to derive per-name
+// region restrictions (mirrors the Python get_countries step).
+var embeddedCountries = parseCountries(countriesData)
+
+// parseCountries parses the "code name" country table, mirroring country.Load
+// (code uppercased, name lowercased).
+func parseCountries(data string) []country.Country {
+	var out []country.Country
+	for _, line := range strings.Split(data, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, " ", 2)
+		if len(parts) < 2 {
+			continue
+		}
+		out = append(out, country.Country{
+			Code: strings.ToUpper(parts[0]),
+			Name: strings.ToLower(parts[1]),
+		})
+	}
+	return out
+}
+
 // CandidateMatch represents a scored match candidate.
 type CandidateMatch struct {
-	ID    string
-	Name  *StringRep
-	Score float64
+	ID      string
+	Country string
+	Name    *StringRep
+	Score   float64
+	// Start/End are the alignment coordinates within the input (fund)
+	// string, consistent across all candidates for the same input.
 	Start int
 	End   int
 }
@@ -40,14 +74,16 @@ type Candidate struct {
 
 // DuckDBClient wraps the DuckDB-based org index for matching queries.
 type DuckDBClient struct {
-	client  *Client
-	countries []country.Country
+	client *Client
 }
 
 // NewDuckDBClient creates a DuckDB-backed client from an existing DB file.
-func NewDuckDBClient(dbPath string, countries []country.Country) *DuckDBClient {
-	c := Reopen(dbPath)
-	return &DuckDBClient{client: c, countries: countries}
+func NewDuckDBClient(dbPath string) (*DuckDBClient, error) {
+	c, err := Reopen(dbPath)
+	if err != nil {
+		return nil, err
+	}
+	return &DuckDBClient{client: c}, nil
 }
 
 // Query searches for organization candidates from the DuckDB index.
@@ -92,10 +128,15 @@ func (c *DuckDBClient) Close() error {
 }
 
 // MatchFunder runs funder-name-to-ROR matching against the DuckDB index.
-func (c *DuckDBClient) MatchFunder(inputData string, fundCountries []string) []map[string]interface{} {
+//
+// Like the Python funder strategy, it derives the funder's region(s) from the
+// input, uses them to pre-filter eligible candidates, and re-checks the chosen
+// candidate's region before reporting a match.
+func (c *DuckDBClient) MatchFunder(inputData string) []map[string]interface{} {
 	fund := New(inputData)
+	fundRegions := findRegions(inputData)
 	candidates := c.Query(inputData, 200)
-	candidates = filterEligible(candidates, fundCountries)
+	candidates = filterEligible(candidates, fundRegions)
 	if len(candidates) == 0 {
 		return nil
 	}
@@ -107,12 +148,12 @@ func (c *DuckDBClient) MatchFunder(inputData string, fundCountries []string) []m
 			scored = append(scored, s)
 		}
 	}
-	if len(scored) == 0 {
+
+	best := chooseBestMatch(fund, scored)
+	if best == nil {
 		return nil
 	}
-
-	best := ChooseCandidate(fund, scored)
-	if best == nil || best.Score < 96.0 {
+	if len(fundRegions) > 0 && !regionAllowed(best.Country, fundRegions) {
 		return nil
 	}
 
@@ -127,10 +168,16 @@ func (c *DuckDBClient) MatchFunder(inputData string, fundCountries []string) []m
 }
 
 // MatchAffiliation runs affiliation matching against the DuckDB index.
-func (c *DuckDBClient) MatchAffiliation(inputData string, affCountries []string) []map[string]interface{} {
+//
+// Unlike the funder strategy, the Python affiliation strategy does not
+// pre-filter candidates by country; it only rejects the chosen candidate when
+// its region does not match the regions derived from the input.
+func (c *DuckDBClient) MatchAffiliation(inputData string) []map[string]interface{} {
 	aff := New(inputData)
+	affRegions := findRegions(inputData)
 	candidates := c.Query(inputData, 200)
-	candidates = filterEligible(candidates, affCountries)
+	// Status filter only; the country restriction is applied as a post-check.
+	candidates = filterEligible(candidates, nil)
 	if len(candidates) == 0 {
 		return nil
 	}
@@ -142,12 +189,12 @@ func (c *DuckDBClient) MatchAffiliation(inputData string, affCountries []string)
 			scored = append(scored, s)
 		}
 	}
-	if len(scored) == 0 {
+
+	best := chooseBestMatch(aff, scored)
+	if best == nil {
 		return nil
 	}
-
-	best := ChooseCandidate(aff, scored)
-	if best == nil || best.Score < 96.0 {
+	if len(affRegions) > 0 && !regionAllowed(best.Country, affRegions) {
 		return nil
 	}
 
@@ -189,6 +236,38 @@ func FindCountries(s string, countries []country.Country, strRep *StringRep) []s
 		result = append(result, code)
 	}
 	return result
+}
+
+// findRegions derives the set of regions mentioned in the input by fuzzy
+// matching country names against the embedded table, mirroring the Python
+// get_countries step. It returns nil when no country is detected.
+func findRegions(input string) []string {
+	codes := FindCountries(input, embeddedCountries, New(input))
+	if len(codes) == 0 {
+		return nil
+	}
+	seen := make(map[string]bool, len(codes))
+	regions := make([]string, 0, len(codes))
+	for _, code := range codes {
+		r := country.ToRegion(code)
+		if !seen[r] {
+			seen[r] = true
+			regions = append(regions, r)
+		}
+	}
+	return regions
+}
+
+// regionAllowed reports whether a candidate's country maps to one of the
+// detected regions (mirrors the Python to_region(...) in fund_countries check).
+func regionAllowed(candidateCountry string, regions []string) bool {
+	region := country.ToRegion(candidateCountry)
+	for _, r := range regions {
+		if region == r {
+			return true
+		}
+	}
+	return false
 }
 
 // filterEligible removes candidates that don't pass country/status filters.
@@ -394,10 +473,12 @@ func TryAlteredName(name *StringRep) *StringRep {
 // ScoreCandidate scores a candidate against the input string.
 func ScoreCandidate(fund *StringRep, candidate *Candidate) *CandidateMatch {
 	best := &CandidateMatch{
-		Name:  New(""),
-		Score: 0,
-		Start: -1,
-		End:   -1,
+		ID:      candidate.ID,
+		Country: candidate.Country,
+		Name:    New(""),
+		Score:   0,
+		Start:   -1,
+		End:     -1,
 	}
 
 	for _, nameStr := range candidate.Names {
@@ -416,11 +497,12 @@ func ScoreCandidate(fund *StringRep, candidate *Candidate) *CandidateMatch {
 
 		if alignment.Score > best.Score {
 			best = &CandidateMatch{
-				ID:    candidate.ID,
-				Name:  name,
-				Score: alignment.Score,
-				Start: alignment.SrcStart,
-				End:   alignment.SrcEnd,
+				ID:      candidate.ID,
+				Country: candidate.Country,
+				Name:    name,
+				Score:   alignment.Score,
+				Start:   alignment.SrcStart,
+				End:     alignment.SrcEnd,
 			}
 		}
 	}
@@ -486,6 +568,31 @@ func Rescore(fund *StringRep, candidates []*CandidateMatch) []*CandidateMatch {
 		result[i] = c
 	}
 	return result
+}
+
+// chooseBestMatch applies the fuzzy-confidence threshold before pairwise
+// rescore, then restores the original fuzzy score on the chosen candidate.
+func chooseBestMatch(fund *StringRep, scored []*CandidateMatch) *CandidateMatch {
+	eligible := make([]*CandidateMatch, 0, len(scored))
+	originalScores := make(map[*CandidateMatch]float64, len(scored))
+	for _, s := range scored {
+		if s.Score >= 96.0 {
+			eligible = append(eligible, s)
+			originalScores[s] = s.Score
+		}
+	}
+	if len(eligible) == 0 {
+		return nil
+	}
+
+	best := ChooseCandidate(fund, eligible)
+	if best == nil {
+		return nil
+	}
+	if originalScore, ok := originalScores[best]; ok {
+		best.Score = originalScore
+	}
+	return best
 }
 
 // ChooseCandidate picks the best match from scored candidates.

@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -13,7 +12,6 @@ import (
 	"time"
 
 	"github.com/nexus/vulcanus/internal/match"
-	"github.com/nexus/vulcanus/internal/match/country"
 )
 
 type rormatch struct {
@@ -39,14 +37,6 @@ func RunRORMatches(ctx context.Context, dbPath string) error {
 
 	if !hasTable(ctx, readDB, "nauvis") || !hasTable(ctx, readDB, "ror") {
 		return nil
-	}
-
-	// Load country data for matching.
-	resDir := filepath.Join(filepath.Dir(dbPath), "resources")
-	countryFile := resDir + "/countries.txt"
-	countries, err := country.Load(countryFile)
-	if err != nil {
-		return fmt.Errorf("load countries from %s: %w", countryFile, err)
 	}
 
 	// Query all nauvis records with DOI and funder/affiliation names.
@@ -106,21 +96,33 @@ func RunRORMatches(ctx context.Context, dbPath string) error {
 	reportTicker := time.NewTicker(5 * time.Second)
 	defer reportTicker.Stop()
 
+	// Open one DuckDB client per worker up front so an open failure surfaces
+	// as an error to RunRORMatches instead of panicking in a worker goroutine.
+	clients := make([]*match.DuckDBClient, 0, numWorkers)
+	for i := 0; i < numWorkers; i++ {
+		c, err := match.NewDuckDBClient(dbPath)
+		if err != nil {
+			for _, opened := range clients {
+				_ = opened.Close()
+			}
+			return fmt.Errorf("open DuckDB client: %w", err)
+		}
+		clients = append(clients, c)
+	}
+
 	var wg sync.WaitGroup
 	for w := 0; w < numWorkers; w++ {
 		wg.Add(1)
-		go func() {
+		go func(c *match.DuckDBClient) {
 			defer wg.Done()
-			// Each worker opens its own DuckDB client.
-			c := match.NewDuckDBClient(dbPath, countries)
 			defer c.Close()
 
 			for job := range jobs {
 				var matches []map[string]interface{}
 				if job.typ == "funder" {
-					matches = c.MatchFunder(job.name, nil)
+					matches = c.MatchFunder(job.name)
 				} else {
-					matches = c.MatchAffiliation(job.name, nil)
+					matches = c.MatchAffiliation(job.name)
 				}
 				if len(matches) > 0 {
 					mu.Lock()
@@ -133,25 +135,35 @@ func RunRORMatches(ctx context.Context, dbPath string) error {
 				}
 				atomic.AddInt64(&processed, 1)
 			}
-		}()
+		}(clients[w])
 	}
 
-	// Report progress.
+	// Report progress until the workers finish.
+	stop := make(chan struct{})
 	go func() {
 		for {
 			select {
 			case <-reportTicker.C:
 				p := atomic.LoadInt64(&processed)
 				elapsed := time.Since(start)
-				rate := float64(p) / elapsed.Seconds()
-				remaining := float64(totalJobs-int(p)) / rate
+				rate := 0.0
+				if elapsed.Seconds() > 0 {
+					rate = float64(p) / elapsed.Seconds()
+				}
+				remaining := 0.0
+				if rate > 0 {
+					remaining = float64(totalJobs-int(p)) / rate
+				}
 				fmt.Printf("vulcanus: ROR matching: %d/%d done (%.0f jobs/sec, ~%.0fm remaining)\n",
 					p, totalJobs, rate, remaining/60)
+			case <-stop:
+				return
 			}
 		}
 	}()
 
 	wg.Wait()
+	close(stop)
 
 	fmt.Printf("vulcanus: ROR matching: done, %d funder matches, %d affiliation matches (unique names matched)\n",
 		len(funderMatches), len(affilMatches))
@@ -270,19 +282,25 @@ func queryNauvisRecords(ctx context.Context, db *sql.DB) ([]nauvisRecord, error)
 }
 
 // splitJSONNames parses a JSON array of strings (e.g. '["A","B"]') or an empty
-// string, returning the individual names.
+// string, returning the individual names. Elements that are not JSON strings
+// (null, numbers, objects, ...) are skipped so a single malformed value does
+// not discard the rest of the paper's names.
 func splitJSONNames(s string) []string {
 	if s == "" {
 		return nil
 	}
-	var names []string
-	if err := json.Unmarshal([]byte(s), &names); err != nil {
+	var elements []json.RawMessage
+	if err := json.Unmarshal([]byte(s), &elements); err != nil {
 		return nil
 	}
 	// Deduplicate while preserving order.
 	seen := make(map[string]bool)
 	var result []string
-	for _, n := range names {
+	for _, el := range elements {
+		var n string
+		if err := json.Unmarshal(el, &n); err != nil {
+			continue
+		}
 		trimmed := strings.TrimSpace(n)
 		if trimmed != "" && !seen[trimmed] {
 			seen[trimmed] = true
@@ -311,10 +329,15 @@ func resetRorMatchesTable(ctx context.Context, tx *sql.Tx, name string) error {
 	return nil
 }
 
-// hasTable reports whether the given table exists in the database.
+// hasTable reports whether the given table exists in the main schema of the
+// main (non-temporary) database. Tables in other schemas and TEMP tables do
+// not count. TEMP tables live in a separate "temp" database whose schema is
+// also named "main", so filtering on the schema alone is not enough — the
+// temporary flag is required. Same check as tablesExist in retractions.go.
 func hasTable(ctx context.Context, db *sql.DB, name string) bool {
 	var count int
 	err := db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM duckdb_tables() WHERE table_name = ?`, name).Scan(&count)
+		`SELECT COUNT(*) FROM duckdb_tables()
+		 WHERE table_name = ? AND temporary = false AND schema_name = 'main'`, name).Scan(&count)
 	return err == nil && count > 0
 }

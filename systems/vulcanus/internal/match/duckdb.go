@@ -32,13 +32,13 @@ type Client struct {
 }
 
 // Reopen opens an existing DuckDB database file.
-func Reopen(dbPath string) *Client {
+func Reopen(dbPath string) (*Client, error) {
 	conn, err := duckdb.NewConnector(dbPath, nil)
 	if err != nil {
-		panic(fmt.Errorf("open DuckDB at %s: %w", dbPath, err))
+		return nil, fmt.Errorf("open DuckDB at %s: %w", dbPath, err)
 	}
 	db := sql.OpenDB(conn)
-	return &Client{db: db}
+	return &Client{db: db}, nil
 }
 
 // NewClientFromDB creates a client from an existing *sql.DB.
