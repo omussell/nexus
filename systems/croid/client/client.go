@@ -62,15 +62,33 @@ func (c *Client) Mint(ctx context.Context, croType, croValue, system, record str
 	}
 
 	url := c.baseURL + "/croid"
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("POST %s: %w", url, err)
+	// Retry with exponential backoff for transient failures (CROID uses SQLite
+	// with MaxOpenConns(1), so concurrent requests may be rejected).
+	var resp *http.Response
+	for attempt := 0; attempt < 5; attempt++ {
+		if attempt > 0 {
+			backoff := time.Duration(attempt*attempt) * time.Second
+			time.Sleep(backoff)
+		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+		if err != nil {
+			return nil, fmt.Errorf("request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err = c.http.Do(req)
+		if err == nil && resp.StatusCode < 300 {
+			break
+		}
+		if resp != nil {
+			resp.Body.Close()
+			resp = nil
+		}
+	}
+	if resp == nil {
+		return nil, fmt.Errorf("POST %s: after 5 retries", url)
 	}
 	defer resp.Body.Close()
 

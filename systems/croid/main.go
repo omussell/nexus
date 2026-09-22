@@ -7,7 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/nexus/croid/internal/server"
 	"flag"
@@ -20,8 +25,14 @@ import (
 // uses), then calls the exact same MintCroid/Create path that POST /croid
 // runs, so the CLI mints, dedupes, and validates identically to the server.
 // No DB/store/SQL setup lives here — it all goes through the server package.
-func runGenerate(dbPath string, inputJSON []byte) error {
-	srv, err := server.New(context.Background(), dbPath, nil)
+func runGenerate(dbPath, amqpURL, exchange string, inputJSON []byte) error {
+	var srv *server.Server
+	var err error
+	if amqpURL != "" {
+		srv, err = server.NewWithAMQP(context.Background(), dbPath, amqpURL, exchange, nil)
+	} else {
+		srv, err = server.New(context.Background(), dbPath, nil)
+	}
 	if err != nil {
 		return fmt.Errorf("init server: %w", err)
 	}
@@ -42,7 +53,7 @@ func runGenerate(dbPath string, inputJSON []byte) error {
 		CroType:  input.CroType,
 		CroValue: input.CroValue,
 		System:   input.System,
-	})
+	}, "")
 	if err != nil {
 		return fmt.Errorf("mint croid: %w", err)
 	}
@@ -52,32 +63,76 @@ func runGenerate(dbPath string, inputJSON []byte) error {
 }
 
 // run starts either the HTTP server or a one-shot generate mode.
-func run(addr, dbPath string, generate bool, inputJSON []byte) error {
+func run(ctx context.Context, addr, dbPath, amqpURL, exchange string, generate bool, inputJSON []byte) error {
 	if generate {
-		return runGenerate(dbPath, inputJSON)
+		return runGenerate(dbPath, amqpURL, exchange, inputJSON)
 	}
 
-	// HTTP server mode - just print a message for now
-	fmt.Fprintf(os.Stderr, "croid: starting HTTP server on %s\n", addr)
-	return nil
+	log.SetOutput(os.Stderr)
+	log.SetFlags(0)
+
+	var srv *server.Server
+	var err error
+	if amqpURL != "" {
+		srv, err = server.NewWithAMQP(ctx, dbPath, amqpURL, exchange, log.Printf)
+	} else {
+		srv, err = server.New(ctx, dbPath, log.Printf)
+	}
+	if err != nil {
+		return err
+	}
+	defer srv.Close()
+
+	log.Printf("croid: listening on %s", addr)
+	hs := &http.Server{
+		Addr:              addr,
+		Handler:           srv.Handler(),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		if err := hs.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			errCh <- err
+		}
+		close(errCh)
+	}()
+
+	select {
+	case <-ctx.Done():
+		log.Printf("croid: shutting down")
+	case err := <-errCh:
+		return err
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return hs.Shutdown(shutdownCtx)
 }
 
 func main() {
 	var (
 		addr     string
 		dbPath   string
+		amqpURL  string
+		exchange string
 		generate bool
 		input    string
 	)
 
 	flag.StringVar(&addr, "addr", ":8080", "listen address (host:port)")
 	flag.StringVar(&dbPath, "db", "croid.sqlite3", "path to the SQLite database file")
+	flag.StringVar(&amqpURL, "amqp", "", "RabbitMQ connection URL (e.g. amqp://localhost:5672)")
+	flag.StringVar(&exchange, "amqp-exchange", "croid", "RabbitMQ exchange name")
 	flag.BoolVar(&generate, "generate", false, "generate a new CROID and output as JSON")
 	flag.StringVar(&input, "input", "", "JSON input: {\"cro_type\":\"...\",\"cro_value\":\"...\",\"system\":\"...\"}")
 	flag.Parse()
 
 	inputJSON := []byte(input)
-	if err := run(addr, dbPath, generate, inputJSON); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	if err := run(ctx, addr, dbPath, amqpURL, exchange, generate, inputJSON); err != nil {
 		fmt.Fprintf(os.Stderr, "croid: %v\n", err)
 		os.Exit(1)
 	}

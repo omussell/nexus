@@ -34,18 +34,39 @@ type Identity struct {
 	System   string
 }
 
+// PublishFunc is called after a CROID is created (either newly minted or
+// returned as an existing deduped record). A nil function is a no-op.
+// The record argument contains the full JSON record (may be empty string).
+type PublishFunc func(msg Message, record string) error
+
 // Store issues and looks up CROIDs against a SQLite database. It is safe for
 // concurrent use: the underlying *sql.DB and the SQL it issues are serialized
 // by SQLite (WAL + single-writer), and Create de-duplicates on the unique
 // (cro_type, cro_value, system) constraint.
 type Store struct {
-	q *db.Queries
+	q       *db.Queries
+	publish PublishFunc
+	logf    func(string, ...any)
 }
 
-// New builds a Store over the given sqlc Queries handle.
+// New builds a Store over the given sqlc Queries handle, with no publish
+// function (no-op on CROID creation).
 // New builds a Store over the given sqlc Queries handle.
 func New(q *db.Queries) *Store {
 	return &Store{q: q}
+}
+
+// NewWithPublish builds a Store over the given sqlc Queries handle, calling
+// fn after every successful Create (newly minted or deduped).
+func NewWithPublish(q *db.Queries, fn PublishFunc) *Store {
+	return &Store{q: q, publish: fn}
+}
+
+// WithLogger attaches a logging function to the store so that publish
+// failures can be reported.
+func (s *Store) WithLogger(logf func(string, ...any)) *Store {
+	s.logf = logf
+	return s
 }
 
 // GetByCroid returns the record identified by croid, or sql.ErrNoRows if it
@@ -62,10 +83,13 @@ func (s *Store) GetByCroid(ctx context.Context, c string) (Record, error) {
 // for that identity it is returned with Record.Created false; otherwise a new
 // CROID is minted and inserted with Record.Created true.
 //
+// The record argument contains the full JSON record associated with this
+// CROID (may be empty when the record is fetched from the source system).
+//
 // Create is idempotent across concurrent callers racing on the same identity:
 // the loser of the race hits the unique constraint, re-reads the winner's row,
 // and returns it, so every caller observes the same CROID.
-func (s *Store) Create(ctx context.Context, id Identity) (Record, error) {
+func (s *Store) Create(ctx context.Context, id Identity, record string) (Record, error) {
 	if strings.TrimSpace(id.CroType) == "" {
 		return Record{}, errors.New("store: cro_type is required")
 	}
@@ -78,6 +102,13 @@ func (s *Store) Create(ctx context.Context, id Identity) (Record, error) {
 
 	// Fast path: an identity already has a CROID.
 	if rec, err := s.getByIdentity(ctx, id); err == nil {
+		if s.publish != nil {
+			if err := s.publish(toRecordMessage(rec), record); err != nil {
+				if s.logf != nil {
+					s.logf("store: publish: %v", err)
+				}
+			}
+		}
 		return rec, nil
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return Record{}, err
@@ -95,14 +126,22 @@ func (s *Store) Create(ctx context.Context, id Identity) (Record, error) {
 	})
 	if err == nil {
 		t, _ := time.Parse(time.RFC3339, now)
-		return Record{
+		rec := Record{
 			Croid:     c,
 			CroType:   id.CroType,
 			CroValue:  id.CroValue,
 			System:    id.System,
 			CreatedAt: t,
 			Created:   true,
-		}, nil
+		}
+		if s.publish != nil {
+			if err := s.publish(toRecordMessage(rec), record); err != nil {
+				if s.logf != nil {
+					s.logf("store: publish: %v", err)
+				}
+			}
+		}
+		return rec, nil
 	}
 
 	// A unique-constraint violation means a concurrent Create won the race for
@@ -111,6 +150,13 @@ func (s *Store) Create(ctx context.Context, id Identity) (Record, error) {
 		existing, gerr := s.getByIdentity(ctx, id)
 		if gerr != nil {
 			return Record{}, fmt.Errorf("store: concurrent create for (%q, %q, %q): %w", id.CroType, id.CroValue, id.System, gerr)
+		}
+		if s.publish != nil {
+			if err := s.publish(toRecordMessage(existing), record); err != nil {
+				if s.logf != nil {
+					s.logf("store: publish: %v", err)
+				}
+			}
 		}
 		return existing, nil
 	}
@@ -163,4 +209,26 @@ var newCROID = func() string {
 		panic(err)
 	}
 	return s
+}
+
+// Message is a CROID event published after creation or dedup.
+type Message struct {
+	Croid     string
+	CroType   string
+	CroValue  string
+	System    string
+	CreatedAt string
+	// Record contains the full JSON record (optional, may be empty).
+	Record string
+}
+
+// toRecordMessage adapts a Record into a Message for publishing.
+func toRecordMessage(r Record) Message {
+	return Message{
+		Croid:     r.Croid,
+		CroType:   r.CroType,
+		CroValue:  r.CroValue,
+		System:    r.System,
+		CreatedAt: r.CreatedAt.Format(time.RFC3339),
+	}
 }

@@ -35,7 +35,7 @@ func TestProcess_NDJSON(t *testing.T) {
 	}
 	out := filepath.Join(dir, "out.json")
 
-	_, _, err := Process(in, out)
+	_, _, _, err := Process(in, out)
 	if err != nil {
 		t.Fatalf("Process: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestProcess_RejectsInvalidJSON(t *testing.T) {
 	}
 	out := filepath.Join(dir, "bad.json")
 
-	_, _, err := Process(in, out)
+	_, _, _, err := Process(in, out)
 	if err == nil {
 		t.Fatalf("Process should have failed on invalid JSON")
 	}
@@ -78,7 +78,7 @@ func TestProcess_RejectsNonGzip(t *testing.T) {
 	}
 	out := filepath.Join(dir, "plain.json")
 
-	if _, _, err := Process(in, out); err == nil {
+	if _, _, _, err := Process(in, out); err == nil {
 		t.Fatalf("Process should have failed on non-gzip input")
 	}
 }
@@ -138,7 +138,7 @@ func TestProcess_RealData(t *testing.T) {
 		}
 		want := buildNDJSON(t, doc.Items)
 
-		got, _, err := Process(in, out)
+		got, _, _, err := Process(in, out)
 		if err != nil {
 			t.Fatalf("Process(%s): %v", e.Name(), err)
 		}

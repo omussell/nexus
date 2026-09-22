@@ -18,23 +18,23 @@ import (
 
 // Process decompresses inPath, validates the payload as one JSON value, and
 // writes each item in its "items" array out on its own line as an NDJSON file.
-// It returns the DOIs of the items in input order, and n is the number of bytes
-// written.
-func Process(inPath, outPath string) (dois []string, n int64, err error) {
+// It returns the DOIs of the items in input order, the raw items, and n is the
+// number of bytes written.
+func Process(inPath, outPath string) (dois []string, items []json.RawMessage, n int64, err error) {
 	buf, err := readGzip(inPath)
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, 0, err
 	}
 	// Validate that the payload is a single well-formed JSON value. json.Valid
 	// checks syntactic correctness without interpreting values.
 	if !json.Valid(buf) {
-		return nil, 0, fmt.Errorf("%s: decompressed payload is not valid JSON", inPath)
+		return nil, nil, 0, fmt.Errorf("%s: decompressed payload is not valid JSON", inPath)
 	}
 	var doc struct {
 		Items []json.RawMessage `json:"items"`
 	}
 	if err := json.Unmarshal(buf, &doc); err != nil {
-		return nil, 0, fmt.Errorf("parse %s: %w", inPath, err)
+		return nil, nil, 0, fmt.Errorf("parse %s: %w", inPath, err)
 	}
 
 	var w bytes.Buffer
@@ -44,15 +44,15 @@ func Process(inPath, outPath string) (dois []string, n int64, err error) {
 		}
 		line := new(bytes.Buffer)
 		if err := json.Compact(line, item); err != nil {
-			return nil, 0, fmt.Errorf("compact item in %s: %w", inPath, err)
+			return nil, nil, 0, fmt.Errorf("compact item in %s: %w", inPath, err)
 		}
 		w.Write(line.Bytes())
 		w.WriteByte('\n')
 	}
 	if err := atomicWrite(outPath, w.Bytes(), 0o644); err != nil {
-		return nil, 0, fmt.Errorf("write %s: %w", outPath, err)
+		return nil, nil, 0, fmt.Errorf("write %s: %w", outPath, err)
 	}
-	return dois, int64(w.Len()), nil
+	return dois, doc.Items, int64(w.Len()), nil
 }
 
 // readDOI returns the DOI field of a single item, or "" if absent.

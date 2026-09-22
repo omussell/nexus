@@ -44,11 +44,11 @@ func New(d *sql.DB, q *db.Queries) *Store {
 // skipped and reported in the returned slice (a DOI appearing in more than one
 // file is the caller's error); insertion of a brand-new DOI that races with a
 // concurrently recorded one is also reported as a duplicate. It returns the
-// duplicates and the number of rows inserted.
-func (s *Store) RecordMany(ctx context.Context, file string, dois []string) (dupes []Duplicate, inserted int, err error) {
+// duplicates, the newly inserted DOIs, and the number of rows inserted.
+func (s *Store) RecordMany(ctx context.Context, file string, dois []string) (dupes []Duplicate, insertedDois []string, inserted int, err error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, 0, fmt.Errorf("begin: %w", err)
+		return nil, nil, 0, fmt.Errorf("begin: %w", err)
 	}
 	defer func() {
 		if err != nil {
@@ -65,21 +65,22 @@ func (s *Store) RecordMany(ctx context.Context, file string, dois []string) (dup
 			dupes = append(dupes, Duplicate{Doi: doi, File: file})
 			continue
 		} else if !errors.Is(gerr, sql.ErrNoRows) {
-			return nil, 0, fmt.Errorf("record %s: %w", doi, gerr)
+			return nil, nil, 0, fmt.Errorf("record %s: %w", doi, gerr)
 		}
 		if ierr := q.InsertItem(ctx, db.InsertItemParams{File: file, Doi: doi}); ierr != nil {
 			if isUniqueViolation(ierr) {
 				dupes = append(dupes, Duplicate{Doi: doi, File: file})
 				continue
 			}
-			return nil, 0, fmt.Errorf("insert %s: %w", doi, ierr)
+			return nil, nil, 0, fmt.Errorf("insert %s: %w", doi, ierr)
 		}
+		insertedDois = append(insertedDois, doi)
 		inserted++
 	}
 	if err = tx.Commit(); err != nil {
-		return nil, 0, fmt.Errorf("commit %s: %w", file, err)
+		return nil, nil, 0, fmt.Errorf("commit %s: %w", file, err)
 	}
-	return dupes, inserted, nil
+	return dupes, insertedDois, inserted, nil
 }
 
 // GetByDOI returns the file a DOI was found in, or sql.ErrNoRows if it has not

@@ -41,7 +41,7 @@ func TestCreateConcurrentSameIdentity(t *testing.T) {
 	out := make(chan res, n)
 	for i := 0; i < n; i++ {
 		go func() {
-			rec, err := s.Create(context.Background(), id)
+			rec, err := s.Create(context.Background(), id, "")
 			if err != nil {
 				out <- res{err: err}
 				return
@@ -73,7 +73,7 @@ func TestCreateReturnsExisting(t *testing.T) {
 	s := openStore(t)
 	id := Identity{CroType: "DOI", CroValue: "10.5555/777", System: "nauvis"}
 
-	first, err := s.Create(context.Background(), id)
+	first, err := s.Create(context.Background(), id, "")
 	if err != nil {
 		t.Fatalf("initial Create: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestCreateReturnsExisting(t *testing.T) {
 		t.Fatal("expected first create to be marked Created")
 	}
 
-	second, err := s.Create(context.Background(), id)
+	second, err := s.Create(context.Background(), id, "")
 	if err != nil {
 		t.Fatalf("second Create: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestCreateValidation(t *testing.T) {
 		{CroType: "DOI", System: "n"},              // missing cro_value
 		{CroType: " ", System: "n", CroValue: "v"}, // blank cro_type
 	} {
-		if _, err := s.Create(context.Background(), id); err == nil {
+		if _, err := s.Create(context.Background(), id, ""); err == nil {
 			t.Errorf("case %d: expected error for %+v", i, id)
 		}
 	}

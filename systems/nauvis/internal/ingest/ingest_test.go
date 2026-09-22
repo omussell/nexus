@@ -49,7 +49,7 @@ func TestRun_Basic(t *testing.T) {
 	writeGz(t, inDir, "1.json.gz", []byte(`{"items":[{"DOI":"10.1/c"}]}`))
 	outDir := t.TempDir()
 
-	ok, failed, err := Run(context.Background(), inDir, outDir, openStore(t), 2, log())
+	ok, failed, err := Run(context.Background(), inDir, outDir, openStore(t), 2, log(), nil)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestRun_DuplicateDOIs(t *testing.T) {
 	writeGz(t, inDir, "1.json.gz", []byte(`{"items":[{"DOI":"10.1/dup"}]}`))
 	outDir := t.TempDir()
 
-	ok, failed, err := Run(context.Background(), inDir, outDir, openStore(t), 1, log())
+	ok, failed, err := Run(context.Background(), inDir, outDir, openStore(t), 1, log(), nil)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestRun_DoesNotRecordSameDoITwice(t *testing.T) {
 	outDir := t.TempDir()
 
 	st := openStore(t)
-	Run(context.Background(), inDir, outDir, st, 1, log())
+	Run(context.Background(), inDir, outDir, st, 1, log(), nil)
 	item, err := st.GetByDOI(context.Background(), "10.1/dup")
 	if err != nil {
 		t.Fatalf("GetByDOI: %v", err)
@@ -108,7 +108,7 @@ func TestRun_InvalidJSONFails(t *testing.T) {
 	writeGz(t, inDir, "1.json.gz", []byte(`{"items":[{"DOI":"10.1/a"}]}`))
 	outDir := t.TempDir()
 
-	ok, failed, err := Run(context.Background(), inDir, outDir, openStore(t), 1, log())
+	ok, failed, err := Run(context.Background(), inDir, outDir, openStore(t), 1, log(), nil)
 	if ok != 1 {
 		t.Fatalf("ok = %d, want 1", ok)
 	}
@@ -129,7 +129,7 @@ func TestRun_StoresFullPathNotBareName(t *testing.T) {
 	outDir := t.TempDir()
 
 	st := openStore(t)
-	if _, _, err := Run(context.Background(), inDir, outDir, st, 1, log()); err != nil {
+	if _, _, err := Run(context.Background(), inDir, outDir, st, 1, log(), nil); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	item, err := st.GetByDOI(context.Background(), "10.1/full-path")
@@ -143,7 +143,7 @@ func TestRun_StoresFullPathNotBareName(t *testing.T) {
 
 func TestRun_Empty(t *testing.T) {
 	inDir := t.TempDir()
-	ok, failed, err := Run(context.Background(), inDir, t.TempDir(), openStore(t), 0, log())
+	ok, failed, err := Run(context.Background(), inDir, t.TempDir(), openStore(t), 0, log(), nil)
 	if ok != 0 || failed != 0 || err != nil {
 		t.Fatalf("Run = (%d,%d,%v), want (0,0,nil)", ok, failed, err)
 	}

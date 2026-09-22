@@ -3,13 +3,14 @@ module github.com/nexus/vulcanus
 go 1.24.0
 
 require (
+	github.com/adrg/strutil v0.3.1
 	github.com/duckdb/duckdb-go/v2 v2.10505.0
+	github.com/rabbitmq/amqp091-go v1.15.0
 	modernc.org/sqlite v1.29.6
 // ...see go.sum for transitive deps
 )
 
 require (
-	github.com/adrg/strutil v0.3.1 // indirect
 	github.com/apache/arrow-go/v18 v18.5.1 // indirect
 	github.com/duckdb/duckdb-go-bindings v0.10505.0 // indirect
 	github.com/duckdb/duckdb-go-bindings/lib/darwin-amd64 v0.10505.0 // indirect

@@ -1,6 +1,5 @@
-// Package ingest loads the NDJSON files the nauvis and fulgora systems wrote
-// out into a DuckDB database, one row per record, storing the complete contents
-// of each record.
+// Package ingest provides utilities for working with the DuckDB database
+// that Vulcanus writes to.
 package ingest
 
 import (
@@ -14,29 +13,20 @@ import (
 	"strings"
 
 	"github.com/duckdb/duckdb-go/v2"
-	_ "modernc.org/sqlite" // registers the "sqlite" driver (pure Go).
-
-	"github.com/nexus/vulcanus/internal/fulgora"
-	"github.com/nexus/vulcanus/internal/nauvis"
 )
 
-// Run ingests the data held by vis (a *nauvis.Store, landing in a single
-// `nauvis` table) or store (a *fulgora.Store, landing in one table per
-// source) into outDB. outDir is the base directory each of the provider's
-// recorded paths is joined against.
-//
-// All rows are written in a single transaction, so the load is atomic: either
-// the whole run lands or nothing does. Runs against the same outDB therefore
-// never interfere with each other — ingesting Nauvis now and Fulgora later is
-// safe. Returns the number of rows ingested.
-func Run(ctx context.Context, src any, outDir, outDB string) (int, error) {
-	if vis, ok := src.(*nauvis.Store); ok {
-		return runNauvis(ctx, vis, outDir, outDB)
+// OpenDB opens the DuckDB database at path, returning a handle usable through
+// the database/sql interface.
+func OpenDB(path string) (*sql.DB, error) {
+	return openDuckDB(path)
+}
+
+func openDuckDB(path string) (*sql.DB, error) {
+	conn, err := duckdb.NewConnector(path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("connect to DB %s: %w", path, err)
 	}
-	if store, ok := src.(*fulgora.Store); ok {
-		return runFulgora(ctx, store, outDir, outDB)
-	}
-	return 0, fmt.Errorf("unknown source type %T", src)
+	return sql.OpenDB(conn), nil
 }
 
 // ingestFile writes one row per NDJSON line from path into the given insert,
@@ -96,14 +86,4 @@ func resetTable(ctx context.Context, tx *sql.Tx, name string) error {
 // the result is safe to use as a DuckDB table identifier.
 func quoted(name string) string {
 	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
-}
-
-// openDuckDB opens the DuckDB database at path, returning a handle usable
-// through the database/sql interface.
-func openDuckDB(path string) (*sql.DB, error) {
-	conn, err := duckdb.NewConnector(path, nil)
-	if err != nil {
-		return nil, fmt.Errorf("connect to DB %s: %w", path, err)
-	}
-	return sql.OpenDB(conn), nil
 }

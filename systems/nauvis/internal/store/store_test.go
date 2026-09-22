@@ -18,7 +18,7 @@ func openTestStore(t *testing.T) *Store {
 
 func TestRecordMany_Basic(t *testing.T) {
 	st := openTestStore(t)
-	dupes, inserted, err := st.RecordMany(context.Background(), "0.json", []string{"10.1/a", "10.1/b"})
+	dupes, insertedDois, inserted, err := st.RecordMany(context.Background(), "0.json", []string{"10.1/a", "10.1/b"})
 	if err != nil {
 		t.Fatalf("RecordMany: %v", err)
 	}
@@ -28,11 +28,14 @@ func TestRecordMany_Basic(t *testing.T) {
 	if dupes != nil {
 		t.Fatalf("dupes = %v, want none", dupes)
 	}
+	if len(insertedDois) != 2 {
+		t.Fatalf("insertedDois = %v, want 2", insertedDois)
+	}
 }
 
 func TestRecordMany_SkipsEmptyDOIs(t *testing.T) {
 	st := openTestStore(t)
-	_, inserted, err := st.RecordMany(context.Background(), "0.json", []string{"10.1/a", "", ""})
+	_, _, inserted, err := st.RecordMany(context.Background(), "0.json", []string{"10.1/a", "", ""})
 	if err != nil {
 		t.Fatalf("RecordMany: %v", err)
 	}
@@ -43,7 +46,7 @@ func TestRecordMany_SkipsEmptyDOIs(t *testing.T) {
 
 func TestRecordMany_DuplicateWithinFile(t *testing.T) {
 	st := openTestStore(t)
-	dupes, inserted, err := st.RecordMany(context.Background(), "0.json", []string{"10.1/a", "10.1/a"})
+	dupes, _, inserted, err := st.RecordMany(context.Background(), "0.json", []string{"10.1/a", "10.1/a"})
 	if err != nil {
 		t.Fatalf("RecordMany: %v", err)
 	}
@@ -57,10 +60,10 @@ func TestRecordMany_DuplicateWithinFile(t *testing.T) {
 
 func TestRecordMany_SkipsExistingDOIs(t *testing.T) {
 	st := openTestStore(t)
-	if _, _, err := st.RecordMany(context.Background(), "0.json", []string{"10.1/a"}); err != nil {
+	if _, _, _, err := st.RecordMany(context.Background(), "0.json", []string{"10.1/a"}); err != nil {
 		t.Fatalf("first RecordMany: %v", err)
 	}
-	dupes, inserted, err := st.RecordMany(context.Background(), "1.json", []string{"10.1/a"})
+	dupes, _, inserted, err := st.RecordMany(context.Background(), "1.json", []string{"10.1/a"})
 	if err != nil {
 		t.Fatalf("second RecordMany: %v", err)
 	}
@@ -74,7 +77,7 @@ func TestRecordMany_SkipsExistingDOIs(t *testing.T) {
 
 func TestGetByDOI(t *testing.T) {
 	st := openTestStore(t)
-	if _, _, err := st.RecordMany(context.Background(), "3.json", []string{"10.1/lookup"}); err != nil {
+	if _, _, _, err := st.RecordMany(context.Background(), "3.json", []string{"10.1/lookup"}); err != nil {
 		t.Fatalf("RecordMany: %v", err)
 	}
 	item, err := st.GetByDOI(context.Background(), "10.1/lookup")
@@ -95,10 +98,10 @@ func TestGetByDOI_NotRecorded(t *testing.T) {
 
 func TestGetByDOI_OnlyFirstFileIsRecorded(t *testing.T) {
 	st := openTestStore(t)
-	if _, _, err := st.RecordMany(context.Background(), "1.json", []string{"10.1/shared"}); err != nil {
+	if _, _, _, err := st.RecordMany(context.Background(), "1.json", []string{"10.1/shared"}); err != nil {
 		t.Fatalf("first: %v", err)
 	}
-	if _, _, err := st.RecordMany(context.Background(), "2.json", []string{"10.1/shared"}); err != nil {
+	if _, _, _, err := st.RecordMany(context.Background(), "2.json", []string{"10.1/shared"}); err != nil {
 		t.Fatalf("second: %v", err)
 	}
 	item, err := st.GetByDOI(context.Background(), "10.1/shared")
