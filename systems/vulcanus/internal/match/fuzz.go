@@ -3,9 +3,6 @@
 package match
 
 import (
-	"sort"
-	"strings"
-
 	"github.com/adrg/strutil"
 	"github.com/adrg/strutil/metrics"
 )
@@ -92,23 +89,4 @@ func FindPartialRatioAlignment(source, target string) PartialRatioAlignment {
 		Target:   bestTarget,
 		Score:    best * 100.0,
 	}
-}
-
-// TokenSortRatio splits a and b into tokens, sorts them, then computes
-// the ratio of the sorted token strings. Returns a value in [0, 100].
-func TokenSortRatio(a, b string) float64 {
-	tokensA := tokenize(a)
-	tokensB := tokenize(b)
-	sort.Strings(tokensA)
-	sort.Strings(tokensB)
-	return Ratio(strings.Join(tokensA, " "), strings.Join(tokensB, " "))
-}
-
-// tokenize splits s into lowercase tokens (words and non-whitespace runs).
-func tokenize(s string) []string {
-	words := strings.Fields(s)
-	for i, w := range words {
-		words[i] = strings.ToLower(w)
-	}
-	return words
 }

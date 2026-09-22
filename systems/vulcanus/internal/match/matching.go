@@ -412,7 +412,7 @@ func matchesExact(name, substring string) bool {
 }
 
 // CandidateNameMatchExclusion checks if a candidate name should be excluded.
-func CandidateNameMatchExclusion(fund *StringRep, name *StringRep, fundCountries []string) bool {
+func CandidateNameMatchExclusion(fund *StringRep, name *StringRep) bool {
 	lowerName := name.Lower()
 
 	// Never exclude an exact match — this is a real org, not a generic name.
@@ -423,13 +423,6 @@ func CandidateNameMatchExclusion(fund *StringRep, name *StringRep, fundCountries
 	// Check excluded general names
 	if CommonExclusionNames[lowerName] {
 		return true
-	}
-
-	// Check names too general without country
-	if len(fundCountries) == 0 {
-		if CommonExclusionNames[lowerName] {
-			return true
-		}
 	}
 
 	// Names too long
@@ -483,9 +476,9 @@ func ScoreCandidate(fund *StringRep, candidate *Candidate) *CandidateMatch {
 
 	for _, nameStr := range candidate.Names {
 		name := New(nameStr)
-		if CandidateNameMatchExclusion(fund, name, nil) {
+		if CandidateNameMatchExclusion(fund, name) {
 			altName := TryAlteredName(name)
-			if altName == nil || CandidateNameMatchExclusion(fund, altName, nil) {
+			if altName == nil || CandidateNameMatchExclusion(fund, altName) {
 				continue
 			}
 			name = altName

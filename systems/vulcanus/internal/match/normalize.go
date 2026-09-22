@@ -2,7 +2,6 @@
 package match
 
 import (
-	"regexp"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -141,11 +140,11 @@ var mapping = map[rune]rune{
 	0x181: 't', 0x192: 'f',
 	// Greek & Cyrillic (common in transliterations)
 	0x03B1: 'a', 0x03B2: 'b', 0x03B3: 'g', 0x03B4: 'd',
-	0x03B5: 'e', 0x03B6: 'z', 0x03B7: 'e', 0x03B8: 'θ',
+	0x03B5: 'e', 0x03B6: 'z', 0x03B7: 'e',
 	0x03B9: 'i', 0x03BA: 'k', 0x03BB: 'l', 0x03BC: 'm',
 	0x03BD: 'n', 0x03BE: 'x', 0x03BF: 'o', 0x03C1: 'r',
-	0x03C3: 's', 0x03C4: 't', 0x03C5: 'u', 0x03C6: 'φ',
-	0x03C7: 'x', 0x03C8: 'ψ', 0x03C9: 'o',
+	0x03C3: 's', 0x03C4: 't', 0x03C5: 'u',
+	0x03C7: 'x', 0x03C9: 'o',
 }
 
 // normWhitespace collapses runs of whitespace into a single space and
@@ -156,46 +155,4 @@ func normWhitespace(s string) string {
 		return ""
 	}
 	return strings.Join(words, " ")
-}
-
-// CheckLatin reports whether every alphabetic character in s is Latin.
-// Non-alpha characters (digits, punctuation) are skipped.
-func CheckLatin(s string) bool {
-	for _, r := range s {
-		if unicode.IsLetter(r) && !unicode.Is(unicode.Latin, r) {
-			return false
-		}
-	}
-	return true
-}
-
-var abbrPattern = regexp.MustCompile(`(?i)(\b\w+\.?)([ ,;.]|$)`)
-
-// ExpandSuffix expands common ROR abbreviation suffixes to their full forms.
-// This is applied during matching to enable searches like "Univ. of Tech."
-// to match "University of Technology".
-func ExpandSuffix(s string) string {
-	abbrevs := map[string]string{
-		"univ.": "university",
-		"inst.": "institute",
-		"tech.": "technology",
-		"lab.":  "laboratory",
-		"dept.": "department",
-		"prof.": "professor",
-		"st.":   "saint",
-		"mr.":   "mister",
-		"ms.":   "miss",
-		"mt.":   "mount",
-		"av.":   "avenue",
-		"blvd.": "boulevard",
-		"dr.":   "drive",
-		"ln.":   "lane",
-		"pkwy.": "parkway",
-	}
-	for abbr, full := range abbrevs {
-		// Build a case-insensitive word-boundary regex for each abbreviation.
-		re := regexp.MustCompile(`(?i)(^|[^a-z])` + regexp.QuoteMeta(abbr) + `(?:\s|\.|\,|$)`)
-		s = re.ReplaceAllString(s, "$1"+full+"$2")
-	}
-	return s
 }

@@ -27,15 +27,6 @@ func TestNormalize_StringRep(t *testing.T) {
 	}
 }
 
-func TestNormalize_CheckLatin(t *testing.T) {
-	if !CheckLatin("University of Paris 1") {
-		t.Error("CheckLatin('University of Paris 1') should be true")
-	}
-	if CheckLatin("Москва") {
-		t.Error("CheckLatin('Москва') should be false")
-	}
-}
-
 func TestPartialRatio(t *testing.T) {
 	s := PartialRatio("University of Tokyo", "University of Tokyo")
 	if s < 99 || s > 100 {
@@ -55,22 +46,15 @@ func TestPartialRatio(t *testing.T) {
 	}
 }
 
-func TestTokenSortRatio(t *testing.T) {
-	s := TokenSortRatio("University of Tokyo", "University of Tokyo")
-	if s < 99 || s > 100 {
-		t.Errorf("Expected ~100, got %v", s)
-	}
-}
-
 func TestCandidateNameMatchExclusion(t *testing.T) {
 	fund := New("National Science Foundation")
 	name := New("National Science Foundation")
-	if CandidateNameMatchExclusion(fund, name, nil) {
+	if CandidateNameMatchExclusion(fund, name) {
 		t.Error("Exact match should not be excluded")
 	}
 
 	name2 := New("university hospital")
-	if !CandidateNameMatchExclusion(fund, name2, nil) {
+	if !CandidateNameMatchExclusion(fund, name2) {
 		t.Error("Generic name should be excluded")
 	}
 }
@@ -274,15 +258,6 @@ func TestPartialRatioWithDifferentLengths(t *testing.T) {
 	s := PartialRatio("National Science Foundation", "NSF")
 	if s < 30 || s > 40 {
 		t.Errorf("Expected ~33 for NSF vs National Science Foundation, got %v", s)
-	}
-}
-
-func TestTokenSortRatioOrderIndependence(t *testing.T) {
-	// Token sort ratio should be order-independent
-	s1 := TokenSortRatio("University of Tokyo", "Tokyo University")
-	s2 := TokenSortRatio("Tokyo University", "University of Tokyo")
-	if s1 != s2 {
-		t.Errorf("TokenSortRatio should be order-independent: %v vs %v", s1, s2)
 	}
 }
 
@@ -724,7 +699,7 @@ func TestCandidateNameMatchExclusionGenericNames(t *testing.T) {
 	
 	for _, name := range genericNames {
 		sr := New(name)
-		if !CandidateNameMatchExclusion(fund, sr, nil) {
+		if !CandidateNameMatchExclusion(fund, sr) {
 			t.Errorf("Expected '%s' to be excluded", name)
 		}
 	}
@@ -735,19 +710,8 @@ func TestCandidateNameMatchExclusionExactMatch(t *testing.T) {
 	fund := New("National Science Foundation")
 	name := New("National Science Foundation")
 	
-	if CandidateNameMatchExclusion(fund, name, nil) {
+	if CandidateNameMatchExclusion(fund, name) {
 		t.Error("Exact match should never be excluded")
-	}
-}
-
-func TestCandidateNameMatchExclusionWithCountry(t *testing.T) {
-	// Test that country filtering affects exclusion
-	fund := New("National Science Foundation")
-	name := New("National Science Foundation")
-	
-	// Even with country, exact match should pass
-	if CandidateNameMatchExclusion(fund, name, []string{"US"}) {
-		t.Error("Exact match should not be excluded even with country filter")
 	}
 }
 
@@ -1038,7 +1002,7 @@ func TestCandidateNameMatchExclusionTooLong(t *testing.T) {
 
 	// This should be excluded because the name is much longer than the fund
 	// (not an exact match, and name is > fund.Len()+4)
-	if !CandidateNameMatchExclusion(fund, name, nil) {
+	if !CandidateNameMatchExclusion(fund, name) {
 		t.Error("Should exclude very long non-exact match")
 	}
 }
@@ -1048,7 +1012,7 @@ func TestCandidateNameMatchExclusionTooShort(t *testing.T) {
 	fund := New("National Science Foundation")
 	name := New("NS")
 	
-	if !CandidateNameMatchExclusion(fund, name, nil) {
+	if !CandidateNameMatchExclusion(fund, name) {
 		t.Error("Should exclude very short names")
 	}
 }
@@ -1130,17 +1094,6 @@ func TestPartialRatioWithIdenticalStrings(t *testing.T) {
 	s := PartialRatio("University of Tokyo", "University of Tokyo")
 	if s < 99 {
 		t.Errorf("Expected ~100 for identical strings, got %v", s)
-	}
-}
-
-func TestTokenSortRatioWithDifferentOrder(t *testing.T) {
-	// Test TokenSortRatio with different orderings
-	s1 := TokenSortRatio("Tokyo University", "University of Tokyo")
-	s2 := TokenSortRatio("University of Tokyo", "Tokyo University")
-	
-	// Token sort should be order-independent
-	if s1 != s2 {
-		t.Errorf("TokenSortRatio should be order-independent: %v vs %v", s1, s2)
 	}
 }
 
@@ -1262,7 +1215,7 @@ func TestCandidateNameMatchExclusionWithEmptyFund(t *testing.T) {
 	fund := New("")
 	name := New("University of Tokyo")
 	
-	if !CandidateNameMatchExclusion(fund, name, nil) {
+	if !CandidateNameMatchExclusion(fund, name) {
 		t.Error("Should exclude non-empty name when fund is empty")
 	}
 }
@@ -1293,16 +1246,6 @@ func TestPartialRatioWithWhitespace(t *testing.T) {
 	s := PartialRatio("University  of  Tokyo", "University of Tokyo")
 	if s < 70 {
 		t.Errorf("Expected reasonable score for whitespace variations, got %v", s)
-	}
-}
-
-func TestTokenSortRatioWithMultipleWords(t *testing.T) {
-	// Test TokenSortRatio with many words
-	s1 := TokenSortRatio("Tokyo University of Science", "University of Science Tokyo")
-	s2 := TokenSortRatio("University of Science Tokyo", "Tokyo University of Science")
-	
-	if s1 != s2 {
-		t.Errorf("TokenSortRatio should be order-independent: %v vs %v", s1, s2)
 	}
 }
 
@@ -1400,7 +1343,7 @@ func TestCandidateNameMatchExclusionWithLongName(t *testing.T) {
 	fund := New("NSF")
 	name := New("National Science Foundation of the United States of America")
 	
-	if !CandidateNameMatchExclusion(fund, name, nil) {
+	if !CandidateNameMatchExclusion(fund, name) {
 		t.Error("Should exclude very long names")
 	}
 }
@@ -1490,7 +1433,7 @@ func TestCandidateNameMatchExclusionWithSingleWord(t *testing.T) {
 	fund := New("Tokyo")
 	name := New("Tokyo")
 	
-	if CandidateNameMatchExclusion(fund, name, nil) {
+	if CandidateNameMatchExclusion(fund, name) {
 		t.Error("Exact single word match should not be excluded")
 	}
 }
@@ -1567,7 +1510,7 @@ func TestCandidateNameMatchExclusionWithNumericNames(t *testing.T) {
 	fund := New("123")
 	name := New("123")
 	
-	if CandidateNameMatchExclusion(fund, name, nil) {
+	if CandidateNameMatchExclusion(fund, name) {
 		t.Error("Exact numeric match should not be excluded")
 	}
 }
@@ -1651,7 +1594,7 @@ func TestCandidateNameMatchExclusionWithAllCAPS(t *testing.T) {
 	fund := New("NSF")
 	name := New("NSF")
 	
-	if CandidateNameMatchExclusion(fund, name, nil) {
+	if CandidateNameMatchExclusion(fund, name) {
 		t.Error("Exact all-caps match should not be excluded")
 	}
 }
@@ -1735,7 +1678,7 @@ func TestCandidateNameMatchExclusionWithMixedCase(t *testing.T) {
 	fund := New("National Science Foundation")
 	name := New("National Science Foundation")
 	
-	if CandidateNameMatchExclusion(fund, name, nil) {
+	if CandidateNameMatchExclusion(fund, name) {
 		t.Error("Exact match should not be excluded")
 	}
 }

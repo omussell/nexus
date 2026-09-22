@@ -95,10 +95,10 @@ func main() {
 		if err := ingest.RunRORMatches(ctx, *outDB); err != nil {
 			log.Fatalf("vulcanus: ROR matching: %v", err)
 		}
-		fmt.Printf("vulcanus: ROR matching complete\n")
+		log.Println("vulcanus: ROR matching complete")
 	}
 
-	fmt.Printf("vulcanus: done, DuckDB=%s\n", *outDB)
+	log.Printf("vulcanus: done, DuckDB=%s", *outDB)
 }
 
 // ingestWriter handles ingesting CROID records into DuckDB tables.

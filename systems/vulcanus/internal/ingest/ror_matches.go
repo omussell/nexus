@@ -14,15 +14,6 @@ import (
 	"github.com/nexus/vulcanus/internal/match"
 )
 
-type rormatch struct {
-	PaperDOI   string  `json:"paper_doi"`
-	Name       string  `json:"name"`
-	NameType   string  `json:"name_type"` // "funder" or "affiliation"
-	RORID      string  `json:"ror_id"`
-	RORName    string  `json:"ror_name"`
-	Confidence float64 `json:"confidence"`
-}
-
 // RunRORMatches runs ROR matching against the nauvis records stored in the
 // DuckDB at dbPath, writing matches to the ror_funder_matches and
 // ror_affiliation_matches tables. It is a no-op if either the nauvis or ror
