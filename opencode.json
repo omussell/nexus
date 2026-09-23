@@ -11,23 +11,20 @@
     }
   },
   "provider": {
-    "ollama": {
+    "wintermute": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "Ollama",
+      "name": "wintermute",
       "options": {
-        "baseURL": "http://192.168.0.24:11434/v1"
+        "baseURL": "http://192.168.0.24:8000/v1"
       },
       "models": {
-        "gemma4:e4b": {
-          "name": "Gemma 4 e4b" 
+        "nemotron3.5:30b-a3b": {
+          "name": "Tooling and Exploration - Nemotron3.5 Lightning 30b-a3b" 
 	},
-        "gemma3:270m": {
-          "name": "Small Functions - Gemma 3 270m" 
+        "gemma4:26b-a4b": {
+          "name": "Documentation and Prose - Gemma4 26b-a4b" 
 	},
-        "gemma4:12b-it-qat": {
-          "name": "Documentation and Prose - Gemma 4 12b" 
-	},
-        "qwen3.6:35b-a3b-mtp-q4_K_M": {
+        "qwen3.6:35b-a3b": {
           "name": "Coding - Qwen3.6 35b-a3b" 
 	},
         "qwen3.8:27b": {
