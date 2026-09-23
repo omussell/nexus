@@ -300,22 +300,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-three-stages" class="md-nav__link">
+  <a href="#the-stages" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The three stages
+        The stages
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="The three stages">
+    <nav class="md-nav" aria-label="The stages">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-nauvis-store-internalnauvis" class="md-nav__link">
+  <a href="#1-rabbitmq-consumer-internalrabbitmq" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Nauvis store — internal/nauvis
+        1. RabbitMQ consumer — internal/rabbitmq
       
     </span>
   </a>
@@ -369,6 +369,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Running Vulcanus">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#retraction_provenance-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        retraction_provenance view
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deployment
+      
+    </span>
+  </a>
+  
 </li>
       
         <li class="md-nav__item">
@@ -386,6 +425,60 @@
   
 </nav>
       
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../matchers.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Matching Extensions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../matchers.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Matching Extensions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -428,22 +521,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-three-stages" class="md-nav__link">
+  <a href="#the-stages" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The three stages
+        The stages
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="The three stages">
+    <nav class="md-nav" aria-label="The stages">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-nauvis-store-internalnauvis" class="md-nav__link">
+  <a href="#1-rabbitmq-consumer-internalrabbitmq" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Nauvis store — internal/nauvis
+        1. RabbitMQ consumer — internal/rabbitmq
       
     </span>
   </a>
@@ -497,6 +590,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Running Vulcanus">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#retraction_provenance-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        retraction_provenance view
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deployment
+      
+    </span>
+  </a>
+  
 </li>
       
         <li class="md-nav__item">
@@ -528,87 +660,114 @@
 
 
 <h1 id="how-vulcanus-works">How Vulcanus Works</h1>
-<p>This page explains how the Vulcanus program operates, from the NDJSON files
-Nauvis wrote out on disk to the DuckDB it maintains. It is a companion to the
-<a href="../">Overview</a>; see there for what Vulcanus is and what it aims to.</p>
+<p>This page explains how Vulcanus operates, from RabbitMQ CROID events to the
+DuckDB database it maintains. It is a companion to the <a href="../">Overview</a>;
+see there for what Vulcanus is and what it aims to.</p>
 <h2 id="at-a-glance">At a glance</h2>
-<p>Vulcanus reverses Nauvis's index. Nauvis records which <code>(file, doi)</code> pairs it
-saw; Vulcanus reads that SQLite index back, follows each recorded output file,
-and loads the <strong>complete contents</strong> of every JSON line into a DuckDB. Each line
-of each NDJSON file becomes one row of a single <code>items</code> table, storing the raw
-JSON document as-is.</p>
-<pre><code>Nauvis SQLite   ──list──▶   NDJSON files on disk   ──read──▶   DuckDB items table
- (file, doi)                        *.ndjson                         record
+<p>Vulcanus is a RabbitMQ consumer. Nauvis and Fulgora each publish CROID events to
+the <code>croid</code> exchange whenever they mint a new CROID. Vulcanus listens on a
+queue bound to that exchange, and for every message it:</p>
+<ol>
+<li>loads the full CROID record (<code>record</code> field) from the RabbitMQ message body,</li>
+<li>routes the record into the appropriate DuckDB table, and</li>
+<li>continues processing the next message.</li>
+</ol>
+<pre><code>Nauvis ──mint──▶  RabbitMQ `croid` exchange  ──consume──▶  DuckDB `nauvis` table
+Fulgora ──mint──▶  RabbitMQ `croid` exchange  ──consume──▶  DuckDB `&lt;source&gt;` tables
 </code></pre>
+<p>The two providers stay separate: Nauvis lands in a single <code>nauvis</code> table, while
+each Fulgora source (e.g. <code>ror</code>, <code>retractionwatch</code>) gets its own table. They can
+arrive at different times without clobbering each other.</p>
+<p>After the source tables exist, Vulcanus can build a thin <strong>derived view</strong>
+<code>retractions</code> that pairs each Nauvis record with its matching
+<code>retractionwatch</code> notice on the paper's DOI (<code>nauvis.DOI</code> =
+<code>retractionwatch.OriginalPaperDOI</code>), exposing both full records plus the
+matching DOI. The view is only built when the <code>-match-retractions</code> flag is
+given (it is a no-op while either source table is missing) and is a
+projection over the loaded tables — it never copies data.</p>
 <p>This is not transformation: Vulcanus never parses or normalises the payload. It
-only preserves it, one line at a time, in a single column of JSON text. Every
-record that Nauvis saw is ingested; nothing is filtered by DOI.</p>
-<h2 id="the-three-stages">The three stages</h2>
-<p>The pipeline is split into three packages, each with one job.</p>
-<h3 id="1-nauvis-store-internalnauvis">1. Nauvis store — <code>internal/nauvis</code></h3>
-<p><code>nauvis.Open(path)</code> reads the SQLite database Nauvis wrote and returns a <code>Store</code>.
-Because Nauvis is the source of truth for which files exist, Vulcanus does not
-scan the filesystem itself — it asks the store.</p>
-<p><code>store.Items()</code> returns every output file Nauvis recorded, with its DOI count:</p>
-<pre><code class="language-sql">SELECT file, COUNT(*)
-FROM items
-GROUP BY file
-ORDER BY file
+only preserves it, one record at a time, in a single column of JSON text. Every
+record a provider saw is ingested; nothing is filtered away.</p>
+<h2 id="the-stages">The stages</h2>
+<p>The pipeline is split into two packages and one entry point, each with one job.</p>
+<h3 id="1-rabbitmq-consumer-internalrabbitmq">1. RabbitMQ consumer — <code>internal/rabbitmq</code></h3>
+<p><code>rabbitmq.New(url, exchange, queue, routingKey, handler, logger)</code> creates a
+persistent AMQP connection, declares the queue, binds it to the exchange, sets
+QoS to 1 (one message at a time), and starts consuming.</p>
+<p>The handler receives each <code>Record</code> with fields:
+- <code>CROID</code> — the URL-safe 32-character CROID string
+- <code>CroType</code> — the identity type (e.g. <code>DOI</code>)
+- <code>CroValue</code> — the identity value (e.g. <code>10.1/paper</code>)
+- <code>System</code> — the system that minted it (<code>nauvis</code> or <code>fulgora:&lt;source&gt;</code>)
+- <code>Record</code> — the full JSON record, preserved as-is</p>
+<pre><code class="language-go">type Record struct {
+    CROID   string
+    CroType string
+    CroValue string
+    System  string
+    Record  []byte
+}
 </code></pre>
-<p>Each <code>Item</code> carries the <code>Path</code> (relative to the Nauvis output directory) and the
-<code>Count</code> of DOIs in that file. The query is grouping over the per-item rows
-Nauvis produced, so the count is derived, not stored.</p>
-<p><code>store.ByDOI</code> is the inverse lookup: given a DOI, which file first recorded it,
-or <code>sql.ErrNoRows</code> if unknown. This matches the read side Nauvis exposes and can
-underpin lookups when Vulcanus needs to decide where an item came from.</p>
-<p><code>Open</code> caps the pool to a single connection (<code>SetMaxOpenConns(1)</code>) so reads never
-races; this matches Nauvis's own single-writer discipline the way DuckDB's
-serialised access serialises every write on Vulcanus's side.</p>
+<p>The consumer exposes a <code>Done() &lt;-chan struct{}</code> that is closed when the consumer
+loop exits (connection loss, explicit close, etc.), allowing the main process to
+detect lifecycle events.</p>
+<p><code>Close()</code> shuts down the consumer gracefully, waiting up to 30 seconds for the
+connection to close cleanly.</p>
 <h3 id="2-ingest-internalingest">2. Ingest — <code>internal/ingest</code></h3>
-<p><code>ingest.Run</code> ties the two halves together:</p>
-<pre><code>for each file Nauvis listed:
-    open the DuckDB (once, in a single transaction)
-    ensure items(record JSON) exists
-    for each file:
-        read it as NDJSON, one line at a time
-        skip blank lines
-        reject any line that is not valid JSON
-        bind each raw line as one INSERT into items
-    commit everything
+<p><code>OpenDB(path)</code> opens the DuckDB database with write-ahead-log mode enabled and
+returns a <code>*sql.DB</code> for use by the ingest writer.</p>
+<p>The <code>ingestWriter</code> type handles routing CROID records into the correct DuckDB
+table. It maintains a cache of prepared <code>INSERT</code> statements keyed by table name:</p>
+<pre><code class="language-go">func (w *ingestWriter) Ingest(ctx context.Context, rec rabbitmq.Record) error {
+    table := tableName(rec.System)  // &quot;nauvis&quot; or &quot;&lt;source&gt;&quot;
+    stmt := w.ensureStmt(table)     // prepare INSERT INTO &quot;table&quot; (record) VALUES (?)
+    stmt.Exec(rec.Record)           // bind and execute
+}
 </code></pre>
-<p>The method takes a <code>*nauvis.Store</code>, the base <code>outDir</code> every Nauvis path is
-joined against, and the <code>outDB</code> DuckDB file to write. It returns the total number
-of rows ingested across every file.</p>
 <p>The implementation:
-- <strong>One transaction</strong> — all rows are written in a single <code>BEGIN … COMMIT</code>. This
-  keeps the DuckDB load atomic: either the whole run lands, or nothing does.
-- <strong>A prepared statement</strong> — <code>INSERT INTO items (record) VALUES (?)</code> is prepared
-  once and reused per line, so the bind cost is minimal.
-- <strong>Line-by-line scanning</strong> — each file is read with a <code>bufio.Scanner</code> that grows
-  up to an <code>8 MiB</code> line, so large JSON documents can still be inserted.
-- <strong>Faithful preservation</strong> — the bytes of each line are bound verbatim into the
-  <code>JSON</code> column. No round-tripping through a struct, no re-serialising, no field
-  selection: whatever Nauvis emitted is exactly what lands in DuckDB.
-- <strong><code>CREATE TABLE IF NOT EXISTS</code></strong> — the schema uses the same idempotent guard
-  Nauvis uses, so reloading never errors and the table is safe to re-run.</p>
-<p><code>ingestFile</code> is the per-file worker. Invalid JSON aborts the run with an error
-(never silently skipped), because a corrupt record almost certainly means a
-corrupt upstream write that should be traced rather than hidden.</p>
+- <strong>Prepared statements</strong> — each table's <code>INSERT</code> is prepared once and reused,
+  so the bind cost is minimal.
+- <strong>Safe table names</strong> — system and source names that become table identifiers
+  are wrapped in double quotes with any embedded quotes doubled, so registry
+  values can't break (or inject into) the DDL.
+- <strong>Faithful preservation</strong> — the bytes of each record are bound verbatim into
+  the <code>JSON</code> column. No round-tripping through a struct, no re-serialising, no
+  field selection: whatever a provider emitted is exactly what lands in DuckDB.
+- <strong>One message at a time</strong> — QoS=1 ensures the next message is only dispatched
+  after the previous one is successfully ingested, providing backpressure.</p>
 <h3 id="3-entry-point-maingo">3. Entry point — <code>main.go</code></h3>
-<p><code>main.go</code> is dispatcher only. It parses three flags, opens the Nauvis store,
-defers its close, and calls <code>ingest.Run</code>:</p>
-<pre><code>-db       path to the Nauvis SQLite database (default nauvis.sqlite3)
--visdir   path to the Nauvis output directory (no default)
--duckdb   the DuckDB file to write (default vulcanus.duckdb)
+<p><code>main.go</code> runs as a batch worker: it connects to RabbitMQ, begins consuming
+messages, and blocks until a shutdown signal arrives.</p>
+<pre><code>-rabbitmq    RabbitMQ AMQP URL (default amqp://localhost:5672)
+-exchange    RabbitMQ exchange to consume from (default croid)
+-queue       RabbitMQ queue name to declare/bind (default vulcanus)
+-routing-key RabbitMQ routing key (empty = all)
+-duckdb      the DuckDB file to write (default vulcanus.duckdb)
+-match-ror   run ROR matching against nauvis records after consuming
+-match-retractions run retractionwatch matching (rebuild the retraction
+                   views) after consuming
 </code></pre>
-<p>On success it prints a one-line summary — the row count and the cleaned output
-path — and exits. Any earlier failure logs and exits non-zero; <code>Run</code>'s returned
-error is never swallowed.</p>
+<p>At least one of <code>-match-ror</code> or <code>-match-retractions</code> is required; if
+neither is set, Vulcanus prints usage and exits without doing anything.</p>
+<p>Flow:
+1. Parse flags; without any matching flag, print usage and exit.
+2. Open DuckDB once via <code>ingest.OpenDB()</code>.
+3. Create the <code>ingestWriter</code> and wire it as the RabbitMQ message handler.
+4. Start the consumer — it begins processing messages immediately.
+5. Block on either <code>sigCh</code> (SIGINT/SIGTERM) or <code>consumer.Done()</code>.
+6. On signal: initiate graceful shutdown with a 30s timeout.
+7. If <code>-match-retractions</code> is set: run retractionwatch matching (rebuild
+   the retraction views).
+8. If <code>-match-ror</code> is set: run ROR entity matching against nauvis records.</p>
+<p>The two providers are independent — Nauvis and Fulgora events can arrive at
+different times, and Vulcanus routes each to the correct table.</p>
 <h2 id="the-database">The database</h2>
-<p>A single table, a single column:</p>
+<p>Every <em>table</em> has a single column and is loaded identically — one row per
+CROID event, the raw JSON document preserved as-is:</p>
 <table>
 <thead>
 <tr>
+<th>table</th>
 <th>column</th>
 <th>type</th>
 <th>notes</th>
@@ -616,41 +775,254 @@ error is never swallowed.</p>
 </thead>
 <tbody>
 <tr>
+<td><code>nauvis</code> (Nauvis)</td>
 <td><code>record</code></td>
 <td>JSON</td>
-<td>one row per NDJSON line; the raw document as Nauvis wrote it</td>
+<td>one row per CROID event; the raw document as Nauvis wrote it</td>
+</tr>
+<tr>
+<td><code>&lt;source&gt;</code> (Fulgora, one per source)</td>
+<td><code>record</code></td>
+<td>JSON</td>
+<td>e.g. <code>ror</code>, <code>retractionwatch</code>; same shape as <code>nauvis</code>, but each source has its own table</td>
 </tr>
 </tbody>
 </table>
-<p>Each row is a full JSON object from a Nauvis output file. Vulcanus stores every
-line it is handed — one record per input record — which is what makes the DB
-useful for downstream work: reading a <code>record</code> gives back the entire item, not a
-projection. Because the column is declared <code>JSON</code>, DuckDB's JSON functions
-(<code>JSON_SCHEMA</code>, <code>JSON_EXTRACT</code>, <code>...</code>) are available directly against the stored
-text once the load has happened.</p>
+<p>In addition, retraction matching (<code>-match-retractions</code>) derives two <strong>views</strong>
+that sit on the same Nauvis↔retractionwatch <code>JOIN</code>. The <code>retractions</code> view
+pairs each Nauvis record with its <code>retractionwatch</code> notice on the paper's DOI
+so a consumer can pull the full pair in one query; the narrower
+<code>retraction_provenance</code> view reduces exactly those matches to two
+consumer-ready provenance strings per match — one from Nauvis's perspective
+(<code>X is-retracted-by Y</code>) and one from the retraction notice's (<code>Y retracts
+X</code>). Both are derived objects — they are not tables that get loaded, and
+never hold a copy of the bytes; they are rebuilt on <code>CREATE OR REPLACE VIEW</code>
+whenever retraction matching runs, and only become queryable once <strong>both</strong>
+source tables exist.</p>
+<table>
+<thead>
+<tr>
+<th>view</th>
+<th>columns</th>
+<th>type</th>
+<th>notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>retractions</code></td>
+<td><code>nauvis_record</code></td>
+<td>JSON</td>
+<td>the full Nauvis record (Crossref item)</td>
+</tr>
+<tr>
+<td></td>
+<td><code>retractionwatch_record</code></td>
+<td>JSON</td>
+<td>the full retractionwatch record</td>
+</tr>
+<tr>
+<td></td>
+<td><code>matched_doi</code></td>
+<td>VARCHAR</td>
+<td>the DOI that linked the two (Nauvis's <code>DOI</code>)</td>
+</tr>
+<tr>
+<td><code>retraction_provenance</code></td>
+<td><code>nauvis_record</code></td>
+<td>JSON</td>
+<td>the Nauvis record for the passive row; swapped for the active row</td>
+</tr>
+<tr>
+<td></td>
+<td><code>retractionwatch_record</code></td>
+<td>JSON</td>
+<td>the retractionwatch record for the passive row; swapped for the active row</td>
+</tr>
+<tr>
+<td></td>
+<td><code>paper_doi</code></td>
+<td>VARCHAR</td>
+<td>Nauvis's <code>DOI</code> in the passive row; retraction notices' <code>RetractionDOI</code> in the active. Equals the join key in the passive row.</td>
+</tr>
+<tr>
+<td></td>
+<td><code>retraction_doi</code></td>
+<td>VARCHAR</td>
+<td>Retraction notice's own DOI (<code>RetractionDOI</code>) in the passive row; Nauvis's <code>DOI</code> in the active.</td>
+</tr>
+<tr>
+<td></td>
+<td><code>provenance</code></td>
+<td>VARCHAR</td>
+<td>bidirectional provenance: <code>X is-retracted-by Y</code> and <code>Y retracts X</code> per match, two rows per join result</td>
+</tr>
+</tbody>
+</table>
+<p>Nauvis and Fulgora are kept <strong>separate</strong>: Nauvis always lands in the single
+<code>nauvis</code> table, while each Fulgora source gets its own table named after the
+source. A row in any table is a full JSON object from that provider's output —
+one record per input record. Because the column is declared <code>JSON</code>,
+DuckDB's JSON functions (<code>JSON_SCHEMA</code>, <code>JSON_EXTRACT</code>, ...) are available
+directly against the stored text once the load has happened.</p>
+<p>Running the consumer over time accumulates records from both providers into the
+same DuckDB database. Because there is no table clearing step, re-running a
+provider simply adds more rows — the consumer is append-only.</p>
 <h2 id="running-vulcanus">Running Vulcanus</h2>
-<pre><code>go run . [-db nauvis.sqlite3] [-visdir &lt;nauvis-out&gt;] [-duckdb vulcanus.duckdb]
+<pre><code class="language-bash">go run . [-rabbitmq amqp://localhost:5672] [-duckdb vulcanus.duckdb] [-match-retractions] [-match-ror]
 </code></pre>
-<ul>
-<li><strong>process</strong> (default): <code>-db</code> the Nauvis SQLite file, <code>-visdir</code> the Nauvis
-  output directory it wrote (this is where the NDJSON files live, joined against
-  the paths returned by the store), and <code>-duckdb</code> the DuckDB file to write.</li>
-</ul>
-<p>The key contract is faithfulness: Vulcanus treats the bytes coming out of Nauvis
-as the data, and DuckDB as the place to store them for later analysis.</p>
+<p>At least one matching flag (<code>-match-retractions</code> or <code>-match-ror</code>) is
+required; without one, Vulcanus prints usage and exits.</p>
+<table>
+<thead>
+<tr>
+<th>flag</th>
+<th>default</th>
+<th>meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-rabbitmq</code></td>
+<td><code>amqp://localhost:5672</code></td>
+<td>RabbitMQ AMQP URL</td>
+</tr>
+<tr>
+<td><code>-exchange</code></td>
+<td><code>croid</code></td>
+<td>RabbitMQ exchange to consume from</td>
+</tr>
+<tr>
+<td><code>-queue</code></td>
+<td><code>vulcanus</code></td>
+<td>RabbitMQ queue name to declare/bind</td>
+</tr>
+<tr>
+<td><code>-routing-key</code></td>
+<td>(empty)</td>
+<td>RabbitMQ routing key (empty = all)</td>
+</tr>
+<tr>
+<td><code>-duckdb</code></td>
+<td><code>vulcanus.duckdb</code></td>
+<td>DuckDB database file to write</td>
+</tr>
+<tr>
+<td><code>-match-retractions</code></td>
+<td><code>false</code></td>
+<td>Run retractionwatch matching (rebuild the retraction views) after consuming</td>
+</tr>
+<tr>
+<td><code>-match-ror</code></td>
+<td><code>false</code></td>
+<td>Run ROR matching after consuming</td>
+</tr>
+</tbody>
+</table>
+<h3 id="example">Example</h3>
+<pre><code class="language-bash">$ go run . -duckdb vulcanus.duckdb -match-retractions -match-ror
+vulcanus: starting consumer
+vulcanus: waiting for messages (send SIGINT/SIGTERM to stop)
+^C
+vulcanus: shutting down...
+vulcanus: retraction matching complete
+vulcanus: ROR matching complete
+vulcanus: done, DuckDB=vulcanus.duckdb
+</code></pre>
+<p>The resulting <code>vulcanus.duckdb</code> holds one table per source; list them with the
+DuckDB CLI:</p>
+<pre><code>$ duckdb vulcanus.duckdb
+duckdb&gt; .tables
+nauvis            retractionwatch  ror
+</code></pre>
+<p>The key contract is faithfulness: Vulcanus treats the bytes coming in each
+RabbitMQ message as the data, and DuckDB as the place to store them for later
+analysis.</p>
+<p>Because retraction matching is opt-in, running the consumer without
+<code>-match-retractions</code> leaves no retraction views behind — they only appear
+after a matching run with both source tables present.</p>
+<p>The derived <code>retractions</code> view is the one exception to "preserve bytes, do not
+transform": its purpose is to <em>link</em> two existing bytes columns by a key — the
+Nauvis record's <code>DOI</code> and the <code>retractionwatch</code> record's <code>OriginalPaperDOI</code> —
+and expose both alongside the key that tied them together. No record's content
+is rewritten, re-serialised, or pruned; the view is a thin projection over the
+two already-loaded tables:</p>
+<pre><code class="language-sql">CREATE OR REPLACE VIEW retractions AS
+SELECT
+    n.record AS nauvis_record,
+    r.record AS retractionwatch_record,
+    json_extract_string(n.record, '$.DOI') AS matched_doi
+FROM nauvis AS n
+JOIN retractionwatch AS r
+  ON json_extract_string(n.record, '$.DOI') =
+     json_extract_string(r.record, '$.OriginalPaperDOI')
+</code></pre>
+<p>Because it is a view (not a table), it is always in sync with whatever is
+currently in the two source tables: as new messages arrive, the view's result
+set updates automatically on the next query. The view is also idempotent across
+consumption — the SQL uses <code>CREATE OR REPLACE</code>, so repeated ingests leave a
+single, up-to-date view.</p>
+<h3 id="retraction_provenance-view"><code>retraction_provenance</code> view</h3>
+<p>Each Nauvis↔retractionwatch match produces <strong>two</strong> rows — one passive and one
+active — in a <code>UNION ALL</code>:</p>
+<table>
+<thead>
+<tr>
+<th>direction</th>
+<th>format</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>passive (existing)</td>
+<td><code>&lt;DOI&gt; is-retracted-by &lt;RetractionDOI&gt;</code></td>
+<td><code>10.1/paper is-retracted-by 10.1/retract</code></td>
+</tr>
+<tr>
+<td>active</td>
+<td><code>&lt;RetractionDOI&gt; retracts &lt;DOI&gt;</code></td>
+<td><code>10.1/retract retracts 10.1/paper</code></td>
+</tr>
+</tbody>
+</table>
+<p>The passive row keeps its original column semantics (Nauvis columns stay in the
+<code>nauvis_record</code> and <code>paper_doi</code> columns). In the active row, both the record
+columns and column assignments are swapped so that <code>paper_doi</code> reflects the
+retraction notice's DOI while <code>provenance</code> reads naturally from the retraction
+notice's perspective. The <code>(paper_doi, retraction_doi)</code> pair is identical across
+both directions.</p>
+<p>Because the same join key drives both sides, the view is always in sync with the
+<code>retractions</code> view — a consumer can query either to discover which pairs exist,
+then use <code>provenance</code> for exports or joins without per-row string assembly.</p>
+<h2 id="deployment">Deployment</h2>
+<p>Vulcanus is designed for container deployment. It runs continuously, consuming
+messages until stopped:</p>
+<ol>
+<li>Container starts → connects to RabbitMQ → begins consuming</li>
+<li>If queue is empty: blocks waiting for messages</li>
+<li>On SIGINT/SIGTERM: finishes current message, closes connection, exits</li>
+<li>Max 30s shutdown timeout prevents hanging</li>
+</ol>
+<p>Set <code>terminationGracePeriodSeconds: 35</code> in Kubernetes to allow graceful shutdown.</p>
+<p>Multiple containers can consume from the same queue; RabbitMQ distributes
+messages across them, enabling horizontal scaling.</p>
 <h2 id="design-notes">Design notes</h2>
 <ul>
-<li><strong>DuckDB for the work, SQLite for the map.</strong> Nauvis's SQLite <code>items</code> is an
-  index of file-to-DOI relationships; DuckDB is the wide column store that makes
-  it cheap to run queries over the full records once they are on disk.</li>
+<li><strong>RabbitMQ for delivery, DuckDB for analysis.</strong> Nauvis and Fulgora publish to
+  RabbitMQ; DuckDB is the column store that makes it cheap to run queries over
+  the full records once they are on disk.</li>
 <li><strong>Round-trip preservation over transformation.</strong> The ingest step preserves
   bytes, not parse results. There is no value in re-serialising JSON that is
   already compact.</li>
-<li><strong>Faithful line counts.</strong> Blank lines are skipped but every non-blank line is
-  counted and bound, so the returned total equals the number of actual records
-  loaded — a useful cross-check against Nauvis's own DOIs.</li>
-<li><strong><code>main.go</code> is dispatcher only.</strong> All logic lives in <code>nauvis</code> and <code>ingest</code>;
-  <code>main.go</code> only parses flags and picks a mode.</li>
+<li><strong>Append-only ingestion.</strong> Unlike the previous file-based ingest that cleared
+  and replaced tables, the RabbitMQ consumer only adds rows. Re-running the
+  consumer simply accumulates more records.</li>
+<li><strong>Separate tables per provider.</strong> Nauvis is the "main" data in <code>nauvis</code>;
+  Fulgora sources are enrichment data, each in its own table. Keeping them
+  separate preserves that distinction and lets either arrive independently.</li>
+<li><strong><code>main.go</code> is a batch worker.</strong> It starts, consumes until stopped. All logic
+  lives in <code>rabbitmq</code> and <code>ingest</code>; <code>main.go</code> only wires them together.</li>
 </ul>
 
 

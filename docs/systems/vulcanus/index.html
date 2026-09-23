@@ -283,6 +283,56 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#running-vulcanus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running Vulcanus
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Running Vulcanus">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deployment
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -306,6 +356,60 @@
     
   
     How It Works
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="matchers.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Matching Extensions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="matchers.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Matching Extensions
   
 
     
@@ -366,6 +470,56 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#running-vulcanus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running Vulcanus
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Running Vulcanus">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deployment
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -384,24 +538,100 @@
 
 
 <h1 id="vulcanus">VULCANUS</h1>
-<p>The Vulcanus system is responsible for processing and enriching the data collected by other systems like Nauvis and Fulgora.</p>
+<p>Vulcanus ingests data from Nauvis and Fulgora into a DuckDB database, enabling citation and retraction analysis.</p>
 <h2 id="overview">Overview</h2>
-<p>Vulcanus takes the "main" data collected by Nauvis and enriches it with data from Fulgora. A key part of this process is "matching"—using algorithms to map data from one source to metadata from another.</p>
+<p>Vulcanus is a batch worker that connects to RabbitMQ, consumes CROID events from Nauvis and Fulgora, and ingests each record into DuckDB. It runs as a container that processes messages until stopped with SIGINT or SIGTERM.</p>
 <h2 id="key-functionalities">Key Functionalities</h2>
 <ul>
-<li><strong>Data Enrichment:</strong> Enhances Nauvis data with additional information from Fulgora.</li>
-<li><strong>Data Matching:</strong><ul>
-<li>Maps citation strings to DOIs.</li>
-<li>Maps journal articles to preprint DOIs.</li>
-<li>Maps funder info to grant DOIs.</li>
-<li>Maps funder names to ROR/Funder IDs.</li>
-<li>Maps affiliations to ROR IDs.</li>
-<li>Maps person information to ORCID.</li>
+<li><strong>RabbitMQ Consumer:</strong> Connects to the CROID exchange, consumes events one at a time (QoS=1), and exits on shutdown signal.</li>
+<li><strong>Per-Record Ingestion:</strong> Each CROID event triggers ingestion of a single record into the appropriate DuckDB table (<code>nauvis</code> or <code>&lt;source&gt;</code> for Fulgora sources).</li>
+<li><strong>Provider Isolation:</strong> Nauvis DOI records land in a single <code>nauvis</code> table; each Fulgora source (e.g. <code>ror</code>, <code>retractionwatch</code>) gets its own table.</li>
+<li><strong>Faithful Preservation:</strong> Ingests raw JSON records verbatim into a <code>JSON</code> column in DuckDB.</li>
+<li><strong>Retraction Matching:</strong> Optional <code>-match-retractions</code> flag rebuilds the <code>retractions</code> view, which pairs each Nauvis record with its <code>retractionwatch</code> notice on the paper's DOI.</li>
+<li><strong>Bidirectional Retraction Provenance:</strong> Derives both passive (<code>X is-retracted-by Y</code>) and active (<code>Y retracts X</code>) provenance strings.</li>
+<li><strong>ROR Matching:</strong> Optional <code>-match-ror</code> flag runs ROR entity matching against nauvis records after consuming.</li>
+<li><strong>Required Matching:</strong> At least one matching flag (<code>-match-retractions</code> or <code>-match-ror</code>) must be given; otherwise Vulcanus prints usage and exits.</li>
 </ul>
-</li>
-<li><strong>Data Output:</strong> Produces single files per CRO, ideally in Parquet format.</li>
-<li><strong>Processing Engine:</strong> Utilizes DuckDB to assist with processing Parquet files.</li>
-</ul>
+<h2 id="running-vulcanus">Running Vulcanus</h2>
+<pre><code class="language-bash">go run . \
+  [-rabbitmq amqp://localhost:5672] \
+  [-exchange croid] \
+  [-queue vulcanus] \
+  [-routing-key &quot;&quot;] \
+  [-duckdb vulcanus.duckdb] \
+  [-match-retractions] \
+  [-match-ror]
+</code></pre>
+<p>At least one matching flag (<code>-match-retractions</code> or <code>-match-ror</code>) is
+required; without one, Vulcanus prints usage and exits.</p>
+<table>
+<thead>
+<tr>
+<th>flag</th>
+<th>default</th>
+<th>meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-rabbitmq</code></td>
+<td><code>amqp://localhost:5672</code></td>
+<td>RabbitMQ AMQP URL</td>
+</tr>
+<tr>
+<td><code>-exchange</code></td>
+<td><code>croid</code></td>
+<td>RabbitMQ exchange to consume from</td>
+</tr>
+<tr>
+<td><code>-queue</code></td>
+<td><code>vulcanus</code></td>
+<td>RabbitMQ queue name to declare/bind</td>
+</tr>
+<tr>
+<td><code>-routing-key</code></td>
+<td>(empty)</td>
+<td>RabbitMQ routing key (empty = all)</td>
+</tr>
+<tr>
+<td><code>-duckdb</code></td>
+<td><code>vulcanus.duckdb</code></td>
+<td>DuckDB database file to write</td>
+</tr>
+<tr>
+<td><code>-match-retractions</code></td>
+<td><code>false</code></td>
+<td>Run retractionwatch matching (rebuild the retraction views) after consuming</td>
+</tr>
+<tr>
+<td><code>-match-ror</code></td>
+<td><code>false</code></td>
+<td>Run ROR matching after consuming</td>
+</tr>
+</tbody>
+</table>
+<h3 id="example">Example</h3>
+<pre><code class="language-bash">go run . -duckdb vulcanus.duckdb -match-retractions -match-ror
+vulcanus: starting consumer
+vulcanus: waiting for messages (send SIGINT/SIGTERM to stop)
+^C
+vulcanus: shutting down...
+vulcanus: retraction matching complete
+vulcanus: ROR matching complete
+vulcanus: done, DuckDB=vulcanus.duckdb
+</code></pre>
+<h2 id="how-it-works">How it works</h2>
+<p>See <a href="how-it-works/">How Vulcanus Works</a> for a detailed explanation of the consumer flow, DuckDB tables, and views.</p>
+<h2 id="deployment">Deployment</h2>
+<p>Vulcanus is designed for container deployment:</p>
+<ol>
+<li>Container starts → connects to RabbitMQ → begins consuming</li>
+<li>If queue is empty: blocks waiting for messages</li>
+<li>On SIGINT/SIGTERM: finishes current message, closes connection, exits</li>
+<li>Max 30s shutdown timeout prevents hanging</li>
+</ol>
+<p>Set <code>terminationGracePeriodSeconds: 35</code> in Kubernetes to allow graceful shutdown.</p>
+<p>Multiple containers can consume from the same queue; RabbitMQ distributes messages across them.</p>
 
 
 

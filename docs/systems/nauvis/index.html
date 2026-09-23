@@ -442,12 +442,17 @@
 <li><strong>Extraction:</strong> Unpacks gzip-compressed JSON-L files.</li>
 <li><strong>Processing:</strong> Converts data into standard, properly formatted JSON files.</li>
 <li><strong>Parallelization:</strong> Utilizes multiple workers to handle thousands of files efficiently.</li>
+<li><strong>CROID Minting:</strong> Each processed DOI is minted with a CROID via the shared
+  CROID HTTP client (<code>github.com/nexus/croid/client</code>). CROIDs are published to
+  RabbitMQ for downstream systems (Vulcanus) to consume.</li>
 </ul>
 <h2 id="example-workflow">Example Workflow</h2>
 <ol>
 <li>Identify a compressed file (e.g., <code>5.json.gz</code>).</li>
 <li>Extract and process it into a properly formatted JSON file (<code>5.json</code>).</li>
-<li>The resulting JSON file is then ready for consumption by other systems in the pipeline.</li>
+<li>For each DOI in the file, mint a CROID by calling the CROID service.</li>
+<li>Publish the CROID event to RabbitMQ.</li>
+<li>The resulting JSON file and CROID event are then ready for consumption by other systems in the pipeline.</li>
 </ol>
 
 

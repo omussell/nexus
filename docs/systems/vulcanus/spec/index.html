@@ -1,0 +1,704 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../images/xml.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Retraction Provenance Derivation (Spec) - systems/vulcanus</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="red" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#retraction-provenance-derivation-spec" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="systems/vulcanus" class="md-header__button md-logo" aria-label="systems/vulcanus" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m21 13-2 2h-.21a2.5 2.5 0 0 0-4.58 0H13V7H9.79a2.5 2.5 0 0 0-4.58 0H5L3 5H2v6h1l2-2h.21a2.5 2.5 0 0 0 4.58 0H11v8h3.21a2.5 2.5 0 0 0 4.58 0H19l2 2h1v-6M7.5 9a1 1 0 1 1 1-1 1 1 0 0 1-1 1m9 8a1 1 0 1 1 1-1 1 1 0 0 1-1 1"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            systems/vulcanus
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Retraction Provenance Derivation (Spec)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="systems/vulcanus" class="md-nav__button md-logo" aria-label="systems/vulcanus" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m21 13-2 2h-.21a2.5 2.5 0 0 0-4.58 0H13V7H9.79a2.5 2.5 0 0 0-4.58 0H5L3 5H2v6h1l2-2h.21a2.5 2.5 0 0 0 4.58 0H11v8h3.21a2.5 2.5 0 0 0 4.58 0H19l2 2h1v-6M7.5 9a1 1 0 1 1 1-1 1 1 0 0 1-1 1m9 8a1 1 0 1 1 1-1 1 1 0 0 1-1 1"/></svg>
+
+    </a>
+    systems/vulcanus
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VULCANUS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-it-works/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How It Works
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../matchers.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Matching Extensions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../matchers.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Matching Extensions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Purpose
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-location-in-the-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Location in the pipeline
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Location in the pipeline">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-where-it-differs-from-retractions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Where it differs from retractions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-the-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. The view
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. The view">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-sql" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 SQL
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-columns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Columns
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-behavioural-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Behavioural contract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-consistency-with-retractions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Consistency with retractions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-verification-proposed-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Verification (proposed tests)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-migration-schema-and-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Migration, schema, and files
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="retraction-provenance-derivation-spec">Retraction Provenance Derivation (Spec)</h1>
+<p><strong>Status:</strong> Spec only — proposes adding a <code>retraction_provenance</code> view to
+Vulcanus. No code has been changed; this document describes the intended data,
+its derivation from the existing ingest pipeline, and verification.</p>
+<h2 id="1-purpose">1. Purpose</h2>
+<p>Vulcanus currently lets a consumer answer one retraction question: <em>"Is the
+retraction watch aware of a retraction for a record I hold in Nauvis?"</em> via the
+derived <code>retractions</code> view, whose rows pair each Nauvis record with every matching
+<code>retractionwatch</code> notice on <code>DOI = OriginalPaperDOI</code>.</p>
+<p>This spec proposes deriving a second, <strong>flattened, consumer-ready view</strong> that
+turns each Nauvis↔retractionmatch into a single string asserting provenance:</p>
+<pre><code>&lt;NAUVIS_DOI&gt; is-retracted-by &lt;RETRACTION_DOI&gt;
+</code></pre>
+<p>In other words, for a given Nauvis DOI that matches a Fulgora retractionwatch
+<code>OriginalPaperDOI</code>, we emit one row of the form
+<code>&lt;DOI&gt; is-retracted-by &lt;RetractionDOI&gt;</code>. This is a durable, queryable record of
+<em>which retraction notice (by its own RetractionDOI) retracts which paper</em>, as
+determined by Vulcanus — a provenance assertion that can be exported straight to
+CSV/Parquet, joined downstream, or embedded in RDF without per-row string
+assembly.</p>
+<h2 id="2-location-in-the-pipeline">2. Location in the pipeline</h2>
+<p>This work adds a third derived view alongside the existing <code>retractions</code> view in
+the ingest transaction. <code>retractions</code> produces the joined <strong>records</strong>; this view
+produces <strong>provenance strings</strong> from exactly those joins. The two share the same
+matching key and the same availability precondition — a new author view sits on
+top of the same Nauvis↔retractionwatch <code>JOIN</code>.</p>
+<p>Because it is a <em>view</em> over the already-loaded tables (a projection, not a
+loaded table), this follows the established pattern in
+<a href="../how-it-works/"><code>docs/how-it-works.md</code></a>: it is always in sync with
+<code>nauvis</code> and <code>retractionwatch</code>, is rebuilt on every ingest, and holds no copy of
+the raw bytes.</p>
+<h3 id="21-where-it-differs-from-retractions">2.1 Where it differs from <code>retractions</code></h3>
+<p>The <code>retractions</code> view exposes full JSON records side by side; this spec
+produces a <strong>narrow, typed projection</strong> — the DOI keys plus the composed
+string. This is not transformation of any payload's content: no record is
+rewritten or pruned. The <code>X is-retracted-by</code> string is a derived label over two
+already-present JSON-extracted columns, exactly the kind of "link by key that the
+existing view already performs" the docs already carve out as the one allowed
+exception to Vulcanus's preserve-bytes rule.</p>
+<h2 id="3-the-view">3. The view</h2>
+<h3 id="31-sql">3.1 SQL</h3>
+<pre><code class="language-sql">CREATE OR REPLACE VIEW retraction_provenance AS
+SELECT
+    n.record AS nauvis_record,
+    r.record AS retractionwatch_record,
+    json_extract_string(n.record, '$.DOI') AS paper_doi,
+    json_extract_string(r.record, '$.RetractionDOI') AS retraction_doi,
+    json_extract_string(n.record, '$.DOI')
+        || ' is-retracted-by '
+        || json_extract_string(r.record, '$.RetractionDOI') AS provenance
+FROM nauvis AS n
+JOIN retractionwatch AS r
+  ON json_extract_string(n.record, '$.DOI') =
+     json_extract_string(r.record, '$.OriginalPaperDOI')
+</code></pre>
+<p>The <code>provenance</code> column holds the exact request output:
+<code>&lt;DOI&gt; is-retracted-by &lt;RetractionDOI&gt;</code>.</p>
+<h3 id="32-columns">3.2 Columns</h3>
+<table>
+<thead>
+<tr>
+<th>column</th>
+<th>type</th>
+<th>notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>nauvis_record</code></td>
+<td>JSON</td>
+<td>the full Nauvis record (Crossref item). Retained for debugging/join context.</td>
+</tr>
+<tr>
+<td><code>retractionwatch_record</code></td>
+<td>JSON</td>
+<td>the full retractionwatch notice.</td>
+</tr>
+<tr>
+<td><code>paper_doi</code></td>
+<td>VARCHAR</td>
+<td><code>nauvis.DOI</code>, the retracted paper's DOI. Equals the join key.</td>
+</tr>
+<tr>
+<td><code>retraction_doi</code></td>
+<td>VARCHAR</td>
+<td><code>retractionwatch.RetractionDOI</code>, the retraction notice's own DOI.</td>
+</tr>
+<tr>
+<td><code>provenance</code></td>
+<td>VARCHAR</td>
+<td><code>paper_doi || ' is-retracted-by ' || retraction_doi</code> — the requested string.</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>retraction_doi</code> and <code>provenance</code> columns are the primary output. The
+<code>*_record</code> columns are retained so a consumer who needs more context (title,
+retraction date, etc.) never has to re-join — while a consumer who only wants the
+string can <code>SELECT provenance FROM retraction_provenance</code> directly.</p>
+<h2 id="4-behavioural-contract">4. Behavioural contract</h2>
+<p>4.1 <strong>Join key.</strong> A row is produced when the Nauvis record's <code>DOI</code> equals the
+retractionwatch record's <code>OriginalPaperDOI</code> — identical matching to the existing
+<code>retractions</code> view. The provenance string links a <strong>Nauvis</strong> DOI to a
+<strong>Fulgora</strong> <code>RetractionDOI</code> via the requested <code>"DOI is-retracted-by RetractionDOI"</code>
+syntax.</p>
+<p>4.2 <strong>Shape of the string.</strong> The output is <code>paper_doi</code>, a single space, the
+literal <code>is-retracted-by</code>, a single space, then <code>retraction_doi</code>. No trailing
+whitespace, no surrounding quotes:
+<code>10.1/yes is-retracted-by 10.1/no</code>.</p>
+<p>4.3 <strong>One row per match.</strong> Multiple retraction notices pointing at the same
+Nauvis DOI each produce their own row (one provenance string each), exactly as
+the <code>retractions</code> view does. A single retracted paper is never collapsed into one
+string; notices are not concatenated.</p>
+<p>4.4 <strong>Availability.</strong> The view becomes queryable the moment <strong>both</strong> <code>nauvis</code> and
+<code>retractionwatch</code> tables exist, identically to <code>retractions</code>. If either table is
+missing it is a no-op (the third author view is also absent; neither
+<code>retractions</code> nor this view is partially present).</p>
+<p>4.5 <strong>Rebuild on every ingest.</strong> <code>CREATE OR REPLACE VIEW</code> means each successful
+ingest — Nauvis or Fulgora, either provider — re-derives the view from current
+table contents, so it is always in sync.</p>
+<p>4.6 <strong>Idempotent across re-runs.</strong> Re-running a provider clears only its own
+tables and rewrites the view idempotently; the result set never accumulates
+duplicate rows.</p>
+<p>4.7 <strong>No-op safety.</strong> The third author view, like the existing ones, is rebuilt
+under the same single transaction as the ingest. If any file fails (e.g. invalid
+JSON), the whole run rolls back and the prior view is left intact, preserving
+the coexist safety property.</p>
+<h2 id="5-consistency-with-retractions">5. Consistency with <code>retractions</code></h2>
+<p>The two views must always agree on matches: the set of <code>(paper_doi,
+retraction_doi)</code> pairs appearing in <code>retraction_provenance</code> is identical to the
+set of <code>(matched_doi, r.RetractionDOI)</code> pairs in <code>retractions</code>. They share one
+<code>JOIN</code> predicate with the same key. When both the existing <code>retractions</code> view and
+the new view are queried against the same DuckDB, every <code>provenance.paper_doi</code>
+must appear as a <code>retractions.matched_doi</code>, and every <code>provenance.retraction_doi</code>
+must pair with that DOI in <code>retractions</code>. This constraint — that the author view's
+join is <em>exactly</em> the existing one and never a superset or subset — is the core of
+its behavioural contract and is what the tests in §6 pin down.</p>
+<h2 id="6-verification-proposed-tests">6. Verification (proposed tests)</h2>
+<p>All tests live in <code>internal/ingest/</code>, reuse the existing helpers (<code>openStore</code>,
+<code>openFulgoraStoreWithLines</code>, <code>freshDB</code>, <code>viewExists</code>, <code>countRows</code>, <code>quoted</code>),
+and exercise the view through a plain <code>SELECT</code>, exactly as
+<code>TestRetractionsView_MatchesByDOI</code> does for the existing view.</p>
+<ul>
+<li><strong><code>TestRetractionProvenance_BuildsRequestedString</code>.</strong> Seed one Nauvis row
+  (<code>"DOI":"10.1/yes"</code>) matched by a retractionwatch row
+  (<code>"OriginalPaperDOI":"10.1/yes","RetractionDOI":"10.1/no"</code>). Query
+  <code>SELECT provenance, paper_doi, retraction_doi FROM retraction_provenance</code> and
+  assert the single row yields <code>provenance = "10.1/yes is-retracted-by 10.1/no"</code>,
+  with <code>paper_doi = "10.1/yes"</code> and <code>retraction_doi = "10.1/no"</code>.</li>
+<li><strong><code>TestRetractionProvenance_NoMatchYieldsEmptyView</code>.</strong> Nauvis DOI
+  (<code>10.1/different</code>) matched by nothing; the view exists but has zero rows.</li>
+<li><strong><code>TestRetractionProvenance_MultipleNotices</code>.</strong> One Nauvis DOI
+  (<code>10.1/yes</code>) matched by two retractionwatch rows with distinct <code>RetractionDOI</code>s
+  (<code>10.1/rc1</code>, <code>10.1/rc2</code>). Assert two rows with distinct <code>provenance</code> strings
+  and that notices are not concatenated.</li>
+<li><strong><code>TestRetractionProvenance_IdempotentAcrossReRuns</code>.</strong> Re-run Nauvis and
+  Fulgora twice each; assert exactly one row per notice (no duplicates) and that
+  the string is byte-for-byte stable.</li>
+<li><strong><code>TestRetractionProvenance_AppearsOnlyWhenBothTablesExist</code>.</strong> After Nauvis
+  only, the view is absent; after Fulgora follows, it appears. This mirrors
+  <code>TestRetractionsView_AppearsOnlyWhenBothTablesExist</code> and guards the no-op-when-
+  missing contract.</li>
+<li><strong><code>TestRetractionProvenance_MatchesRetractionsView</code>.</strong> After ingesting Nauvis
+  and Fulgora, assert the <code>(paper_doi, retraction_doi)</code> pairs in
+  <code>retraction_provenance</code> are exactly the <code>(matched_doi, retraction_doi)</code> pairs in
+  <code>retractions</code>. This pins the cross-view consistency constraint in §5 (that no
+  new matching logic was introduced) and prevents the new view from drifting from
+  the existing <code>retractions</code> join in any future change.</li>
+</ul>
+<h2 id="7-migration-schema-and-files">7. Migration, schema, and files</h2>
+<p>There is <strong>no schema change</strong>: no new table or migration is added. The only new
+object is the <code>retraction_provenance</code> view, created inside the same transaction as
+the ingest, using existing helper routines (<code>tablesExist</code>, <code>quoted</code>). The third
+author view lives in <code>retractions.go</code> next to <code>retractionsViewName</code> and
+<code>buildRetractionsView</code>; it reuses the existing <code>buildRetractionsView</code> function
+(add the third view after the existing one) and its tests live in
+<code>retractions_test.go</code> alongside the existing retraction-view tests. No changes to
+<code>nauvis.go</code>, <code>fulgora.go</code>, <code>ingest.go</code>, <code>store</code>, or <code>main.go</code> are required, and
+the <code>docs/how-it-works.md</code> and <code>index.md</code> "The database" tables are extended to
+list <code>retraction_provenance</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

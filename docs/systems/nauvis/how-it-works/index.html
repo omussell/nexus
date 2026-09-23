@@ -616,9 +616,9 @@ SQLite database it maintains. It assumes you are reading it as companion to the
 input file first contained it.</p>
 <p>Two things distinguish Nauvis from a plain <code>gunzip</code> loop:</p>
 <ul>
-<li><strong>byte-for-byte fidelity</strong> – it re-emits the decompressed payload exactly as
-  produced, without re-formatting, re-ordering, or dropping fields; every input
-  file has exactly one matching output file; and</li>
+<li><strong>byte-for-byte fidelity</strong> – the output uses <code>json.Compact</code> which may reorder
+  or compact fields compared to the raw decompressed payload; every input file
+  has exactly one matching output file; and</li>
 <li><strong>an index</strong> – it tracks which DOI appears in which file, deduplicating DOIs
   that occur in more than one file.</li>
 </ul>
@@ -663,15 +663,17 @@ demo of the expected structure.</p>
    (<code>json.Valid</code>). This catches truncated or corrupt payloads before anything is
    written.</li>
 <li><strong>Write</strong> — emit the bytes to the output path using an <em>atomic write</em> (write
-   to <code>out/&lt;n&gt;.json.tmp</code>, then rename into place), so a process that is killed
-   mid-file never leaves a half-written <code>.json</code>.</li>
+   to <code>out/&lt;n&gt;.json.tmp</code>, then rename into place<code>), so a process that is killed
+   mid-file never leaves a half-written</code>.json<code>. Note: the output uses</code>json.Compact` which may reorder/compact fields compared to the raw decompressed
+   payload.</li>
 <li><strong>Extract</strong> — unmarshal just the <code>items[].DOI</code> fields, in input order.</li>
 </ol>
 <p><code>extract.Files(dir)</code> lists the directory and returns the files it knows how to
 process: anything ending in <code>.json.gz</code> or (uncompressed) <code>.json</code>. This is what
 lets the same folder hold both the compressed inputs and the example file.</p>
-<p>The key contract is that the written bytes equal the decompressed bytes — Nauvis
-does not interpret or normalise the data, it only preserves it.</p>
+<p>The key contract is that the written bytes are valid JSON — Nauvis extracts DOIs
+from the decompressed payload and writes each item as a compacted JSON line. The
+output may differ from the raw decompressed payload due to <code>json.Compact</code>.</p>
 <h3 id="2-store-internalstore">2. Store — <code>internal/store</code></h3>
 <p><code>store.Store</code> records <code>(file, doi)</code> pairs in SQLite. Its main method is
 <code>RecordMany</code>:</p>
@@ -709,6 +711,12 @@ outcome:</p>
 <li><strong>workers</strong> — a fixed pool of <code>jobs</code> goroutines (default <code>GOMAXPROCS</code>) reading
   from a shared work channel. Each worker does <code>extract</code> + <code>store</code> for the next
   file handed to it.</li>
+<li><strong>CROID minting</strong> — for each DOI processed, the ingest calls the CROID client
+  (<code>github.com/nexus/croid/client</code>) to mint a CROID. The client is shared across
+  Nauvis and Fulgora, providing a uniform HTTP interface to the CROID service.</li>
+<li><strong>RabbitMQ publish</strong> — after minting, the CROID event is published to RabbitMQ
+  (exchange: <code>croid</code>), enabling downstream consumers like Vulcanus to react
+  to new records.</li>
 <li><strong>deduplication</strong> — duplicates detected by <code>store</code> are logged, and a file that
   fails to process increments the failure count.</li>
 <li><strong>result</strong> — on success it logs the output path and the number of items
@@ -791,6 +799,9 @@ sqlc install, and the <code>Querier</code> interface lets tests swap in a fake.<
   may already be compact.</li>
 <li><strong><code>doi</code> uniqueness is the central invariant.</strong> Everything — dedup, query, the
   "first file wins" promise — hangs off the <code>UNIQUE</code> constraint on <code>doi</code>.</li>
+<li><strong>CROID client is shared across systems.</strong> Nauvis and Fulgora both use the
+  shared <code>croid/client</code> package for minting CROIDs, providing a uniform HTTP
+  interface to the CROID service.</li>
 <li><strong><code>main.go</code> is dispatcher only.</strong> All logic lives in <code>extract</code>, <code>store</code>, and
   <code>ingest</code>; <code>main.go</code> exists to parse flags and pick a mode.</li>
 <li><strong>Build writes go via atomic rename</strong> (<code>out/&lt;n&gt;.json.tmp</code> → <code>out/&lt;n&gt;.json</code>) so

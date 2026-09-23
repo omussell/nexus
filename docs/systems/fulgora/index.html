@@ -651,6 +651,9 @@ is already recorded in the database is skipped rather than downloaded again.</p>
   latest available data.</li>
 <li><strong>Data Enrichment:</strong> Provides additional information used to enhance and
   improve the primary Crossref data collected by other systems.</li>
+<li><strong>CROID Minting:</strong> Each processed record is minted with a CROID via the shared
+  CROID HTTP client (<code>github.com/nexus/croid/client</code>). CROIDs are published to
+  RabbitMQ for downstream systems (Vulcanus) to consume.</li>
 </ul>
 <h2 id="how-it-works">How it works</h2>
 <h3 id="registered-sources">Registered sources</h3>
@@ -717,6 +720,13 @@ versioned output file.</p>
    partial file is removed.</li>
 <li><strong>Process</strong> — the source's <code>Process</code> produces the standardized output under
    <code>&lt;root&gt;/&lt;source&gt;/output/</code>.</li>
+<li><strong>CROID minting</strong> — for each record in the processed output, the fetch calls
+   the CROID client (<code>github.com/nexus/croid/client</code>) to mint a CROID. The client
+   is shared across Nauvis and Fulgora, providing a uniform HTTP interface to the
+   CROID service.</li>
+<li><strong>RabbitMQ publish</strong> — after minting, each CROID event is published to RabbitMQ
+   (exchange: <code>croid</code>), enabling downstream consumers like Vulcanus to react to
+   new records.</li>
 <li><strong>Record</strong> — insert a <code>datasets</code> row and upsert the <code>latest</code> pointer for the
    source (both done by <code>internal/store</code>).</li>
 </ol>
@@ -826,7 +836,7 @@ internal/source/source.go      -&gt;  the Source interface + shared download hel
 internal/source/ror            -&gt;  ROR (Zenodo) source
 internal/source/retractionwatch-&gt;  Retraction Watch (GitLab) source
 internal/sources               -&gt;  the registry: map of name -&gt; constructor
-internal/collect               -&gt;  the fetch workflow (check, skip, download, process, record)
+internal/collect               -&gt;  the fetch workflow (check, skip, download, process, mint CROID, publish, record)
 internal/store                 -&gt;  the query/persistence layer
 internal/db                    -&gt;  sqlc-generated code (DO NOT EDIT)
 internal/migrate               -&gt;  schema.sql + Apply()

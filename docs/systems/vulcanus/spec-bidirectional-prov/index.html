@@ -1,0 +1,935 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../images/xml.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Bidirectional Retraction Provenance (Spec) - systems/vulcanus</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="red" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#bidirectional-retraction-provenance-spec" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="systems/vulcanus" class="md-header__button md-logo" aria-label="systems/vulcanus" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m21 13-2 2h-.21a2.5 2.5 0 0 0-4.58 0H13V7H9.79a2.5 2.5 0 0 0-4.58 0H5L3 5H2v6h1l2-2h.21a2.5 2.5 0 0 0 4.58 0H11v8h3.21a2.5 2.5 0 0 0 4.58 0H19l2 2h1v-6M7.5 9a1 1 0 1 1 1-1 1 1 0 0 1-1 1m9 8a1 1 0 1 1 1-1 1 1 0 0 1-1 1"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            systems/vulcanus
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Bidirectional Retraction Provenance (Spec)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="systems/vulcanus" class="md-nav__button md-logo" aria-label="systems/vulcanus" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m21 13-2 2h-.21a2.5 2.5 0 0 0-4.58 0H13V7H9.79a2.5 2.5 0 0 0-4.58 0H5L3 5H2v6h1l2-2h.21a2.5 2.5 0 0 0 4.58 0H11v8h3.21a2.5 2.5 0 0 0 4.58 0H19l2 2h1v-6M7.5 9a1 1 0 1 1 1-1 1 1 0 0 1-1 1m9 8a1 1 0 1 1 1-1 1 1 0 0 1-1 1"/></svg>
+
+    </a>
+    systems/vulcanus
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VULCANUS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-it-works/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How It Works
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../matchers.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Matching Extensions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../matchers.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Matching Extensions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Purpose
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-the-view-after-this-spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. The view after this spec
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. The view after this spec">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-sql" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 SQL
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-rows-per-match" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Rows per match
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-column-semantics-after-this-spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Column semantics after this spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-behavioural-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Behavioural contract
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Behavioural contract">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-join-key" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Join key
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-row-count-per-match" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Row count per match
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-string-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 String format
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-availability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 Availability
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#45-rebuild-on-every-ingest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.5 Rebuild on every ingest
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#46-idempotent-across-re-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.6 Idempotent across re-runs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#47-no-op-safety" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.7 No-op safety
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-cross-view-consistency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Cross-view consistency
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-verification-proposed-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Verification (proposed tests)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Verification (proposed tests)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-testretractionprovenance_bidirectional_bothdirectionspresent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 TestRetractionProvenance_Bidirectional_BothDirectionsPresent
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-testretractionprovenance_bidirectional_columnvalues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 TestRetractionProvenance_Bidirectional_ColumnValues
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-testretractionprovenance_tworowspermatch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 TestRetractionProvenance_TwoRowsPerMatch
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#64-testretractionprovenance_multiplenoticepairs_exactcount" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.4 TestRetractionProvenance_MultipleNoticePairs_ExactCount
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#65-testretractionprovenance_nomatchyieldsemptyview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.5 TestRetractionProvenance_NoMatchYieldsEmptyView
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#66-testretractionprovenance_idempotentacrossreruns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.6 TestRetractionProvenance_IdempotentAcrossReRuns
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#67-testretractionprovenance_appearsonlywhenbothtablesexist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.7 TestRetractionProvenance_AppearsOnlyWhenBothTablesExist
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#68-testretractionprovenance_matchesretractionsview_pairsidentical" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.8 TestRetractionProvenance_MatchesRetractionsView_PairsIdentical
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-migration-schema-and-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Migration, schema, and files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-consistency-with-retractions-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Consistency with retractions view
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="bidirectional-retraction-provenance-spec">Bidirectional Retraction Provenance (Spec)</h1>
+<p><strong>Status:</strong> Implemented — a UNION ALL active-direction query was added to the existing
+<code>retraction_provenance</code> view, and tests from §6 were committed alongside the
+existing provenance tests.</p>
+<h2 id="1-context">1. Context</h2>
+<p>The current <a href="../spec/"><code>retraction_provenance</code></a> view produces one direction of
+the relationship between a Nauvis record and its matching retractionwatch notice:</p>
+<pre><code>&lt;NAUVIS_DOI&gt; is-retracted-by &lt;RETRACTION_DOI&gt;
+</code></pre>
+<p>This asserts the <strong>passive</strong> direction — which paper is being retracted, and by
+which notice. It reads well from the perspective of someone querying a database
+for "what retract <em>this</em> DOI".</p>
+<h2 id="2-purpose">2. Purpose</h2>
+<p>Add the <strong>active</strong> direction as a second entry per match:</p>
+<pre><code>&lt;RETRACTION_DOI&gt; retracts &lt;NAUVIS_DOI&gt;
+</code></pre>
+<p>This reads naturally from the retraction notice's perspective — which paper does *
+this* retract? Both directions coexist in the existing <code>retraction_provenance</code> view.</p>
+<h2 id="3-the-view-after-this-spec">3. The view after this spec</h2>
+<h3 id="31-sql">3.1 SQL</h3>
+<p>The view adds a <code>UNION ALL</code> sub-query for the active direction alongside the
+existing passive direction, both projecting the same five columns:</p>
+<pre><code class="language-sql">CREATE OR REPLACE VIEW retraction_provenance AS
+    SELECT
+        n.record AS nauvis_record,
+        r.record AS retractionwatch_record,
+        json_extract_string(n.record, '$.DOI') AS paper_doi,
+        json_extract_string(r.record, '$.RetractionDOI') AS retraction_doi,
+        json_extract_string(n.record, '$.DOI')
+            || ' is-retracted-by '
+            || json_extract_string(r.record, '$.RetractionDOI') AS provenance
+    FROM nauvis AS n
+    JOIN retractionwatch AS r
+      ON json_extract_string(n.record, '$.DOI') =
+         json_extract_string(r.record, '$.OriginalPaperDOI')
+
+UNION ALL
+
+    SELECT
+        r.record AS nauvis_record,
+        n.record AS retractionwatch_record,
+        json_extract_string(r.record, '$.RetractionDOI') AS paper_doi,
+        json_extract_string(n.record, '$.DOI') AS retraction_doi,
+        json_extract_string(r.record, '$.RetractionDOI')
+            || ' retracts '
+            || json_extract_string(n.record, '$.DOI') AS provenance
+    FROM retractionwatch AS r
+    JOIN nauvis AS n
+      ON json_extract_string(n.record, '$.DOI') =
+         json_extract_string(r.record, '$.OriginalPaperDOI')
+</code></pre>
+<h3 id="32-rows-per-match">3.2 Rows per match</h3>
+<p>Each Nauvis↔retractionwatch join key <code>X = Y</code> yields <strong>two</strong> rows:</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>provenance column</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>X is-retracted-by Y</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>Y retracts X</code></td>
+</tr>
+</tbody>
+</table>
+<p>The row order is not guaranteed across DuckDB implementations — consumers should
+not depend on sort order. Both rows share the same <code>(paper_doi, retraction_doi)</code>
+pair but in swapped column assignments for the active reading, and neither
+<code>*_record</code> column reflects the other's perspective (they keep their original side:
+<code>nauvis_record</code> always holds the Nauvis record JSON as ingested, <code>retractionwatch_record</code>
+always holds the retractionwatch record JSON).</p>
+<h3 id="33-column-semantics-after-this-spec">3.3 Column semantics after this spec</h3>
+<table>
+<thead>
+<tr>
+<th>column</th>
+<th>type</th>
+<th>values for row 1</th>
+<th>values for row 2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>nauvis_record</code></td>
+<td>JSON</td>
+<td>Nauvis record</td>
+<td>retractionwatch record (swapped)</td>
+</tr>
+<tr>
+<td><code>retractionwatch_record</code></td>
+<td>JSON</td>
+<td>retractionwatch record</td>
+<td>Nauvis record (swapped)</td>
+</tr>
+<tr>
+<td><code>paper_doi</code></td>
+<td>VARCHAR</td>
+<td><code>nauvis.DOI</code></td>
+<td><code>retractionwatch.RetractionDOI</code></td>
+</tr>
+<tr>
+<td><code>retraction_doi</code></td>
+<td>VARCHAR</td>
+<td><code>retractionwatch.RetractionDOI</code></td>
+<td><code>nauvis.DOI</code></td>
+</tr>
+<tr>
+<td><code>provenance</code></td>
+<td>VARCHAR</td>
+<td><code>X is-retracted-by Y</code></td>
+<td><code>Y retracts X</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Note.</strong> Swapping the records in row 2 means <code>nauvis_record</code> may hold what
+originated from Fulgora and vice versa. A consumer that needs to know which side
+a record came from should query the <code>retractions</code> view instead, or filter by
+checking whether <code>paper_doi</code> was originally from Nauvis (using the existing
+<code>(paper_doi, retraction_doi)</code> pair consistency constraint with <code>retractions</code>).</p>
+</blockquote>
+<h2 id="4-behavioural-contract">4. Behavioural contract</h2>
+<h3 id="41-join-key">4.1 Join key</h3>
+<p>Identical to the existing view: a row is produced when the Nauvis record's <code>DOI</code>
+equals the retractionwatch record's <code>OriginalPaperDOI</code>. No new matching logic.</p>
+<h3 id="42-row-count-per-match">4.2 Row count per match</h3>
+<p>Exactly <strong>two</strong> rows are produced per join result — one passive, one active. The
+previous single-row-per-match behaviour is replaced; row counts for this view will
+double after migration.</p>
+<h3 id="43-string-format">4.3 String format</h3>
+<table>
+<thead>
+<tr>
+<th>direction</th>
+<th>format</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>passive (existing)</td>
+<td><code>&lt;paper_doi&gt; is-retracted-by &lt;retraction_doi&gt;</code></td>
+<td><code>10.1/paper is-retracted-by 10.1/retract</code></td>
+</tr>
+<tr>
+<td>active (new)</td>
+<td><code>&lt;retraction_doi&gt; retracts &lt;paper_doi&gt;</code></td>
+<td><code>10.1/retract retracts 10.1/paper</code></td>
+</tr>
+</tbody>
+</table>
+<p>No trailing whitespace, no surrounding quotes for either string.</p>
+<h3 id="44-availability">4.4 Availability</h3>
+<p>The view becomes queryable the moment both <code>nauvis</code> and <code>retractionwatch</code> tables
+exist — identical to the existing behaviour. If either table is missing it is a
+no-op (the view is absent).</p>
+<h3 id="45-rebuild-on-every-ingest">4.5 Rebuild on every ingest</h3>
+<p><code>CREATE OR REPLACE VIEW</code> means each successful ingest re-derives the view from
+current table contents, so it is always in sync. Both directions are built or
+absent together — neither is partially present.</p>
+<h3 id="46-idempotent-across-re-runs">4.6 Idempotent across re-runs</h3>
+<p>Re-running a provider clears only its own tables and rebuilds the view; no duplicate
+rows accumulate per direction. Each <code>(paper_doi, retraction_doi, provenance)</code>
+triple is unique in the view.</p>
+<h3 id="47-no-op-safety">4.7 No-op safety</h3>
+<p>If any file fails during ingest (e.g. invalid JSON), the whole transaction rolls back
+and the prior view is left intact.</p>
+<h2 id="5-cross-view-consistency">5. Cross-view consistency</h2>
+<p>The <code>(paper_doi, retraction_doi)</code> pairs produced by both directions are identical. If
+a consumer sees a pair in one row but not the other after an ingest, something has
+drifted — the existing <code>retractions</code> view remains the ground truth for which pairs
+exist.</p>
+<h2 id="6-verification-proposed-tests">6. Verification (proposed tests)</h2>
+<p>All tests live in <code>internal/ingest/</code>, reuse the existing helpers (<code>openStore</code>,
+<code>openFulgoraStoreWithLines</code>, <code>freshDB</code>, <code>countRows</code>, <code>quoted</code>, <code>viewExists</code>), and
+query the view through a plain <code>SELECT</code>.</p>
+<h3 id="61-testretractionprovenance_bidirectional_bothdirectionspresent">6.1 <code>TestRetractionProvenance_Bidirectional_BothDirectionsPresent</code></h3>
+<p>Seed one Nauvis row (<code>"DOI":"10.1/paper"</code>) matched by a retractionwatch row
+(<code>"OriginalPaperDOI":"10.1/paper","RetractionDOI":"10.1/rc"</code>). Assert the view
+contains <strong>two</strong> rows:</p>
+<ul>
+<li><code>provenance = "10.1/paper is-retracted-by 10.1/rc"</code></li>
+<li><code>provenance = "10.1/rc retracts 10.1/paper"</code></li>
+</ul>
+<h3 id="62-testretractionprovenance_bidirectional_columnvalues">6.2 <code>TestRetractionProvenance_Bidirectional_ColumnValues</code></h3>
+<p>After seeding one match, assert for each row:</p>
+<ul>
+<li>Passive row: <code>paper_doi = nauvis.DOI</code>, <code>retraction_doi = retractionwatch.RetractionDOI</code></li>
+<li>Active row: <code>paper_doi = retractionwatch.RetractionDOI</code>, <code>retraction_doi = nauvis.DOI</code></li>
+</ul>
+<h3 id="63-testretractionprovenance_tworowspermatch">6.3 <code>TestRetractionProvenance_TwoRowsPerMatch</code></h3>
+<p>One Nauvis DOI matched by one retraction notice. Assert exactly two rows in the view
+and that there are no more — matching is not expanded or duplicated.</p>
+<h3 id="64-testretractionprovenance_multiplenoticepairs_exactcount">6.4 <code>TestRetractionProvenance_MultipleNoticePairs_ExactCount</code></h3>
+<p>One Nauvis DOI (<code>10.1/paper</code>) matched by three distinct retraction notices
+(<code>10.1/rc1</code>, <code>10.1/rc2</code>, <code>10.1/rc3</code>). Assert exactly <strong>six</strong> rows (3 pairs x 2
+directions) and that each pair appears in both directions — no missing combinations,
+no extra duplicates.</p>
+<h3 id="65-testretractionprovenance_nomatchyieldsemptyview">6.5 <code>TestRetractionProvenance_NoMatchYieldsEmptyView</code></h3>
+<p>Nauvis DOI (<code>10.1/different</code>) matched by nothing; the view exists but has zero rows.</p>
+<h3 id="66-testretractionprovenance_idempotentacrossreruns">6.6 <code>TestRetractionProvenance_IdempotentAcrossReRuns</code></h3>
+<p>Re-run Nauvis and Fulgora twice each; assert the row count is exactly
+<code>matches x 2</code> (no accumulated duplicates) and that both directions appear for each
+pair byte-for-byte.</p>
+<h3 id="67-testretractionprovenance_appearsonlywhenbothtablesexist">6.7 <code>TestRetractionProvenance_AppearsOnlyWhenBothTablesExist</code></h3>
+<p>After Nauvis only, no rows. After Fulgora adds retractionwatch, all pairs appear in
+both directions. Mirrors the existing test for the base view.</p>
+<h3 id="68-testretractionprovenance_matchesretractionsview_pairsidentical">6.8 <code>TestRetractionProvenance_MatchesRetractionsView_PairsIdentical</code></h3>
+<p>After ingesting Nauvis and Fulgora, assert that the set of <code>(paper_doi, retraction_doi)</code>
+pairs from the <em>combined</em> bidirectional rows matches exactly the pairs in the existing
+<code>retractions</code> view — same constraint as the existing test, applied to both directions
+together.</p>
+<h2 id="7-migration-schema-and-files">7. Migration, schema, and files</h2>
+<p><strong>No schema change</strong> and <strong>no migration</strong>. The only change is the SQL of the
+existing <code>retraction_provenance</code> view (adding a UNION ALL from the retractionwatch
+join). The new tests live in <code>retractions_test.go</code> alongside existing ones.</p>
+<p>No changes to <code>nauvis.go</code>, <code>fulgora.go</code>, <code>ingest.go</code>, <code>store</code>, or <code>main.go</code>.</p>
+<h2 id="8-consistency-with-retractions-view">8. Consistency with <code>retractions</code> view</h2>
+<p>The <code>(paper_doi, retraction_doi)</code> set from both directions is identical to the
+<code>(matched_doi, RetractionDOI)</code> set from <code>retractions</code>. The two existing views share
+exactly one join predicate and never produce divergent pairs — the new active
+direction duplicates the same match in a different orientation.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

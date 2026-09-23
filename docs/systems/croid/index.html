@@ -321,6 +321,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#client-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Client Usage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#quick-start" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -328,6 +339,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Quick Start">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cli-generate-a-croid-from-the-command-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI: Generate a CROID from the command line
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -427,6 +455,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#client-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Client Usage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#quick-start" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -434,6 +473,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Quick Start">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cli-generate-a-croid-from-the-command-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI: Generate a CROID from the command line
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -495,13 +551,44 @@
 <li><strong>Querying:</strong> <code>sqlc</code> generates type-safe database access logic.</li>
 <li><strong>Concurrency:</strong> The service is idempotent; concurrent creation requests for the same identity safely return the single existing CROID.</li>
 </ul>
+<h2 id="client-usage">Client Usage</h2>
+<p>Other systems mint CROIDs by importing the shared HTTP client package:</p>
+<pre><code class="language-go">import &quot;github.com/nexus/croid/client&quot;
+
+c := client.New(&quot;http://localhost:8080&quot;)
+minted, err := c.Mint(ctx, client.Identity{
+    Type:     &quot;DOI&quot;,
+    Value:    &quot;10.1/paper&quot;,
+    System:   &quot;nauvis&quot;,
+    Record:   []byte(`{&quot;title&quot;:&quot;...&quot;,&quot;DOI&quot;:&quot;10.1/paper&quot;}`),
+})
+</code></pre>
+<p>The client is used by both Nauvis and Fulgora, providing a uniform interface for
+minting CROIDs and publishing them to RabbitMQ.</p>
 <h2 id="quick-start">Quick Start</h2>
 <p>To run the service:</p>
 <pre><code class="language-bash">go run main.go --addr :8080 --db croid.sqlite3
 </code></pre>
-<p>To test:</p>
+<p>To test via HTTP:</p>
 <pre><code class="language-bash">curl -X POST -H &quot;Content-Type: application/json&quot; -d '{&quot;cro_type&quot;:&quot;DOI&quot;,&quot;cro_value&quot;:&quot;10.5555/example&quot;,&quot;system&quot;:&quot;nauvis&quot;}' http://localhost:8080/croid
 </code></pre>
+<h3 id="cli-generate-a-croid-from-the-command-line">CLI: Generate a CROID from the command line</h3>
+<p>The CLI can mint a CROID without starting the HTTP server, using the <code>--generate</code> flag. It runs the exact same code path as <code>POST /croid</code> (same SQLite setup, schema, and <code>store.Create</code>), so it mints, dedupes, and validates identically:</p>
+<pre><code class="language-bash">go run . --generate --db croid.sqlite3
+</code></pre>
+<p>With a JSON identity input, the CLI resolves or mints a CROID for that identity (deduplicating against whatever already lives in <code>--db</code>):</p>
+<pre><code class="language-bash">go run . --generate --db croid.sqlite3 --input '{&quot;cro_type&quot;:&quot;DOI&quot;,&quot;cro_value&quot;:&quot;10.5555/example&quot;,&quot;system&quot;:&quot;nauvis&quot;}'
+</code></pre>
+<p>The output matches the <code>POST /croid</code> response body:</p>
+<pre><code class="language-json">{
+  &quot;cro_type&quot;: &quot;DOI&quot;,
+  &quot;cro_value&quot;: &quot;10.5555/example&quot;,
+  &quot;system&quot;: &quot;nauvis&quot;,
+  &quot;croid&quot;: &quot;aaaaa12345_aaaaa12345-aaaaa12345&quot;,
+  &quot;created_at&quot;: &quot;2026-09-17T20:11:10Z&quot;
+}
+</code></pre>
+<p>Re-running the command for the same identity returns the same CROID (<code>"created_at"</code> unchanged) rather than minting a new one. If <code>--input</code> omits a required field (<code>cro_type</code>, <code>cro_value</code>, or <code>system</code>) the command exits non-zero with an error, mirroring the <code>400 Bad Request</code> the HTTP endpoint returns.</p>
 
 
 
