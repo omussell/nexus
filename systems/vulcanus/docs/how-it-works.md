@@ -23,11 +23,12 @@ The two providers stay separate: Nauvis lands in a single `nauvis` table, while
 each Fulgora source (e.g. `ror`, `retractionwatch`) gets its own table. They can
 arrive at different times without clobbering each other.
 
-After the source tables exist, Vulcanus also builds a thin **derived view**
+After the source tables exist, Vulcanus can build a thin **derived view**
 `retractions` that pairs each Nauvis record with its matching
 `retractionwatch` notice on the paper's DOI (`nauvis.DOI` =
 `retractionwatch.OriginalPaperDOI`), exposing both full records plus the
-matching DOI. The view is rebuilt idempotently on every ingest and is a
+matching DOI. The view is only built when the `-match-retractions` flag is
+given (it is a no-op while either source table is missing) and is a
 projection over the loaded tables — it never copies data.
 
 This is not transformation: Vulcanus never parses or normalises the payload. It
@@ -108,15 +109,23 @@ messages, and blocks until a shutdown signal arrives.
 -routing-key RabbitMQ routing key (empty = all)
 -duckdb      the DuckDB file to write (default vulcanus.duckdb)
 -match-ror   run ROR matching against nauvis records after consuming
+-match-retractions run retractionwatch matching (rebuild the retraction
+                   views) after consuming
 ```
 
+At least one of `-match-ror` or `-match-retractions` is required; if
+neither is set, Vulcanus prints usage and exits without doing anything.
+
 Flow:
-1. Open DuckDB once via `ingest.OpenDB()`.
-2. Create the `ingestWriter` and wire it as the RabbitMQ message handler.
-3. Start the consumer — it begins processing messages immediately.
-4. Block on either `sigCh` (SIGINT/SIGTERM) or `consumer.Done()`.
-5. On signal: initiate graceful shutdown with a 30s timeout.
-6. If `-match-ror` is set: run ROR entity matching against nauvis records.
+1. Parse flags; without any matching flag, print usage and exit.
+2. Open DuckDB once via `ingest.OpenDB()`.
+3. Create the `ingestWriter` and wire it as the RabbitMQ message handler.
+4. Start the consumer — it begins processing messages immediately.
+5. Block on either `sigCh` (SIGINT/SIGTERM) or `consumer.Done()`.
+6. On signal: initiate graceful shutdown with a 30s timeout.
+7. If `-match-retractions` is set: run retractionwatch matching (rebuild
+   the retraction views).
+8. If `-match-ror` is set: run ROR entity matching against nauvis records.
 
 The two providers are independent — Nauvis and Fulgora events can arrive at
 different times, and Vulcanus routes each to the correct table.
@@ -131,16 +140,17 @@ CROID event, the raw JSON document preserved as-is:
 | `nauvis` (Nauvis) | `record` | JSON    | one row per CROID event; the raw document as Nauvis wrote it |
 | `<source>` (Fulgora, one per source) | `record` | JSON    | e.g. `ror`, `retractionwatch`; same shape as `nauvis`, but each source has its own table |
 
-In addition, the ingest derives two **views** that sit on the same Nauvis↔
-retractionwatch `JOIN`. The `retractions` view pairs each Nauvis record with
-its `retractionwatch` notice on the paper's DOI so a consumer can pull the full
-pair in one query; the narrower `retraction_provenance` view reduces exactly
-those matches to two consumer-ready provenance strings per match — one from
-Nauvis's perspective (`X is-retracted-by Y`) and one from the retraction
-notice's (`Y retracts X`). Both are derived objects — they are not tables that
-get loaded, and never hold a copy of the bytes; they are rebuilt on `CREATE OR
-REPLACE VIEW` every time a provider ingests, and only become queryable once
-**both** source tables exist.
+In addition, retraction matching (`-match-retractions`) derives two **views**
+that sit on the same Nauvis↔retractionwatch `JOIN`. The `retractions` view
+pairs each Nauvis record with its `retractionwatch` notice on the paper's DOI
+so a consumer can pull the full pair in one query; the narrower
+`retraction_provenance` view reduces exactly those matches to two
+consumer-ready provenance strings per match — one from Nauvis's perspective
+(`X is-retracted-by Y`) and one from the retraction notice's (`Y retracts
+X`). Both are derived objects — they are not tables that get loaded, and
+never hold a copy of the bytes; they are rebuilt on `CREATE OR REPLACE VIEW`
+whenever retraction matching runs, and only become queryable once **both**
+source tables exist.
 
 | view | columns | type | notes |
 |------|---------|------|-------|
@@ -167,8 +177,11 @@ provider simply adds more rows — the consumer is append-only.
 ## Running Vulcanus
 
 ```bash
-go run . [-rabbitmq amqp://localhost:5672] [-duckdb vulcanus.duckdb] [-match-ror]
+go run . [-rabbitmq amqp://localhost:5672] [-duckdb vulcanus.duckdb] [-match-retractions] [-match-ror]
 ```
+
+At least one matching flag (`-match-retractions` or `-match-ror`) is
+required; without one, Vulcanus prints usage and exits.
 
 | flag | default | meaning |
 |------|---------|---------|
@@ -177,16 +190,18 @@ go run . [-rabbitmq amqp://localhost:5672] [-duckdb vulcanus.duckdb] [-match-ror
 | `-queue` | `vulcanus` | RabbitMQ queue name to declare/bind |
 | `-routing-key` | (empty) | RabbitMQ routing key (empty = all) |
 | `-duckdb` | `vulcanus.duckdb` | DuckDB database file to write |
+| `-match-retractions` | `false` | Run retractionwatch matching (rebuild the retraction views) after consuming |
 | `-match-ror` | `false` | Run ROR matching after consuming |
 
 ### Example
 
 ```bash
-$ go run . -duckdb vulcanus.duckdb -match-ror
+$ go run . -duckdb vulcanus.duckdb -match-retractions -match-ror
 vulcanus: starting consumer
 vulcanus: waiting for messages (send SIGINT/SIGTERM to stop)
 ^C
 vulcanus: shutting down...
+vulcanus: retraction matching complete
 vulcanus: ROR matching complete
 vulcanus: done, DuckDB=vulcanus.duckdb
 ```
@@ -203,6 +218,10 @@ nauvis            retractionwatch  ror
 The key contract is faithfulness: Vulcanus treats the bytes coming in each
 RabbitMQ message as the data, and DuckDB as the place to store them for later
 analysis.
+
+Because retraction matching is opt-in, running the consumer without
+`-match-retractions` leaves no retraction views behind — they only appear
+after a matching run with both source tables present.
 
 The derived `retractions` view is the one exception to "preserve bytes, do not
 transform": its purpose is to *link* two existing bytes columns by a key — the

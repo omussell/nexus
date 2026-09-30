@@ -11,10 +11,11 @@ Vulcanus is a batch worker that connects to RabbitMQ, consumes CROID events from
 * **RabbitMQ Consumer:** Connects to the CROID exchange, consumes events one at a time (QoS=1), and exits on shutdown signal.
 * **Per-Record Ingestion:** Each CROID event triggers ingestion of a single record into the appropriate DuckDB table (`nauvis` or `<source>` for Fulgora sources).
 * **Provider Isolation:** Nauvis DOI records land in a single `nauvis` table; each Fulgora source (e.g. `ror`, `retractionwatch`) gets its own table.
-* **Retraction Mapping:** Derives a `retractions` view that pairs each Nauvis record with its `retractionwatch` notice on the paper's DOI.
-* **Bidirectional Retraction Provenance:** Derives both passive (`X is-retracted-by Y`) and active (`Y retracts X`) provenance strings.
 * **Faithful Preservation:** Ingests raw JSON records verbatim into a `JSON` column in DuckDB.
+* **Retraction Matching:** Optional `-match-retractions` flag rebuilds the `retractions` view, which pairs each Nauvis record with its `retractionwatch` notice on the paper's DOI.
+* **Bidirectional Retraction Provenance:** Derives both passive (`X is-retracted-by Y`) and active (`Y retracts X`) provenance strings.
 * **ROR Matching:** Optional `-match-ror` flag runs ROR entity matching against nauvis records after consuming.
+* **Required Matching:** At least one matching flag (`-match-retractions` or `-match-ror`) must be given; otherwise Vulcanus prints usage and exits.
 
 ## Running Vulcanus
 
@@ -25,8 +26,12 @@ go run . \
   [-queue vulcanus] \
   [-routing-key ""] \
   [-duckdb vulcanus.duckdb] \
+  [-match-retractions] \
   [-match-ror]
 ```
+
+At least one matching flag (`-match-retractions` or `-match-ror`) is
+required; without one, Vulcanus prints usage and exits.
 
 | flag | default | meaning |
 |------|---------|---------|
@@ -35,16 +40,18 @@ go run . \
 | `-queue` | `vulcanus` | RabbitMQ queue name to declare/bind |
 | `-routing-key` | (empty) | RabbitMQ routing key (empty = all) |
 | `-duckdb` | `vulcanus.duckdb` | DuckDB database file to write |
+| `-match-retractions` | `false` | Run retractionwatch matching (rebuild the retraction views) after consuming |
 | `-match-ror` | `false` | Run ROR matching after consuming |
 
 ### Example
 
 ```bash
-go run . -duckdb vulcanus.duckdb -match-ror
+go run . -duckdb vulcanus.duckdb -match-retractions -match-ror
 vulcanus: starting consumer
 vulcanus: waiting for messages (send SIGINT/SIGTERM to stop)
 ^C
 vulcanus: shutting down...
+vulcanus: retraction matching complete
 vulcanus: ROR matching complete
 vulcanus: done, DuckDB=vulcanus.duckdb
 ```

@@ -17,6 +17,37 @@ const retractionsViewName = "retractions"
 // retraction notice (by its own RetractionDOI) retracts which Nauvis record.
 const retractionProvenanceViewName = "retraction_provenance"
 
+// RunRetractionMatches rebuilds the `retractions` and
+// `retraction_provenance` views over the DuckDB at dbPath. It is a no-op if
+// either the `nauvis` or `retractionwatch` table does not yet exist —
+// providers can be ingested at different times, and the views simply become
+// available the moment both tables are present.
+func RunRetractionMatches(ctx context.Context, dbPath string) error {
+	db, err := openDuckDB(dbPath)
+	if err != nil {
+		return fmt.Errorf("open DuckDB: %w", err)
+	}
+	defer db.Close()
+
+	if !hasTable(ctx, db, "nauvis") || !hasTable(ctx, db, "retractionwatch") {
+		return nil
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if err := buildRetractionsView(ctx, tx); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+	return nil
+}
+
 // buildRetractionsView atomically creates (or replaces) the `retractions` view
 // inside the caller's transaction, so the view lands or rolls back exactly with
 // the rest of the ingest. It is a no-op if the `nauvis` or `retractionwatch`

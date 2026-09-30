@@ -1,11 +1,14 @@
 // Command vulcanus ingests CROID events from RabbitMQ into a DuckDB database,
 // into separate tables (Nauvis DOI records into a `nauvis` table, each Fulgora
-// dataset into its own table). After receiving all messages (or on demand via
-// -match-ror), it can run ROR matching against the nauvis records.
+// dataset into its own table). After consuming messages, it can run
+// retractionwatch matching (rebuilding the retraction views) and/or ROR
+// matching against the nauvis records.
 //
 // Vulcanus runs as a batch worker: it connects to RabbitMQ, consumes messages
 // into DuckDB, and exits on SIGINT/SIGTERM. It can be deployed as a container
-// that processes messages until stopped.
+// that processes messages until stopped. At least one matching flag
+// (-match-retractions or -match-ror) must be given; otherwise vulcanus prints
+// usage and exits without doing anything.
 package main
 
 import (
@@ -34,7 +37,14 @@ func main() {
 	routingKey := flag.String("routing-key", "", "RabbitMQ routing key (empty = all)")
 	outDB := flag.String("duckdb", "vulcanus.duckdb", "path to the DuckDB database to write")
 	matchROR := flag.Bool("match-ror", false, "run ROR matching against nauvis records after consuming messages")
+	matchRetractions := flag.Bool("match-retractions", false, "run retractionwatch matching (rebuild the retraction views) after consuming messages")
 	flag.Parse()
+
+	if !*matchROR && !*matchRetractions {
+		fmt.Fprintln(os.Stderr, "vulcanus: at least one matching flag is required (-match-ror and/or -match-retractions)")
+		flag.Usage()
+		os.Exit(1)
+	}
 
 	ctx := context.Background()
 
@@ -90,7 +100,14 @@ func main() {
 		// Clean shutdown
 	}
 
-	// Optionally run ROR matching.
+	// Run the requested matching.
+	if *matchRetractions {
+		if err := ingest.RunRetractionMatches(ctx, *outDB); err != nil {
+			log.Fatalf("vulcanus: retraction matching: %v", err)
+		}
+		log.Println("vulcanus: retraction matching complete")
+	}
+
 	if *matchROR {
 		if err := ingest.RunRORMatches(ctx, *outDB); err != nil {
 			log.Fatalf("vulcanus: ROR matching: %v", err)
@@ -182,76 +199,6 @@ func ensureTable(ctx context.Context, db *sql.DB, name string) error {
 	_, err := db.ExecContext(ctx, query)
 	if err != nil {
 		return fmt.Errorf("create table %s: %w", name, err)
-	}
-
-	// Also ensure the retraction views exist.
-	if err := buildRetractionsView(ctx, db); err != nil {
-		return fmt.Errorf("build retraction views: %w", err)
-	}
-
-	return nil
-}
-
-// buildRetractionsView creates the retraction-related views if both tables exist.
-func buildRetractionsView(ctx context.Context, db *sql.DB) error {
-	// Check if both nauvis and retractionwatch tables exist.
-	var nauvisExists, rwExists bool
-	err := db.QueryRowContext(ctx, `
-		SELECT COUNT(*) > 0 FROM information_schema.tables
-		WHERE table_schema = 'main' AND table_name = 'nauvis'
-	`).Scan(&nauvisExists)
-	if err != nil {
-		return fmt.Errorf("check nauvis table: %w", err)
-	}
-	err = db.QueryRowContext(ctx, `
-		SELECT COUNT(*) > 0 FROM information_schema.tables
-		WHERE table_schema = 'main' AND table_name = 'retractionwatch'
-	`).Scan(&rwExists)
-	if err != nil {
-		return fmt.Errorf("check retractionwatch table: %w", err)
-	}
-
-	if !nauvisExists || !rwExists {
-		return nil
-	}
-
-	// Create retractions view.
-	_, err = db.ExecContext(ctx, `
-		CREATE OR REPLACE VIEW retractions AS
-		SELECT
-			n.record AS nauvis_record,
-			r.record AS retractionwatch_record,
-			json_extract_string(n.record, '$.DOI') AS matched_doi
-		FROM nauvis AS n
-		JOIN retractionwatch AS r
-		  ON json_extract_string(n.record, '$.DOI') =
-		     json_extract_string(r.record, '$.OriginalPaperDOI')
-	`)
-	if err != nil {
-		return fmt.Errorf("create retractions view: %w", err)
-	}
-
-	// Create retraction_provenance view.
-	_, err = db.ExecContext(ctx, `
-		CREATE OR REPLACE VIEW retraction_provenance AS
-		SELECT
-			n.record AS nauvis_record, r.record AS retractionwatch_record,
-			json_extract_string(n.record, '$.DOI') AS paper_doi,
-			json_extract_string(r.record, '$.RetractionDOI') AS retraction_doi,
-			json_extract_string(n.record, '$.DOI') || ' is-retracted-by ' || json_extract_string(r.record, '$.RetractionDOI') AS provenance
-		FROM nauvis AS n
-		JOIN retractionwatch AS r ON json_extract_string(n.record, '$.DOI') = json_extract_string(r.record, '$.OriginalPaperDOI')
-		UNION ALL
-		SELECT
-			r.record AS nauvis_record, n.record AS retractionwatch_record,
-			json_extract_string(r.record, '$.RetractionDOI') AS paper_doi,
-			json_extract_string(n.record, '$.DOI') AS retraction_doi,
-			json_extract_string(r.record, '$.RetractionDOI') || ' retracts ' || json_extract_string(n.record, '$.DOI') AS provenance
-		FROM retractionwatch AS r
-		JOIN nauvis AS n ON json_extract_string(n.record, '$.DOI') = json_extract_string(r.record, '$.OriginalPaperDOI')
-	`)
-	if err != nil {
-		return fmt.Errorf("create retraction_provenance view: %w", err)
 	}
 
 	return nil
