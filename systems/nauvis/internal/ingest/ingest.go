@@ -18,6 +18,7 @@ import (
 	"github.com/nexus/croid/client"
 	"github.com/nexus/nauvis/internal/extract"
 	"github.com/nexus/nauvis/internal/store"
+	"github.com/nexus/nauvis/internal/validate"
 )
 
 // Run processes every input file in inDir in parallel, writing decompressed
@@ -133,13 +134,22 @@ func processOne(ctx context.Context, inPath, outDir string, st *store.Store, cro
 	}
 
 	// Mint CROIDs for newly inserted DOIs in background goroutines.
+	// A semaphore limits concurrency so CROID (SQLite MaxOpenConns=1) isn't
+	// overwhelmed by thousands of simultaneous HTTP requests.
 	if croidClient != nil && len(insertedDois) > 0 {
+		sem := make(chan struct{}, 16)
 		var wg sync.WaitGroup
 		wg.Add(len(insertedDois))
 		for _, doi := range insertedDois {
 			go func(doi string) {
 				defer wg.Done()
+				sem <- struct{}{}
+				defer func() { <-sem }()
 				record := doiIdx[doi]
+				if err := validate.Validate(record); err != nil {
+					lg.Error("croid: skip mint (invalid JSON schema)", "doi", doi, "err", err)
+					return
+				}
 				if _, err := croidClient.Mint(ctx, "DOI", doi, "nauvis", string(record)); err != nil {
 					lg.Warn("croid: mint", "doi", doi, "err", err)
 				}
