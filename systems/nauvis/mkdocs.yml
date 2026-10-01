@@ -14,4 +14,5 @@ nav:
   - NAUVIS: "index.md"
   - How it works: "how-it-works.md"
   - HTTP server: "http-server.md"
+  - Crossref work schema: "crossref-work-schema.md"
 
