@@ -13,7 +13,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     cd /build/nauvis && CGO_ENABLED=1 go build -o /nauvis .
 
 FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates openssl curl && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /nauvis /usr/local/bin/nauvis
 VOLUME ["/data"]
 WORKDIR /data
