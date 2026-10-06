@@ -1,0 +1,14 @@
+# Build artifacts
+vulcanus
+vulcanus.duckdb
+
+# Resources
+resources
+ror-matching-bug-report.md
+
+# Local editor/OS noise
+.DS_Store
+
+# Docs/source that don't belong in the image
+docs
+mkdocs.yml

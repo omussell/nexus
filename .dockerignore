@@ -1,0 +1,77 @@
+# Exclude non-essential files from all build contexts
+.dockerignore
+.git
+.gitignore
+.zvec-grep/
+
+# Documentation
+docs/
+documentation/
+docs
+
+# Data artifacts — these are volume-mounted at runtime
+systems/nauvis/out/
+systems/nauvis/data/
+systems/nauvis/nauvis
+systems/nauvis/nauvis.sqlite3
+systems/nauvis/nauvis.sqlite3-shm
+systems/nauvis/nauvis.sqlite3-wal
+systems/nauvis/db/
+
+systems/fulgora/ror/
+systems/fulgora/retractionwatch/
+systems/fulgora/fulgora
+systems/fulgora/fulgora.sqlite3
+systems/fulgora/fulgora.sqlite3-shm
+systems/fulgora/fulgora.sqlite3-wal
+systems/fulgora/initial_input/
+systems/fulgora/db/
+systems/fulgora/output/
+
+systems/vulcanus/vulcanus
+systems/vulcanus/*.duckdb
+systems/vulcanus/resources/
+
+systems/aquilo/
+systems/pomus/
+systems/nexus/
+systems/gleba/
+
+# Unrelated project
+marple-go/
+scripts/
+sandbox/
+
+# Generated/compiled files
+__pycache__/
+*.py[oc]
+*.egg-info
+build/
+dist/
+wheels/
+
+# Environment
+.venv
+.env
+.opencode/
+
+# Misc
+.DS_Store
+*.zip
+*.csv
+*.parquet
+*.sqlite
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+*.duckdb
+*.json.gz
+uv.lock
+opencode.json*
+mkdocs.yml
+pyproject.toml
+api_requests_example.md
+README.md
+AGENTS.md
+0_TODO.md
+DUCKDB_JSON_RECONCILIATION_SUMMARY.md

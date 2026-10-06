@@ -1,0 +1,22 @@
+# Build artifacts
+nauvis
+
+# SQLite data files
+nauvis.sqlite3
+nauvis.sqlite3-shm
+nauvis.sqlite3-wal
+
+# Output data
+out
+
+# Local editor/OS noise
+.DS_Store
+
+# Docs/source
+docs
+mkdocs.yml
+sqlc.yaml
+
+# Environment
+.venv
+.env

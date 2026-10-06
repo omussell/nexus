@@ -1,0 +1,14 @@
+# Build artifacts
+nexus
+
+# Local editor/OS noise
+.DS_Store
+
+# Docs/source
+docs
+mkdocs.yml
+README.md
+
+# Environment
+.venv
+.env

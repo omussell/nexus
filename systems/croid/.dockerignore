@@ -1,0 +1,17 @@
+# Build artifacts
+croid
+croid.sqlite3
+croid.sqlite3-shm
+croid.sqlite3-wal
+
+# Local editor/OS noise
+.DS_Store
+
+# Docs/source that don't belong in the image
+docs
+mkdocs.yml
+sqlc.yaml
+
+# Environment
+.venv
+.env

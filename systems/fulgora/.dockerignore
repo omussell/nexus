@@ -1,0 +1,21 @@
+# Build artifacts
+fulgora
+fulgora.sqlite3
+fulgora.sqlite3-shm
+fulgora.sqlite3-wal
+
+# ROR/Retraction Watch source data
+ror
+retractionwatch
+
+# Local editor/OS noise
+.DS_Store
+
+# Docs/source that don't belong in the image
+docs
+mkdocs.yml
+sqlc.yaml
+
+# Environment
+.venv
+.env
