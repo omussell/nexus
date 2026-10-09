@@ -114,6 +114,7 @@ func runFetch(ctx context.Context, args []string) error {
 	dbPath := fs.String("db", envOr("FULGORA_DB", "fulgora.sqlite3"), "path to the SQLite database file")
 	root := fs.String("root", envOr("FULGORA_ROOT", "."), "root directory under which per-source dirs live")
 	croidURL := fs.String("croid-url", "", "CROID service URL (e.g. http://localhost:9090; empty disables CROID minting)")
+	parquetDir := fs.String("parquet-dir", "", "directory to write Parquet files (empty disables)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -135,26 +136,19 @@ func runFetch(ctx context.Context, args []string) error {
 		croidCli = client.New(*croidURL, "fulgora")
 	}
 
-	var anyErr error
-	for _, name := range names {
-		src, err := sources.Get(name)
-		if err != nil {
-			anyErr = err
-			continue
-		}
-		res, err := collect.Collect(ctx, src, s, *root, croidCli)
-		if err != nil {
-			log.Printf("[%s] %v", name, err)
-			anyErr = err
-			continue
-		}
-		if res.Skipped {
-			log.Printf("[%s] %s up to date", name, res.Version)
+	// For now, collect only the specified sources in parallel.
+	results, err := collect.RunFiltered(ctx, s, *root, *parquetDir, names, croidCli)
+	if err != nil {
+		return err
+	}
+	for _, r := range results {
+		if r.Skipped {
+			log.Printf("[%s] %s up to date", r.Source, r.Version)
 		} else {
-			log.Printf("[%s] collected %s -> %s", name, res.Version, res.Output)
+			log.Printf("[%s] collected %s -> %s (croid: %s)", r.Source, r.Version, r.Output, r.Croid)
 		}
 	}
-	return anyErr
+	return nil
 }
 
 // runStatus implements `fulgora status [source ...]`.

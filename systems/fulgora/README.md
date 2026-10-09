@@ -21,7 +21,7 @@ internal/source         ->  the Source interface + shared download helper
 internal/source/ror     ->  ROR (Zenodo) source
 internal/source/retractionwatch -> Retraction Watch (GitLab) source
 internal/sources        ->  the registry: add a source here
-internal/collect        ->  the fetch workflow (check, download, process, record)
+internal/collect        ->  the fetch workflow (check, download, process, record, mint CROID, export Parquet)
 internal/store          ->  the query/persistence layer
 internal/db             ->  sqlc-generated code (DO NOT EDIT)
 internal/migrate        ->  schema.sql + Apply()
@@ -38,17 +38,20 @@ result under `output/`, per source:
 ```
 <root>/<source>/initial_input/<source>-<version>_<timestamp><ext>   (raw file)
 <root>/<source>/output/<...>                                          (standardized)
+<parquetDir>/{croid}.parquet                                          (Parquet export, if configured)
 ```
 
-The `--root` flag (or `FULGORA_ROOT`) controls where this tree lives. Metadata
-about every collected version — and which one is the latest — is recorded in a
-SQLite database.
+The `--root` flag (or `FULGORA_ROOT`) controls where this tree lives.
+The `--parquet-dir` flag (or `FULGORA_PARQUET_DIR`) controls where Parquet
+files are written. Metadata about every collected version — and which one is
+the latest — is recorded in a SQLite database.
 
 ## Schema
 
-Two tables: `datasets` (one row per collected version of a source) and `latest`
-(one row per source pointing at the newest `datasets` row). See
-`internal/migrate/schema.sql`.
+Three tables: `datasets` (one row per collected version, with a `croid` column
+for the minted Content-Resolved Object ID), `latest` (one row per source
+pointing at the newest `datasets` row), and `versions` (version tracking).
+See `internal/migrate/schema.sql`.
 
 ## CLI
 
@@ -62,8 +65,22 @@ fulgora serve                 start the HTTP discovery service (default :8090)
 so it is safe to run on a schedule (daily/weekly). If no source is named, all
 registered sources are processed.
 
-Flags (or `FULGORA_DB`, `FULGORA_ROOT`, `FULGORA_ADDR` env vars): `-db`,
-`-root`, `-addr`.
+Flags (or `FULGORA_DB`, `FULGORA_ROOT`, `FULGORA_CROID_URL`, `FULGORA_PARQUET_DIR`, `FULGORA_ADDR` env vars):
+
+| flag | env var | default | meaning |
+|------|---------|---------|---------|
+| `-db` | `FULGORA_DB` | `fulgora.sqlite3` | path to the SQLite database |
+| `-root` | `FULGORA_ROOT` | `.` | root dir for per-source data |
+| `-croid-url` | `FULGORA_CROID_URL` | `` | CROID service URL; empty disables CROID minting |
+| `-parquet-dir` | `FULGORA_PARQUET_DIR` | `` | directory to write Parquet files; empty disables |
+| `-addr` | `FULGORA_ADDR` | `:8090` | listen address for `serve` |
+
+Example:
+
+```console
+$ fulgora fetch ror --croid-url http://localhost:9090 --parquet-dir ./parquet
+[ror] collected 1.63 -> fulgora/ror/output/1.63 (croid: croid_croid_croid_croid-parquet_croid)
+```
 
 ## HTTP API
 
@@ -74,6 +91,8 @@ Started with `fulgora serve`:
 - `GET /latest`                   — every source's latest version
 - `GET /latest/{source}`          — one source's latest version
 - `GET /latest/{source}/history`  — every version of a source (newest first)
+
+Each dataset includes a `croid` field when CROID minting is enabled.
 
 ## Adding a new source
 

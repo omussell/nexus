@@ -14,7 +14,8 @@ the latest information.
 Fulgora is a single Go binary with three subcommands:
 
 * `fetch` — check each source for a new dataset version, download it,
-  standardize it, and record it in a local SQLite registry.
+  standardize it, mint a CROID, convert to Parquet, and record it in a local
+  SQLite registry.
 * `status` — print the latest collected version per source.
 * `serve` — start an HTTP service that other systems query to discover which
   dataset versions are available and where they live on disk.
@@ -32,6 +33,12 @@ is already recorded in the database is skipped rather than downloaded again.
 * **Version Management:** Tracks dataset versions in a SQLite registry so
   `fetch` can be re-run idempotently and downstream systems can identify the
   latest available data.
+* **CROID Minting:** Each newly collected dataset is assigned a unique CROID
+  (Content-Resolved Object ID) via the CROID service, enabling stable references
+  to dataset versions regardless of upstream changes.
+* **Parquet Export:** After minting a CROID, Fulgora converts the standardized
+  dataset into Parquet format for efficient downstream analytics. Each dataset
+  produces a `{croid}.parquet` file.
 * **Data Enrichment:** Provides additional information used to enhance and
   improve the primary Crossref data collected by other systems.
 
@@ -90,6 +97,20 @@ For each requested source, `internal/collect/collect.go` runs:
    `<root>/<source>/output/`.
 5. **Record** — insert a `datasets` row and upsert the `latest` pointer for the
    source (both done by `internal/store`).
+6. **Mint CROID** — if `--croid-url` is configured, a CROID is minted for the
+   dataset via the CROID service, keyed by `dataset:<source>:<version>`.
+   The CROID is stored in the `croid` column and logged as part of the result.
+7. **Export Parquet** — if `--parquet-dir` is configured, the standardized
+   output is converted to Parquet format and written as
+   `<parquetDir>/{croid}.parquet` using an atomic write (`.tmp` → rename).
+
+   Parquet mapping for each source:
+
+   | source | Parquet struct | key fields |
+   |--------|---------------|------------|
+   | `ror` | `ROROrganization` | `ror_id`, `name`, `type`, `country_code`, `country`, `aliases`, `acronym`, `labels`, `links`, `external_ids`, `establishment_date` |
+   | `retractionwatch` | `RetractionWatchRecord` | `paper_title`, `author`, `journal`, `original_paper_doi`, `retraction_doi`, `retraction_type`, `retraction_reason`, `retraction_date` |
+   | other | `Record` | `data` (raw JSON) |
 
 ### Storage layout
 
@@ -99,26 +120,33 @@ result under `output/`, per source:
 ```
 <root>/<source>/initial_input/<source>-<version>_<timestamp><ext>   (raw file)
 <root>/<source>/output/<...>                                          (standardized)
+<parquetDir>/{croid}.parquet                                          (Parquet export, if configured)
 ```
 
-The `--root` flag (or `FULGORA_ROOT`) controls where this tree lives.
+The `--root` flag (or `FULGORA_ROOT`) controls where the source tree lives.
+The `--parquet-dir` flag (or `FULGORA_PARQUET_DIR`) controls where Parquet
+files are written.
 
 ### The registry
 
 All records live in a SQLite database (default file `fulgora.sqlite3`, pure Go
-driver `modernc.org/sqlite`, WAL mode, single writer connection). Two tables
+driver `modernc.org/sqlite`, WAL mode, single writer connection). Three tables
 (defined in `internal/migrate/schema.sql`, applied idempotently on startup):
 
 * `datasets` — one row per collected version of a source: `source`, `version`,
-  `collected_at`, `initial_input` path, `output` path. `UNIQUE (source,
-  version)` guarantees each version is recorded once.
+  `collected_at`, `initial_input` path, `output` path, and `croid` (the
+  Content-Resolved Object ID minted by the CROID service, empty if not
+  configured). `UNIQUE (source, version)` guarantees each version is recorded
+  once.
 * `latest` — one row per source, pointing (via `dataset_id`) at the most recent
   `datasets` row.
+* `versions` — tracks version information for the dataset (schema-stored).
 
 Persistence queries are written in SQL under `db/queries/` and compiled by
 `sqlc` into `internal/db/` (package `db`, generated — do not edit).
 The `internal/store` package wraps those queries into the public
-`Record` / `Get` / `Latest` / `ListLatest` / `ListBySource` methods.
+`Record` / `Get` / `Latest` / `ListLatest` / `ListBySource` / `UpdateCroid`
+methods.
 
 ## Usage
 
@@ -132,17 +160,22 @@ If no source is named, all registered sources are used.
 
 Flags (each also available as an environment variable):
 
-| flag       | env var        | default        | meaning                          |
-|------------|----------------|----------------|----------------------------------|
-| `-db`      | `FULGORA_DB`   | `fulgora.sqlite3` | path to the SQLite database    |
-| `-root`    | `FULGORA_ROOT` | `.`            | root dir for per-source data     |
-| `-addr`    | `FULGORA_ADDR` | `:8090`        | listen address for `serve`       |
+| flag | env var | default | meaning |
+|------|---------|---------|---------|
+| `-db` | `FULGORA_DB` | `fulgora.sqlite3` | path to the SQLite database |
+| `-root` | `FULGORA_ROOT` | `.` | root dir for per-source data |
+| `-croid-url` | `FULGORA_CROID_URL` | `` | CROID service URL (e.g. `http://localhost:9090`; empty disables CROID minting) |
+| `-parquet-dir` | `FULGORA_PARQUET_DIR` | `` | directory to write Parquet files (empty disables); writes `{croid}.parquet` after minting |
+| `-addr` | `FULGORA_ADDR` | `:8090` | listen address for `serve` |
 
 ### Example session
 
 ```console
 $ fulgora fetch ror
-[ror] collected 1.63 -> fulgora/ror/output/1.63
+[ror] collected 1.63 -> fulgora/ror/output/1.63 (croid: croid_croid_croid_croid-parquet_croid)
+$ fulgora fetch ror --parquet-dir ./parquet
+[ror] collected 1.63 -> fulgora/ror/output/1.63 (croid: croid_croid_croid_croid-parquet_croid)
+# Creates ./parquet/croid_croid_croid_croid-parquet_croid.parquet
 $ fulgora status
 retractionwatch      2026-08-15   (collected 2026-08-15T09:12:31Z)
 ror                  1.63   (collected 2026-08-15T09:12:29Z)
@@ -167,7 +200,8 @@ Each dataset is reported as:
   "version": "1.63",
   "collected_at": "2026-08-15T09:12:29Z",
   "initial_input": "fulgora/ror/initial_input/ror-1.63_2026-08-15T09-12-29Z.zip",
-  "output": "fulgora/ror/output/1.63"
+  "output": "fulgora/ror/output/1.63",
+  "croid": "croid_croid_croid_croid-parquet_croid"
 }
 ```
 
@@ -194,7 +228,7 @@ internal/source/source.go      ->  the Source interface + shared download helper
 internal/source/ror            ->  ROR (Zenodo) source
 internal/source/retractionwatch->  Retraction Watch (GitLab) source
 internal/sources               ->  the registry: map of name -> constructor
-internal/collect               ->  the fetch workflow (check, skip, download, process, record)
+internal/collect               ->  the fetch workflow (check, skip, download, process, record, mint CROID, export Parquet)
 internal/store                 ->  the query/persistence layer
 internal/db                    ->  sqlc-generated code (DO NOT EDIT)
 internal/migrate               ->  schema.sql + Apply()
