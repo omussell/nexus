@@ -4,71 +4,102 @@ Vulcanus ingests data from Nauvis and Fulgora into a DuckDB database, enabling c
 
 ## Overview
 
-Vulcanus is a batch worker that connects to RabbitMQ, consumes CROID events from Nauvis and Fulgora, and ingests each record into DuckDB. It runs as a container that processes messages until stopped with SIGINT or SIGTERM.
+Vulcanus is a batch worker that reads output files from Nauvis and Fulgora (stored as JSON or Parquet) and ingests them into a DuckDB database. After ingestion it can optionally run ROR matching against nauvis records and retraction matching between nauvis and retractionwatch records.
 
 ## Key Functionalities
 
-* **RabbitMQ Consumer:** Connects to the CROID exchange, consumes events one at a time (QoS=1), and exits on shutdown signal.
-* **Per-Record Ingestion:** Each CROID event triggers ingestion of a single record into the appropriate DuckDB table (`nauvis` or `<source>` for Fulgora sources).
-* **Provider Isolation:** Nauvis DOI records land in a single `nauvis` table; each Fulgora source (e.g. `ror`, `retractionwatch`) gets its own table.
-* **Faithful Preservation:** Ingests raw JSON records verbatim into a `JSON` column in DuckDB.
+* **Batch Ingestion:** Reads Nauvis output files from a JSON or Parquet store and ingests them into a single `nauvis` table in DuckDB.
+* **Fulgora Ingestion:** Reads output files from each Fulgora source (e.g. `ror`, `retractionwatch`) and ingests them into separate tables per source.
+* **Provider Isolation:** Nauvis DOI records land in a single `nauvis` table; each Fulgora source gets its own table.
+* **JSON Parquet Support:** When the `-parquet` flag is given, Vulcanus reads Parquet files via DuckDB's `read_parquet()` function, converting columns back to JSON via `to_json(row(*))` to preserve the existing table schema.
+* **Faithful Preservation:** Ingests raw JSON records verbatim into a `JSON` column in DuckDB — one row per record.
 * **Retraction Matching:** Optional `-match-retractions` flag rebuilds the `retractions` view, which pairs each Nauvis record with its `retractionwatch` notice on the paper's DOI.
-* **Bidirectional Retraction Provenance:** Derives both passive (`X is-retracted-by Y`) and active (`Y retracts X`) provenance strings.
-* **ROR Matching:** Optional `-match-ror` flag runs ROR entity matching against nauvis records after consuming.
-* **Required Matching:** At least one matching flag (`-match-retractions` or `-match-ror`) must be given; otherwise Vulcanus prints usage and exits.
+* **Bidirectional Retraction Provenance:** Derives both passive (`X is-retracted-by Y`) and active (`Y retracts X`) provenance strings in the `retraction_provenance` view.
+* **ROR Matching:** Optional `-match-ror` flag runs ROR entity matching against nauvis records, finding matching funder and affiliation organizations.
+* **Table Reset:** Each run empties the target tables before re-inserting, so re-running replaces the previous snapshot rather than accumulating duplicates.
 
 ## Running Vulcanus
 
 ```bash
 go run . \
-  [-rabbitmq amqp://localhost:5672] \
-  [-exchange croid] \
-  [-queue vulcanus] \
-  [-routing-key ""] \
+  [-only all|nauvis|fulgora|match] \
+  [-nauvis-db nauvis.sqlite3] \
+  [-nauvis-dir /path/to/nauvis] \
+  [-fulgora-db fulgora.sqlite3] \
+  [-fulgora-dir /path/to/fulgora] \
   [-duckdb vulcanus.duckdb] \
+  [-parquet] \
   [-match-retractions] \
   [-match-ror]
 ```
 
-At least one matching flag (`-match-retractions` or `-match-ror`) is
-required; without one, Vulcanus prints usage and exits.
-
 | flag | default | meaning |
 |------|---------|---------|
-| `-rabbitmq` | `amqp://localhost:5672` | RabbitMQ AMQP URL |
-| `-exchange` | `croid` | RabbitMQ exchange to consume from |
-| `-queue` | `vulcanus` | RabbitMQ queue name to declare/bind |
-| `-routing-key` | (empty) | RabbitMQ routing key (empty = all) |
+| `-only` | `all` | Which provider to ingest: `nauvis`, `fulgora`, `all`, or `match` (to only run matching without ingestion) |
+| `-nauvis-db` | `nauvis.sqlite3` | Path to the nauvis SQLite database |
+| `-nauvis-dir` | (required when -only includes nauvis) | Path to the nauvis system directory (data root) |
+| `-fulgora-db` | `fulgora.sqlite3` | Path to the fulgora SQLite database |
+| `-fulgora-dir` | (required when -only includes fulgora) | Path to the fulgora data root (output dir) |
 | `-duckdb` | `vulcanus.duckdb` | DuckDB database file to write |
-| `-match-retractions` | `false` | Run retractionwatch matching (rebuild the retraction views) after consuming |
-| `-match-ror` | `false` | Run ROR matching after consuming |
+| `-parquet` | `false` | Read Parquet files instead of JSON |
+| `-match-retractions` | `false` | Run retractionwatch matching (rebuild the retraction views) after ingestion |
+| `-match-ror` | `false` | Run ROR matching after ingestion |
 
-### Example
+### Examples
+
+Ingest all sources with JSON files:
 
 ```bash
-go run . -duckdb vulcanus.duckdb -match-retractions -match-ror
-vulcanus: starting consumer
-vulcanus: waiting for messages (send SIGINT/SIGTERM to stop)
-^C
-vulcanus: shutting down...
+go run . -nauvis-dir /data/nauvis -fulgora-dir /data/fulgora -duckdb vulcanus.duckdb
+```
+
+Ingest with Parquet files and run all matching:
+
+```bash
+go run . -nauvis-dir /data/nauvis -fulgora-dir /data/fulgora -duckdb vulcanus.duckdb -parquet -match-retractions -match-ror
+vulcanus: ingested 1234567 nauvis records into vulcanus.duckdb
+vulcanus: ingested 45678 fulgora records into vulcanus.duckdb
 vulcanus: retraction matching complete
 vulcanus: ROR matching complete
-vulcanus: done, DuckDB=vulcanus.duckdb
+```
+
+Run matching only (no ingestion):
+
+```bash
+go run . -only match -duckdb vulcanus.duckdb -match-retractions -match-ror
+vulcanus: retraction matching complete
+vulcanus: ROR matching complete
 ```
 
 ## How it works
 
-See [How Vulcanus Works](how-it-works.md) for a detailed explanation of the consumer flow, DuckDB tables, and views.
+See [How Vulcanus Works](how-it-works.md) for a detailed explanation of the ingestion flow, DuckDB tables, and views.
 
 ## Deployment
 
-Vulcanus is designed for container deployment:
+Vulcanus is designed for batch execution. It runs to completion and exits:
 
-1. Container starts → connects to RabbitMQ → begins consuming
-2. If queue is empty: blocks waiting for messages
-3. On SIGINT/SIGTERM: finishes current message, closes connection, exits
-4. Max 30s shutdown timeout prevents hanging
+1. Parse flags and open stores
+2. Ingest Nauvis files (JSON or Parquet) into DuckDB `nauvis` table
+3. Ingest Fulgora files (JSON or Parquet) into DuckDB `<source>` tables
+4. If `-match-retractions`: rebuild retraction views
+5. If `-match-ror`: run ROR matching and write results
+6. Exit
 
-Set `terminationGracePeriodSeconds: 35` in Kubernetes to allow graceful shutdown.
+## Dependencies
 
-Multiple containers can consume from the same queue; RabbitMQ distributes messages across them.
+Nauvis and Fulgora must be run first to produce output files and update their SQLite registries:
+
+```bash
+# Nauvis: ingest and produce JSON/Parquet output
+go run github.com/nexus/nauvis ingest -in /data/crossref -out /data/nauvis/out -parquet-dir /data/nauvis/parquet
+
+# Fulgora: collect and produce JSON/Parquet output
+go run github.com/nexus/fulgora collect -root /data/fulgora -parquet-dir /data/fulgora/parquet
+```
+
+Then Vulcanus can read the output:
+
+```bash
+go run . -nauvis-dir /data/nauvis -fulgora-dir /data/fulgora -duckdb vulcanus.duckdb -parquet
+```

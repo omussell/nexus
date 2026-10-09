@@ -16,81 +16,15 @@ func Convert(jsonBytes []byte) ([]byte, error) {
 	if err := json.Unmarshal(jsonBytes, &raw); err != nil {
 		return nil, err
 	}
+	r := NewRecord(raw)
+	return MarshalRecord(&r)
+}
 
-	doi := strPtr(getStr(raw, "DOI"))
-	abstract := strPtr(getStr(raw, "abstract"))
-	publisher := strPtr(getStr(raw, "publisher"))
-	docType := strPtr(getStr(raw, "type"))
-	lang := strPtr(getStr(raw, "language"))
-	volume := strPtr(getStr(raw, "volume"))
-	issue := strPtr(getStr(raw, "issue"))
-	page := strPtr(getStr(raw, "page"))
-	doiAssertedBy := strPtr(getStr(raw, "doi-asserted-by"))
-
-	titleArr, _ := getStringArray(raw, "title")
-	title := ""
-	if len(titleArr) > 0 {
-		title = titleArr[0]
-	}
-	titlePtr := strPtr(title)
-
-	groupTitle, _ := getStringArray(raw, "group_title")
-	containerTitle, _ := getStringArray(raw, "container-title")
-	issn, _ := getStringArray(raw, "ISSN")
-	subject, _ := getStringArray(raw, "subject")
-
-	author := getAuthors(raw, "author")
-	funder := getFunders(raw, "funder")
-
-	created := getDate(raw, "created")
-	published := getDate(raw, "published-print")
-	publishedOnline := getDate(raw, "published-online")
-	issued := getDate(raw, "issued")
-	updated := getDate(raw, "updated")
-
-	createdPtr := strPtr(created)
-	publishedPrintPtr := strPtr(published)
-	publishedOnlinePtr := strPtr(publishedOnline)
-	issuedPtr := strPtr(issued)
-	updatedPtr := strPtr(updated)
-
-	referenceCount, _ := getInt32(raw, "reference-count")
-	isReferencedBy, _ := getInt32(raw, "is-referenced-by-count")
-
-	t := record{
-		DOI:               doi,
-		Abstract:          abstract,
-		Title:             titlePtr,
-		GroupTitle:        groupTitle,
-		Type:              docType,
-		Publisher:         publisher,
-		Created:           createdPtr,
-		Published:         issuedPtr,
-		Updated:           updatedPtr,
-		AuthorName:        author.name,
-		AuthorGiven:       author.given,
-		AuthorFamily:      author.family,
-		AuthorAffiliation: author.affiliation,
-		AuthorID:          author.id,
-		FunderName:        funder.name,
-		FunderDOI:         funder.doi,
-		ReferenceCount:    &referenceCount,
-		IsReferencedBy:    &isReferencedBy,
-		DOIAssertedBy:     doiAssertedBy,
-		Language:          lang,
-		Volume:            volume,
-		Issue:             issue,
-		Page:              page,
-		ISSN:              issn,
-		ContainerTitle:    containerTitle,
-		PublishedPrint:    publishedPrintPtr,
-		PublishedOnline:   publishedOnlinePtr,
-		Subject:           subject,
-	}
-
+// MarshalRecord serializes a single Record to parquet bytes.
+func MarshalRecord(r *Record) ([]byte, error) {
 	buf := &bytes.Buffer{}
 	writer := parquet.NewWriter(buf)
-	if err := writer.Write(t); err != nil {
+	if err := writer.Write(r); err != nil {
 		return nil, err
 	}
 	if err := writer.Close(); err != nil {
@@ -99,7 +33,8 @@ func Convert(jsonBytes []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-type record struct {
+// Record is a single row in the nauvis parquet file, representing a Crossref work.
+type Record struct {
 	DOI               *string  `parquet:"doi,optional"`
 	Abstract          *string  `parquet:"abstract,optional"`
 	Title             *string  `parquet:"title,optional"`
@@ -128,6 +63,53 @@ type record struct {
 	PublishedPrint    *string  `parquet:"published_print,optional"`
 	PublishedOnline   *string  `parquet:"published_online,optional"`
 	Subject           []string `parquet:"subject"`
+}
+
+// NewRecord creates a Record from a Crossref work JSON object.
+func NewRecord(raw map[string]json.RawMessage) Record {
+	return Record{
+		DOI:               strPtr(getStr(raw, "DOI")),
+		Abstract:          strPtr(getStr(raw, "abstract")),
+		Title:             strPtr(getStr(raw, "title")),
+		GroupTitle:        getStrArray(raw, "group_title"),
+		Type:              strPtr(getStr(raw, "type")),
+		Publisher:         strPtr(getStr(raw, "publisher")),
+		Created:           strPtr(getDate(raw, "created")),
+		Published:         strPtr(getDate(raw, "issued")),
+		Updated:           strPtr(getDate(raw, "updated")),
+		AuthorName:        getAuthorField(raw, "author", "name"),
+		AuthorGiven:       getAuthorField(raw, "author", "given"),
+		AuthorFamily:      getAuthorField(raw, "author", "family"),
+		AuthorAffiliation: getAuthorField(raw, "author", "affiliation"),
+		AuthorID:          getAuthorField(raw, "author", "id"),
+		FunderName:        getFunderField(raw, "funder", "name"),
+		FunderDOI:         getFunderField(raw, "funder", "doi"),
+		ReferenceCount:    int32Ptr(getInt64(raw, "reference-count")),
+		IsReferencedBy:    int32Ptr(getInt64(raw, "is-referenced-by-count")),
+		DOIAssertedBy:     strPtr(getStr(raw, "doi-asserted-by")),
+		Language:          strPtr(getStr(raw, "language")),
+		Volume:            strPtr(getStr(raw, "volume")),
+		Issue:             strPtr(getStr(raw, "issue")),
+		Page:              strPtr(getStr(raw, "page")),
+		ISSN:              getStrArray(raw, "ISSN"),
+		ContainerTitle:    getStrArray(raw, "container-title"),
+		PublishedPrint:    strPtr(getDate(raw, "published-print")),
+		PublishedOnline:   strPtr(getDate(raw, "published-online")),
+		Subject:           getStrArray(raw, "subject"),
+	}
+}
+
+// getStrArray extracts a string array from raw.
+func getStrArray(raw map[string]json.RawMessage, key string) []string {
+	val, ok := raw[key]
+	if !ok {
+		return nil
+	}
+	var arr []string
+	if err := json.Unmarshal(val, &arr); err != nil {
+		return nil
+	}
+	return arr
 }
 
 // --- helpers ---
@@ -235,6 +217,52 @@ func getAuthors(raw map[string]json.RawMessage, key string) authors {
 	return a
 }
 
+// getAuthorField extracts a specific field from author array items.
+func getAuthorField(raw map[string]json.RawMessage, key, field string) []string {
+	val, ok := raw[key]
+	if !ok {
+		return nil
+	}
+	var arr []struct {
+		Name        string `json:"name"`
+		Given       string `json:"given"`
+		Family      string `json:"family"`
+		Affiliation []struct {
+			Name string `json:"name"`
+		} `json:"affiliation"`
+		Orchid string `json:"ORCID"`
+	}
+	if err := json.Unmarshal(val, &arr); err != nil {
+		return nil
+	}
+	results := make([]string, 0, len(arr))
+	for _, item := range arr {
+		switch field {
+		case "name":
+			if item.Name != "" {
+				results = append(results, item.Name)
+			}
+		case "given":
+			if item.Given != "" {
+				results = append(results, item.Given)
+			}
+		case "family":
+			if item.Family != "" {
+				results = append(results, item.Family)
+			}
+		case "affiliation":
+			if len(item.Affiliation) > 0 && item.Affiliation[0].Name != "" {
+				results = append(results, item.Affiliation[0].Name)
+			}
+		case "id":
+			if item.Orchid != "" {
+				results = append(results, item.Orchid)
+			}
+		}
+	}
+	return results
+}
+
 type funders struct {
 	name []string
 	doi  []string
@@ -265,6 +293,57 @@ func getFunders(raw map[string]json.RawMessage, key string) funders {
 		}
 	}
 	return f
+}
+
+// getFunderField extracts a specific field from funder array items.
+func getFunderField(raw map[string]json.RawMessage, key, field string) []string {
+	val, ok := raw[key]
+	if !ok {
+		return nil
+	}
+	var arr []struct {
+		Name string `json:"name"`
+		DOI  string `json:"DOI"`
+	}
+	if err := json.Unmarshal(val, &arr); err != nil {
+		return nil
+	}
+	results := make([]string, 0, len(arr))
+	for _, item := range arr {
+		switch field {
+		case "name":
+			if item.Name != "" {
+				results = append(results, item.Name)
+			}
+		case "doi":
+			if item.DOI != "" {
+				results = append(results, item.DOI)
+			}
+		}
+	}
+	return results
+}
+
+// int32Ptr converts an int64 to *int32.
+func int32Ptr(n int64) *int32 {
+	if n == 0 {
+		return nil
+	}
+	v := int32(n)
+	return &v
+}
+
+// getInt64 extracts an int64 from raw.
+func getInt64(raw map[string]json.RawMessage, key string) int64 {
+	val, ok := raw[key]
+	if !ok {
+		return 0
+	}
+	var n int64
+	if err := json.Unmarshal(val, &n); err != nil {
+		return 0
+	}
+	return n
 }
 
 func strPtr(s string) *string {

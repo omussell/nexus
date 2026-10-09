@@ -1,35 +1,42 @@
 # How Vulcanus Works
 
-This page explains how Vulcanus operates, from RabbitMQ CROID events to the
-DuckDB database it maintains. It is a companion to the [Overview](index.md);
+This page explains how Vulcanus operates, from the Nauvis and Fulgora data stores to
+the DuckDB database it maintains. It is a companion to the [Overview](index.md);
 see there for what Vulcanus is and what it aims to.
 
 ## At a glance
 
-Vulcanus is a RabbitMQ consumer. Nauvis and Fulgora each publish CROID events to
-the `croid` exchange whenever they mint a new CROID. Vulcanus listens on a
-queue bound to that exchange, and for every message it:
-
-1. loads the full CROID record (`record` field) from the RabbitMQ message body,
-2. routes the record into the appropriate DuckDB table, and
-3. continues processing the next message.
+Vulcanus is a batch worker. Nauvis and Fulgora each write output files (NDJSON or
+Parquet) and maintain a SQLite registry of what they have produced. Vulcanus reads
+those registries, locates the output files, and ingests them into DuckDB:
 
 ```
-Nauvis ──mint──▶  RabbitMQ `croid` exchange  ──consume──▶  DuckDB `nauvis` table
-Fulgora ──mint──▶  RabbitMQ `croid` exchange  ──consume──▶  DuckDB `<source>` tables
+Nauvis SQLite ──read──▶  Nauvis output files (.json or .parquet)  ──ingest──▶  DuckDB `nauvis` table
+Fulgora SQLite ──read──▶  Fulgora output files (.json or .parquet)  ──ingest──▶  DuckDB `<source>` tables
 ```
 
 The two providers stay separate: Nauvis lands in a single `nauvis` table, while
 each Fulgora source (e.g. `ror`, `retractionwatch`) gets its own table. They can
-arrive at different times without clobbering each other.
+be ingested independently and re-running replaces the previous snapshot.
 
-After the source tables exist, Vulcanus can build a thin **derived view**
-`retractions` that pairs each Nauvis record with its matching
-`retractionwatch` notice on the paper's DOI (`nauvis.DOI` =
-`retractionwatch.OriginalPaperDOI`), exposing both full records plus the
-matching DOI. The view is only built when the `-match-retractions` flag is
-given (it is a no-op while either source table is missing) and is a
-projection over the loaded tables — it never copies data.
+After the source tables exist, Vulcanus can build two **derived views** on top
+of the Nauvis and retractionwatch tables:
+
+* `retractions` — pairs each Nauvis record with its matching
+  `retractionwatch` notice on the paper's DOI (`nauvis.DOI` =
+  `retractionwatch.OriginalPaperDOI`), exposing both full records plus the
+  matching DOI.
+* `retraction_provenance` — reduces matches to two consumer-ready provenance
+  strings per match: one passive (`X is-retracted-by Y`) and one active
+  (`Y retracts X`).
+
+The views are only built when the `-match-retractions` flag is given and are a
+projection over the loaded tables — they never copy data.
+
+The ROR matching (`-match-ror`) extracts DOI, funder names, and affiliation names
+from the `nauvis` records, matches them against the ROR database in DuckDB using
+a parallel worker pool, and writes results to `ror_funder_matches` and
+`ror_affiliation_matches` tables.
 
 This is not transformation: Vulcanus never parses or normalises the payload. It
 only preserves it, one record at a time, in a single column of JSON text. Every
@@ -37,199 +44,96 @@ record a provider saw is ingested; nothing is filtered away.
 
 ## The stages
 
-The pipeline is split into two packages and one entry point, each with one job.
+The pipeline is split into three packages and one entry point, each with one job.
 
-### 1. RabbitMQ consumer — `internal/rabbitmq`
+### 1. Store readers — `internal/nauvis` and `internal/fulgora`
 
-`rabbitmq.New(url, exchange, queue, routingKey, handler, logger)` creates a
-persistent AMQP connection, declares the queue, binds it to the exchange, sets
-QoS to 1 (one message at a time), and starts consuming.
+The store packages read from the SQLite databases that Nauvis and Fulgora maintain.
 
-The handler receives each `Record` with fields:
-- `CROID` — the URL-safe 32-character CROID string
-- `CroType` — the identity type (e.g. `DOI`)
-- `CroValue` — the identity value (e.g. `10.1/paper`)
-- `System` — the system that minted it (`nauvis` or `fulgora:<source>`)
-- `Record` — the full JSON record, preserved as-is
+**Nauvis store** (`internal/nauvis/store.go`):
+- `Open(path)` opens the Nauvis SQLite database and returns a `*Store`.
+- `Nauvis()` returns every output file recorded with its DOI count.
+- `ParquetFiles()` returns the same files but with `.json` replaced by `.parquet`
+  in the path, enabling parquet-based ingestion.
+- `ByDOI(ctx, doi)` returns the file that recorded a specific DOI.
 
-```go
-type Record struct {
-    CROID   string
-    CroType string
-    CroValue string
-    System  string
-    Record  []byte
-}
-```
-
-The consumer exposes a `Done() <-chan struct{}` that is closed when the consumer
-loop exits (connection loss, explicit close, etc.), allowing the main process to
-detect lifecycle events.
-
-`Close()` shuts down the consumer gracefully, waiting up to 30 seconds for the
-connection to close cleanly.
+**Fulgora store** (`internal/fulgora/store.go`):
+- `Open(path, root)` opens the Fulgora SQLite database. `root` is the data root
+  under which the registry's output paths live.
+- `Sources(ctx)` returns, for every source Fulgora has collected, the latest version
+  recorded and where its output file lives.
+- `Source.OutputPath()` joins root and the stored path to locate the JSON file.
+- `Source.ParquetPath()` derives the Parquet path by appending `.parquet` to the
+  JSON path (removing `.json` first).
 
 ### 2. Ingest — `internal/ingest`
 
-`OpenDB(path)` opens the DuckDB database with write-ahead-log mode enabled and
-returns a `*sql.DB` for use by the ingest writer.
+The `ingest` package loads files into DuckDB using the `database/sql` interface
+over the duckdb-go driver.
 
-The `ingestWriter` type handles routing CROID records into the correct DuckDB
-table. It maintains a cache of prepared `INSERT` statements keyed by table name:
+`Run(ctx, src, outDir, outDB, useParquet, lg)` accepts either a `*nauvis.Store`
+or a `*fulgora.Store` and routes to the appropriate ingestion function:
 
 ```go
-func (w *ingestWriter) Ingest(ctx context.Context, rec rabbitmq.Record) error {
-    table := tableName(rec.System)  // "nauvis" or "<source>"
-    stmt := w.ensureStmt(table)     // prepare INSERT INTO "table" (record) VALUES (?)
-    stmt.Exec(rec.Record)           // bind and execute
+func Run(ctx context.Context, src any, outDir, outDB string, useParquet bool, lg *slog.Logger) (int, error) {
+    if vis, ok := src.(*nauvis.Store); ok {
+        return runNauvis(ctx, vis, outDir, outDB, useParquet, lg)
+    }
+    if store, ok := src.(*fulgora.Store); ok {
+        return runFulgora(ctx, store, outDir, outDB, useParquet, lg)
+    }
+    return 0, fmt.Errorf("unknown source type %T", src)
 }
 ```
 
-The implementation:
-- **Prepared statements** — each table's `INSERT` is prepared once and reused,
-  so the bind cost is minimal.
-- **Safe table names** — system and source names that become table identifiers
-  are wrapped in double quotes with any embedded quotes doubled, so registry
-  values can't break (or inject into) the DDL.
-- **Faithful preservation** — the bytes of each record are bound verbatim into
-  the `JSON` column. No round-tripping through a struct, no re-serialising, no
-  field selection: whatever a provider emitted is exactly what lands in DuckDB.
-- **One message at a time** — QoS=1 ensures the next message is only dispatched
-  after the previous one is successfully ingested, providing backpressure.
+#### JSON ingestion (`ingestFile`)
 
-### 3. Entry point — `main.go`
+For JSON files, `ingestFile` reads line by line:
 
-`main.go` runs as a batch worker: it connects to RabbitMQ, begins consuming
-messages, and blocks until a shutdown signal arrives.
+1. Open the file as an NDJSON stream (one JSON object per line).
+2. Validate each line with `json.Valid()`.
+3. Bind each line as a parameter to `INSERT INTO <table> (record) VALUES (?)`.
+4. Count and return the total rows inserted.
 
-```
--rabbitmq    RabbitMQ AMQP URL (default amqp://localhost:5672)
--exchange    RabbitMQ exchange to consume from (default croid)
--queue       RabbitMQ queue name to declare/bind (default vulcanus)
--routing-key RabbitMQ routing key (empty = all)
--duckdb      the DuckDB file to write (default vulcanus.duckdb)
--match-ror   run ROR matching against nauvis records after consuming
--match-retractions run retractionwatch matching (rebuild the retraction
-                   views) after consuming
+This approach processes records one at a time, using a prepared statement for
+efficiency.
+
+#### Parquet ingestion (`ingestParquet`)
+
+For Parquet files, `ingestParquet` uses DuckDB's native `read_parquet()` function:
+
+```sql
+INSERT INTO nauvis (record)
+SELECT to_json(row(*)) FROM read_parquet('path/to/file.parquet')
 ```
 
-At least one of `-match-ror` or `-match-retractions` is required; if
-neither is set, Vulcanus prints usage and exits without doing anything.
+The query:
+1. Reads all rows from the Parquet file via `read_parquet()`.
+2. Converts each row to a JSON string via `to_json(row(*))`, preserving the
+   existing `record JSON` column schema.
+3. Inserts all rows in a single bulk operation.
 
-Flow:
-1. Parse flags; without any matching flag, print usage and exit.
-2. Open DuckDB once via `ingest.OpenDB()`.
-3. Create the `ingestWriter` and wire it as the RabbitMQ message handler.
-4. Start the consumer — it begins processing messages immediately.
-5. Block on either `sigCh` (SIGINT/SIGTERM) or `consumer.Done()`.
-6. On signal: initiate graceful shutdown with a 30s timeout.
-7. If `-match-retractions` is set: run retractionwatch matching (rebuild
-   the retraction views).
-8. If `-match-ror` is set: run ROR entity matching against nauvis records.
+This leverages DuckDB's columnar read capabilities — no Go-side parsing, no
+line-by-line iteration. The Parquet files have typed columns (31 columns for
+Nauvis: DOI, title, author_name[], funder_name[], etc.) that are efficiently
+read and serialized to JSON.
 
-The two providers are independent — Nauvis and Fulgora events can arrive at
-different times, and Vulcanus routes each to the correct table.
+#### Table management
 
-## The database
+`ensureTable(ctx, tx, name)` creates a table with a single `record` JSON column
+if it does not exist. `resetTable(ctx, tx, name)` calls `ensureTable` and then
+`DELETE FROM <table>` so re-running a provider replaces its previous snapshot.
 
-Every *table* has a single column and is loaded identically — one row per
-CROID event, the raw JSON document preserved as-is:
+Both use `quoted(name)` to safely embed table names in SQL — wrapping in double
+quotes and escaping embedded quotes.
 
-| table | column   | type    | notes |
-|-------|----------|---------|-------|
-| `nauvis` (Nauvis) | `record` | JSON    | one row per CROID event; the raw document as Nauvis wrote it |
-| `<source>` (Fulgora, one per source) | `record` | JSON    | e.g. `ror`, `retractionwatch`; same shape as `nauvis`, but each source has its own table |
+### 3. Matching — `internal/ingest/retractions.go` and `internal/ingest/ror_matches.go`
 
-In addition, retraction matching (`-match-retractions`) derives two **views**
-that sit on the same Nauvis↔retractionwatch `JOIN`. The `retractions` view
-pairs each Nauvis record with its `retractionwatch` notice on the paper's DOI
-so a consumer can pull the full pair in one query; the narrower
-`retraction_provenance` view reduces exactly those matches to two
-consumer-ready provenance strings per match — one from Nauvis's perspective
-(`X is-retracted-by Y`) and one from the retraction notice's (`Y retracts
-X`). Both are derived objects — they are not tables that get loaded, and
-never hold a copy of the bytes; they are rebuilt on `CREATE OR REPLACE VIEW`
-whenever retraction matching runs, and only become queryable once **both**
-source tables exist.
+#### Retraction matching (`RunRetractionMatches`)
 
-| view | columns | type | notes |
-|------|---------|------|-------|
-| `retractions` | `nauvis_record` | JSON | the full Nauvis record (Crossref item) |
-| | `retractionwatch_record` | JSON | the full retractionwatch record |
-| | `matched_doi` | VARCHAR | the DOI that linked the two (Nauvis's `DOI`) |
-| `retraction_provenance` | `nauvis_record` | JSON | the Nauvis record for the passive row; swapped for the active row |
-| | `retractionwatch_record` | JSON | the retractionwatch record for the passive row; swapped for the active row |
-| | `paper_doi` | VARCHAR | Nauvis's `DOI` in the passive row; retraction notices' `RetractionDOI` in the active. Equals the join key in the passive row. |
-| | `retraction_doi` | VARCHAR | Retraction notice's own DOI (`RetractionDOI`) in the passive row; Nauvis's `DOI` in the active. |
-| | `provenance` | VARCHAR | bidirectional provenance: `X is-retracted-by Y` and `Y retracts X` per match, two rows per join result |
+When `-match-retractions` is set, Vulcanus rebuilds two views:
 
-Nauvis and Fulgora are kept **separate**: Nauvis always lands in the single
-`nauvis` table, while each Fulgora source gets its own table named after the
-source. A row in any table is a full JSON object from that provider's output —
-one record per input record. Because the column is declared `JSON`,
-DuckDB's JSON functions (`JSON_SCHEMA`, `JSON_EXTRACT`, ...) are available
-directly against the stored text once the load has happened.
-
-Running the consumer over time accumulates records from both providers into the
-same DuckDB database. Because there is no table clearing step, re-running a
-provider simply adds more rows — the consumer is append-only.
-
-## Running Vulcanus
-
-```bash
-go run . [-rabbitmq amqp://localhost:5672] [-duckdb vulcanus.duckdb] [-match-retractions] [-match-ror]
-```
-
-At least one matching flag (`-match-retractions` or `-match-ror`) is
-required; without one, Vulcanus prints usage and exits.
-
-| flag | default | meaning |
-|------|---------|---------|
-| `-rabbitmq` | `amqp://localhost:5672` | RabbitMQ AMQP URL |
-| `-exchange` | `croid` | RabbitMQ exchange to consume from |
-| `-queue` | `vulcanus` | RabbitMQ queue name to declare/bind |
-| `-routing-key` | (empty) | RabbitMQ routing key (empty = all) |
-| `-duckdb` | `vulcanus.duckdb` | DuckDB database file to write |
-| `-match-retractions` | `false` | Run retractionwatch matching (rebuild the retraction views) after consuming |
-| `-match-ror` | `false` | Run ROR matching after consuming |
-
-### Example
-
-```bash
-$ go run . -duckdb vulcanus.duckdb -match-retractions -match-ror
-vulcanus: starting consumer
-vulcanus: waiting for messages (send SIGINT/SIGTERM to stop)
-^C
-vulcanus: shutting down...
-vulcanus: retraction matching complete
-vulcanus: ROR matching complete
-vulcanus: done, DuckDB=vulcanus.duckdb
-```
-
-The resulting `vulcanus.duckdb` holds one table per source; list them with the
-DuckDB CLI:
-
-```
-$ duckdb vulcanus.duckdb
-duckdb> .tables
-nauvis            retractionwatch  ror
-```
-
-The key contract is faithfulness: Vulcanus treats the bytes coming in each
-RabbitMQ message as the data, and DuckDB as the place to store them for later
-analysis.
-
-Because retraction matching is opt-in, running the consumer without
-`-match-retractions` leaves no retraction views behind — they only appear
-after a matching run with both source tables present.
-
-The derived `retractions` view is the one exception to "preserve bytes, do not
-transform": its purpose is to *link* two existing bytes columns by a key — the
-Nauvis record's `DOI` and the `retractionwatch` record's `OriginalPaperDOI` —
-and expose both alongside the key that tied them together. No record's content
-is rewritten, re-serialised, or pruned; the view is a thin projection over the
-two already-loaded tables:
-
+**`retractions` view** — joins Nauvis against retractionwatch on DOI:
 ```sql
 CREATE OR REPLACE VIEW retractions AS
 SELECT
@@ -242,61 +146,219 @@ JOIN retractionwatch AS r
      json_extract_string(r.record, '$.OriginalPaperDOI')
 ```
 
-Because it is a view (not a table), it is always in sync with whatever is
-currently in the two source tables: as new messages arrive, the view's result
-set updates automatically on the next query. The view is also idempotent across
-consumption — the SQL uses `CREATE OR REPLACE`, so repeated ingests leave a
-single, up-to-date view.
+**`retraction_provenance` view** — produces bidirectional provenance strings:
+```sql
+CREATE OR REPLACE VIEW retraction_provenance AS
+SELECT
+    n.record AS nauvis_record,
+    r.record AS retractionwatch_record,
+    json_extract_string(n.record, '$.DOI') AS paper_doi,
+    json_extract_string(r.record, '$.RetractionDOI') AS retraction_doi,
+    json_extract_string(n.record, '$.DOI') || ' is-retracted-by ' || json_extract_string(r.record, '$.RetractionDOI') AS provenance
+FROM nauvis AS n
+JOIN retractionwatch AS r
+  ON json_extract_string(n.record, '$.DOI') =
+     json_extract_string(r.record, '$.OriginalPaperDOI')
 
-### `retraction_provenance` view
+UNION ALL
 
-Each Nauvis↔retractionwatch match produces **two** rows — one passive and one
-active — in a `UNION ALL`:
+SELECT
+    r.record AS nauvis_record,
+    n.record AS retractionwatch_record,
+    json_extract_string(r.record, '$.RetractionDOI') AS paper_doi,
+    json_extract_string(n.record, '$.DOI') AS retraction_doi,
+    json_extract_string(r.record, '$.RetractionDOI') || ' retracts ' || json_extract_string(n.record, '$.DOI') AS provenance
+FROM retractionwatch AS r
+JOIN nauvis AS n
+  ON json_extract_string(n.record, '$.DOI') =
+     json_extract_string(r.record, '$.OriginalPaperDOI')
+```
 
-| direction | format | example |
-|-----------|--------|---------|
-| passive (existing) | `<DOI> is-retracted-by <RetractionDOI>` | `10.1/paper is-retracted-by 10.1/retract` |
-| active | `<RetractionDOI> retracts <DOI>` | `10.1/retract retracts 10.1/paper` |
+Both views are a no-op if either `nauvis` or `retractionwatch` table is absent,
+so providers can be ingested at different times.
 
-The passive row keeps its original column semantics (Nauvis columns stay in the
-`nauvis_record` and `paper_doi` columns). In the active row, both the record
-columns and column assignments are swapped so that `paper_doi` reflects the
-retraction notice's DOI while `provenance` reads naturally from the retraction
-notice's perspective. The `(paper_doi, retraction_doi)` pair is identical across
-both directions.
+#### ROR matching (`RunRORMatches`)
 
-Because the same join key drives both sides, the view is always in sync with the
-`retractions` view — a consumer can query either to discover which pairs exist,
-then use `provenance` for exports or joins without per-row string assembly.
+When `-match-ror` is set, Vulcanus:
 
-## Deployment
+1. Queries all nauvis records, extracting DOI, funder names, and affiliation names
+   from the `record` JSON column using DuckDB's `json_extract_string()` function.
+2. Collects unique funder and affiliation names across all papers.
+3. Matches each unique name against the ROR database using a parallel worker pool
+   (up to 8 workers). Each worker runs `MatchFunder()` or `MatchAffiliation()`
+   against the DuckDB ROR table.
+4. Writes results to `ror_funder_matches` and `ror_affiliation_matches` tables
+   with columns: `paper_doi`, `name`, `ror_id`, `ror_name`, `confidence`.
 
-Vulcanus is designed for container deployment. It runs continuously, consuming
-messages until stopped:
+The matching tables are reset (dropped and recreated) before each run so the
+results are idempotent.
 
-1. Container starts → connects to RabbitMQ → begins consuming
-2. If queue is empty: blocks waiting for messages
-3. On SIGINT/SIGTERM: finishes current message, closes connection, exits
-4. Max 30s shutdown timeout prevents hanging
+### 4. Entry point — `main.go`
 
-Set `terminationGracePeriodSeconds: 35` in Kubernetes to allow graceful shutdown.
+`main.go` orchestrates the batch workflow:
 
-Multiple containers can consume from the same queue; RabbitMQ distributes
-messages across them, enabling horizontal scaling.
+```
+-nauvis-db      Nauvis SQLite database path (default nauvis.sqlite3)
+-nauvis-dir     Nauvis data root directory (required to ingest nauvis data)
+-fulgora-db     Fulgora SQLite database path (default fulgora.sqlite3)
+-fulgora-dir    Fulgora data root directory (required to ingest fulgora data)
+-duckdb         DuckDB file to write (default vulcanus.duckdb)
+-only           Which to run: nauvis, fulgora, all, or match (default all)
+-parquet        Read Parquet files instead of JSON (default false)
+-match-ror      Run ROR matching after ingestion (default false)
+-match-retractions Run retraction matching after ingestion (default false)
+```
+
+Flow:
+1. Parse flags. If `-only` is "all" and matching flags are set, switch to "match" mode.
+2. Validate required flags: `-nauvis-dir` and/or `-fulgora-dir` depending on `-only`.
+3. Create an `slog` logger that writes to stderr.
+4. If `-only` includes nauvis: open the Nauvis store, ingest files into DuckDB.
+5. If `-only` includes fulgora: open the Fulgora store, ingest files into DuckDB.
+6. If `-match-retractions`: rebuild the `retractions` and `retraction_provenance` views.
+7. If `-match-ror`: run ROR matching against nauvis records.
+8. Exit.
+
+## The database
+
+Every *source table* has a single column and is loaded identically — one row per
+record, the raw JSON document preserved as-is:
+
+| table | column | type | notes |
+|-------|--------|------|-------|
+| `nauvis` (Nauvis) | `record` | JSON | one row per Crossref work; the raw document as Nauvis wrote it |
+| `<source>` (Fulgora, one per source) | `record` | JSON | e.g. `ror`, `retractionwatch`; same shape as `nauvis`, but each source has its own table |
+
+When ingesting via Parquet (`-parquet`), the source files have 31 typed columns
+for Nauvis (DOI, title, author_name[], funder_name[], etc.) and source-specific
+schemas for Fulgora (e.g. ROR organizations with ror_id, name, type, country, etc.).
+DuckDB's `read_parquet()` efficiently reads these columns, and `to_json(row(*))`
+converts each row back to a JSON string that matches the existing `record JSON`
+column schema.
+
+In addition, retraction matching (`-match-retractions`) derives two **views**
+that sit on the same Nauvis↔retractionwatch `JOIN`:
+
+| view | columns | type | notes |
+|------|---------|------|-------|
+| `retractions` | `nauvis_record` | JSON | the full Nauvis record (Crossref item) |
+| | `retractionwatch_record` | JSON | the full retractionwatch record |
+| | `matched_doi` | VARCHAR | the DOI that linked the two (Nauvis's `DOI`) |
+| `retraction_provenance` | `nauvis_record` | JSON | the Nauvis record for the passive row; swapped for the active row |
+| | `retractionwatch_record` | JSON | the retractionwatch record for the passive row; swapped for the active row |
+| | `paper_doi` | VARCHAR | Nauvis's `DOI` in the passive row; retraction notices' `RetractionDOI` in the active. Equals the join key in the passive row. |
+| | `retraction_doi` | VARCHAR | Retraction notice's own DOI (`RetractionDOI`) in the passive row; Nauvis's `DOI` in the active. |
+| | `provenance` | VARCHAR | bidirectional provenance: `X is-retracted-by Y` and `Y retracts X` per match, two rows per join result |
+
+The ROR matching tables (`-match-ror`) hold structured match results:
+
+| table | columns | type | notes |
+|-------|---------|------|-------|
+| `ror_funder_matches` | `paper_doi`, `name`, `ror_id`, `ror_name`, `confidence` | TEXT, TEXT, TEXT, TEXT, DOUBLE | Paper-to-funder ROR matches |
+| `ror_affiliation_matches` | `paper_doi`, `name`, `ror_id`, `ror_name`, `confidence` | TEXT, TEXT, TEXT, TEXT, DOUBLE | Paper-to-affiliation ROR matches |
+
+Nauvis and Fulgora are kept **separate**: Nauvis always lands in the single
+`nauvis` table, while each Fulgora source gets its own table named after the
+source. A row in any table is a full JSON object from that provider's output —
+one record per input record. Because the column is declared `JSON`,
+DuckDB's JSON functions (`JSON_SCHEMA`, `JSON_EXTRACT`, ...) are available
+directly against the stored text once the load has happened.
+
+Each run **replaces** the data: `resetTable` empties the target tables before
+re-inserting, so re-running a provider produces a clean snapshot without
+accumulating duplicates.
+
+## Running Vulcanus
+
+```bash
+go run . [-only all|nauvis|fulgora|match] [-nauvis-dir path] [-fulgora-dir path] [-duckdb vulcanus.duckdb] [-parquet] [-match-retractions] [-match-ror]
+```
+
+| flag | default | meaning |
+|------|---------|---------|
+| `-only` | `all` | Which provider to ingest: nauvis, fulgora, all, or match |
+| `-nauvis-db` | `nauvis.sqlite3` | Nauvis SQLite database path |
+| `-nauvis-dir` | (required for nauvis) | Nauvis data root (output dir) |
+| `-fulgora-db` | `fulgora.sqlite3` | Fulgora SQLite database path |
+| `-fulgora-dir` | (required for fulgora) | Fulgora data root (output dir) |
+| `-duckdb` | `vulcanus.duckdb` | DuckDB database file to write |
+| `-parquet` | `false` | Read Parquet files instead of JSON |
+| `-match-retractions` | `false` | Run retraction matching after ingestion |
+| `-match-ror` | `false` | Run ROR matching after ingestion |
+
+### Example
+
+```bash
+$ go run . -nauvis-dir /data/nauvis -fulgora-dir /data/fulgora -duckdb vulcanus.duckdb -parquet -match-retractions -match-ror
+vulcanus: ingested 1234567 nauvis records into vulcanus.duckdb
+vulcanus: ingested 45678 fulgora records into vulcanus.duckdb
+vulcanus: retraction matching complete
+vulcanus: ROR matching complete
+```
+
+The resulting `vulcanus.duckdb` holds source tables, matching views, and match
+tables. List them with the DuckDB CLI:
+
+```
+$ duckdb vulcanus.duckdb
+duckdb> .tables
+nauvis            retractionwatch  ror
+retractions       retraction_provenance
+ror_funder_matches ror_affiliation_matches
+```
+
+The key contract is faithfulness: Vulcanus treats the bytes coming from each
+provider's output file as the data, and DuckDB as the place to store them for
+later analysis. The `-parquet` flag improves ingestion throughput by leveraging
+DuckDB's native Parquet reader instead of line-by-line JSON parsing.
+
+## Parquet ingestion
+
+When the `-parquet` flag is given, Vulcanus reads Parquet files instead of NDJSON.
+The workflow:
+
+1. **Nauvis:** `nauvis.ParquetFiles()` queries the SQLite registry and replaces
+   `.json` with `.parquet` in each file path. The consolidated Parquet files
+   (produced by `nauvis ingest -parquet-dir`) sit alongside the JSON files
+   in the output directory (e.g. `out/0.json` and `out/0.json.parquet`).
+
+2. **Fulgora:** `Source.ParquetPath()` derives the Parquet path from the
+   JSON output path by replacing `.json` with `.parquet` (e.g.
+   `ror/output/ror-1.34.json.parquet`).
+
+3. **Ingestion:** `ingestParquet()` executes:
+   ```sql
+   INSERT INTO nauvis (record)
+   SELECT to_json(row(*)) FROM read_parquet('out/0.json.parquet')
+   ```
+   DuckDB reads the columnar Parquet file natively, converts all columns (including
+   arrays like `author_name`, `funder_name`) to JSON, and inserts into the
+   existing `record JSON` column.
+
+This preserves the existing DuckDB schema and matching logic while benefitting
+from Parquet's efficient columnar I/O. The Parquet files are produced by Nauvis
+and Fulgora when their `-parquet-dir` flag is set during the data collection
+phase.
 
 ## Design notes
 
-- **RabbitMQ for delivery, DuckDB for analysis.** Nauvis and Fulgora publish to
-  RabbitMQ; DuckDB is the column store that makes it cheap to run queries over
-  the full records once they are on disk.
+- **Batch ingestion over streaming.** Vulcanus reads all files from the provider's
+  SQLite registry in a single run, rather than consuming messages one at a time.
+  This is simpler to reason about and avoids the complexity of distributed queues.
+
 - **Round-trip preservation over transformation.** The ingest step preserves
-  bytes, not parse results. There is no value in re-serialising JSON that is
-  already compact.
-- **Append-only ingestion.** Unlike the previous file-based ingest that cleared
-  and replaced tables, the RabbitMQ consumer only adds rows. Re-running the
-  consumer simply accumulates more records.
+  bytes, not parse results. For JSON, records are bound verbatim into the JSON
+  column. For Parquet, columns are converted back to JSON via `to_json(row(*))`.
+
+- **Replace-on-reload.** Tables are emptied before each ingestion, so re-running
+  a provider produces a clean snapshot. This avoids duplicate records and
+  simplifies matching — views and match tables are always consistent with the
+  current data.
+
 - **Separate tables per provider.** Nauvis is the "main" data in `nauvis`;
   Fulgora sources are enrichment data, each in its own table. Keeping them
-  separate preserves that distinction and lets either arrive independently.
-- **`main.go` is a batch worker.** It starts, consumes until stopped. All logic
-  lives in `rabbitmq` and `ingest`; `main.go` only wires them together.
+  separate preserves that distinction and lets either be ingested independently.
+
+- **Matching is optional and additive.** ROR and retraction matching are opt-in
+  via flags. Without them, Vulcanus only populates the source tables. With them,
+  it adds views and match tables on top of the source data.

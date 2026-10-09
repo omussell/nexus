@@ -10,6 +10,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
+	"os"
 	"path/filepath"
 
 	"github.com/nexus/vulcanus/internal/fulgora"
@@ -30,7 +32,11 @@ func main() {
 		flag.String("duckdb", "vulcanus.duckdb", "path to the DuckDB database to write")
 	matchROR := flag.Bool("match-ror", false, "run ROR matching against nauvis records after ingestion")
 	matchRetractions := flag.Bool("match-retractions", false, "run retraction matching against nauvis records after ingestion")
+	useParquet := flag.Bool("parquet", false, "read parquet files instead of JSON")
 	flag.Parse()
+
+	// Create a logger that writes to stderr.
+	lg := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
 	if *only == "all" && (*matchROR || *matchRetractions) {
 		*only = "match"
@@ -52,7 +58,7 @@ func main() {
 	ctx := context.Background()
 
 	if doNauvis(*only) {
-		n, err := runNauvis(ctx, *nauvisDB, *nauvisPath, *outDB)
+		n, err := runNauvis(ctx, *nauvisDB, *nauvisPath, *outDB, *useParquet, lg)
 		if err != nil {
 			log.Fatalf("vulcanus: nauvis ingest: %v", err)
 		}
@@ -60,7 +66,7 @@ func main() {
 	}
 
 	if doFulgora(*only) {
-		n, err := runFulgora(ctx, *fulgoraDB, *fulgoraPath, *outDB)
+		n, err := runFulgora(ctx, *fulgoraDB, *fulgoraPath, *outDB, *useParquet, lg)
 		if err != nil {
 			log.Fatalf("vulcanus: fulgora ingest: %v", err)
 		}
@@ -96,22 +102,22 @@ func doFulgora(only string) bool {
 
 // runNauvis opens the Nauvis store and ingests it into outDB, returning the
 // number of records loaded.
-func runNauvis(ctx context.Context, dbPath, outDir, outDB string) (int, error) {
+func runNauvis(ctx context.Context, dbPath, outDir, outDB string, useParquet bool, lg *slog.Logger) (int, error) {
 	vis, err := nauvis.Open(dbPath)
 	if err != nil {
 		return 0, fmt.Errorf("open nauvis store: %w", err)
 	}
 	defer vis.Close()
-	return ingest.Run(ctx, vis, outDir, outDB)
+	return ingest.Run(ctx, vis, outDir, outDB, useParquet, lg)
 }
 
 // runFulgora opens the Fulgora store and ingests it into outDB, returning the
 // number of records loaded.
-func runFulgora(ctx context.Context, dbPath, outDir, outDB string) (int, error) {
+func runFulgora(ctx context.Context, dbPath, outDir, outDB string, useParquet bool, lg *slog.Logger) (int, error) {
 	store, err := fulgora.Open(dbPath, outDir)
 	if err != nil {
 		return 0, fmt.Errorf("open fulgora store: %w", err)
 	}
 	defer store.Close()
-	return ingest.Run(ctx, store, outDir, outDB)
+	return ingest.Run(ctx, store, outDir, outDB, useParquet, lg)
 }

@@ -65,3 +65,28 @@ func (s *Store) ByDOI(ctx context.Context, doi string) (string, error) {
 	err := s.db.QueryRowContext(ctx, `SELECT file FROM nauvis WHERE doi = ?`, doi).Scan(&file)
 	return file, err
 }
+
+// ParquetFiles returns the output file paths (parquet format) recorded in the store.
+// Files that don't end in ".json" are returned as-is.
+func (s *Store) ParquetFiles() ([]Nauvis, error) {
+	rows, err := s.db.Query(
+		`SELECT REPLACE(file, '.json', '.parquet'), COUNT(*)
+		 FROM nauvis
+		 GROUP BY file
+		 ORDER BY file`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var navis []Nauvis
+	for rows.Next() {
+		var i Nauvis
+		if err := rows.Scan(&i.Path, &i.Count); err != nil {
+			return nil, err
+		}
+		navis = append(navis, i)
+	}
+	return navis, rows.Err()
+}

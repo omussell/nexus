@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -157,7 +158,14 @@ func Collect(ctx context.Context, src source.Source, s *store.Store, rawRoot, pa
 		return nil, fmt.Errorf("collect: %s: record %s: %w", src.Name(), latest.Version, err)
 	}
 
-	// Mint a CROID and write Parquet for the newly recorded dataset.
+	// Write consolidated Parquet file alongside the JSON output.
+	if parquetDir != "" {
+		if _, err := writeConsolidatedParquet(src.Name(), outPath, rawRoot); err != nil {
+			fmt.Fprintf(os.Stderr, "collect: %s: write consolidated parquet %s: %v\n", src.Name(), outPath, err)
+		}
+	}
+
+	// Mint a CROID and write CROID-named Parquet for the newly recorded dataset.
 	if croidClient != nil && rec.ID > 0 {
 		croid, mintErr := croidClient.MintWith(ctx, "dataset", fmt.Sprintf("%s:%s", src.Name(), latest.Version))
 		if mintErr != nil {
@@ -168,7 +176,7 @@ func Collect(ctx context.Context, src source.Source, s *store.Store, rawRoot, pa
 			return nil, fmt.Errorf("collect: %s: update croid %s: %w", src.Name(), latest.Version, err)
 		}
 
-		// Write Parquet file if directory is configured.
+		// Write CROID-named Parquet file if directory is configured.
 		if parquetDir != "" {
 			if _, err := writeParquet(src.Name(), croid, outPath, parquetDir); err != nil {
 				fmt.Fprintf(os.Stderr, "collect: %s: write parquet %s: %v\n", src.Name(), croid, err)
@@ -196,6 +204,28 @@ func writeParquet(source, croid, outputPath, parquetDir string) (string, error) 
 	}
 	pPath := filepath.Join(parquetDir, croid+".parquet")
 	if err := os.MkdirAll(parquetDir, 0o755); err != nil {
+		return "", err
+	}
+	tmp := pPath + ".tmp"
+	if err := os.WriteFile(tmp, pb, 0o644); err != nil {
+		return "", err
+	}
+	if err := os.Rename(tmp, pPath); err != nil {
+		os.Remove(tmp)
+		return "", err
+	}
+	return pPath, nil
+}
+
+// writeConsolidatedParquet converts the output file to Parquet and writes it
+// alongside the JSON output file as {outputPath}.parquet.
+func writeConsolidatedParquet(source, outputPath, dataRoot string) (string, error) {
+	pb, err := convertParquet(source, outputPath)
+	if err != nil {
+		return "", err
+	}
+	pPath := filepath.Join(dataRoot, strings.TrimSuffix(outputPath, ".json")) + ".parquet"
+	if err := os.MkdirAll(filepath.Dir(pPath), 0o755); err != nil {
 		return "", err
 	}
 	tmp := pPath + ".tmp"

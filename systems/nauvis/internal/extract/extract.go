@@ -14,6 +14,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/parquet-go/parquet-go"
+	pq "github.com/nexus/nauvis/internal/parquet"
 )
 
 // Process decompresses inPath, validates the payload as one JSON value, and
@@ -123,4 +126,44 @@ func atomicWrite(path string, data []byte, perm os.FileMode) error {
 		return err
 	}
 	return os.Rename(tmp, path)
+}
+
+// WriteParquet reads an NDJSON file (one JSON object per line) and writes all
+// records as a single consolidated Parquet file at path+".parquet".
+func WriteParquet(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+
+	lines := bytes.Split(data, []byte{'\n'})
+	var records []pq.Record
+	for _, line := range lines {
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
+		var raw map[string]json.RawMessage
+		if err := json.Unmarshal(line, &raw); err != nil {
+			continue
+		}
+		r := pq.NewRecord(raw)
+		records = append(records, r)
+	}
+
+	if len(records) == 0 {
+		return nil
+	}
+
+	buf := &bytes.Buffer{}
+	writer := parquet.NewWriter(buf)
+	if err := writer.Write(records); err != nil {
+		return fmt.Errorf("write parquet: %w", err)
+	}
+	if err := writer.Close(); err != nil {
+		return fmt.Errorf("close parquet: %w", err)
+	}
+
+	pPath := path + ".parquet"
+	return atomicWrite(pPath, buf.Bytes(), 0o644)
 }

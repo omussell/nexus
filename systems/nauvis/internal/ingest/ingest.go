@@ -24,9 +24,10 @@ import (
 
 // Config holds optional configuration for the ingest pipeline.
 type Config struct {
-	CROIDURL  string // CROID service URL (e.g. "http://localhost:9090")
-	ParquetDir string // directory to write Parquet files ("" to disable)
-	IgnoreDupes bool  // skip duplicate DOI logging
+	CROIDURL          string // CROID service URL (e.g. "http://localhost:9090")
+	ParquetDir        string // directory to write Parquet files ("" to disable)
+	IgnoreDupes       bool   // skip duplicate DOI logging
+	ConsolidateParquet bool  // write consolidated parquet alongside JSON output
 }
 
 // Run processes every input file in inDir in parallel, writing decompressed
@@ -81,7 +82,7 @@ func Run(ctx context.Context, inDir, outDir string, st *store.Store, jobs int, l
 		go func() {
 			defer wg.Done()
 			for inPath := range work {
-				results <- processOne(ctx, inPath, outDir, st, cClient, cfg.ParquetDir, &parquetMu, cfg.IgnoreDupes, lg)
+				results <- processOne(ctx, inPath, outDir, st, cClient, cfg.ParquetDir, &parquetMu, cfg.IgnoreDupes, lg, cfg)
 			}
 		}()
 	}
@@ -114,7 +115,7 @@ func Run(ctx context.Context, inDir, outDir string, st *store.Store, jobs int, l
 			}
 		}
 		ok++
-		lg.Info("file: "+res.name+" -> "+res.outPath, "items", res.items, "parquet", res.parquet)
+		lg.Info("file: "+res.name+" -> "+res.outPath, "items", res.items, "parquet", res.parquet, "parquet_file", res.parquetFile)
 	}
 
 	if failed > 0 {
@@ -124,17 +125,18 @@ func Run(ctx context.Context, inDir, outDir string, st *store.Store, jobs int, l
 }
 
 type fileResult struct {
-	name     string
-	outPath  string
-	items    int
-	parquet  int
-	dupes    []store.Duplicate
-	err      error
+	name       string
+	outPath    string
+	items      int
+	parquet    int
+	parquetFile string // path to consolidated parquet file ("" if not written)
+	dupes      []store.Duplicate
+	err        error
 }
 
 // processOne runs the full pipeline for a single input file.
 func processOne(ctx context.Context, inPath, outDir string, st *store.Store,
-	cClient *client.Client, parquetDir string, parquetMu *sync.Mutex, ignoreDupes bool, lg *slog.Logger,
+	cClient *client.Client, parquetDir string, parquetMu *sync.Mutex, ignoreDupes bool, lg *slog.Logger, cfg Config,
 ) fileResult {
 	name := extract.BaseName(inPath)
 	outPath := filepath.Join(outDir, name)
@@ -144,9 +146,19 @@ func processOne(ctx context.Context, inPath, outDir string, st *store.Store,
 		return fileResult{name: name, outPath: outPath, err: err}
 	}
 
+	// Write consolidated parquet alongside JSON output if enabled.
+	var parquetFile string
+	if cfg.ConsolidateParquet {
+		if err := extract.WriteParquet(outPath); err != nil {
+			lg.Error("write consolidated parquet: "+err.Error()+" for "+name)
+		} else {
+			parquetFile = outPath + ".parquet"
+		}
+	}
+
 	dupes, inserted, err := st.RecordMany(ctx, outPath, dois)
 	if err != nil {
-		return fileResult{name: name, outPath: outPath, items: len(dois), dupes: dupes, err: err}
+		return fileResult{name: name, outPath: outPath, items: len(dois), dupes: dupes, err: err, parquetFile: parquetFile}
 	}
 
 	// Skip CROID + Parquet work for duplicate items only.
@@ -166,42 +178,40 @@ func processOne(ctx context.Context, inPath, outDir string, st *store.Store,
 		}
 	}
 
-	if len(validDois) == 0 {
-		return fileResult{name: name, outPath: outPath, items: inserted, dupes: dupes}
-	}
-
 	parquetCount := 0
-	for i, doi := range validDois {
-		// Mint CROID
-		var croid string
-		if cClient != nil {
-			var cerr error
-			croid, cerr = cClient.Mint(ctx, doi)
-			if cerr != nil {
-				lg.Error("croid mint: "+cerr.Error()+" for "+doi)
-				continue
-			}
-		}
-
-		// Write Parquet file
-		if parquetDir != "" && croid != "" {
-			parquetMu.Lock()
-			pb, perr := parquet.Convert(validItems[i])
-			if perr == nil {
-				pPath := filepath.Join(parquetDir, croid+".parquet")
-				if werr := atomicWrite(pPath, pb, 0o644); werr == nil {
-					parquetCount++
-				} else {
-					lg.Error("write parquet: "+werr.Error()+" for "+doi)
+	if len(validDois) > 0 {
+		for i, doi := range validDois {
+			// Mint CROID
+			var croid string
+			if cClient != nil {
+				var cerr error
+				croid, cerr = cClient.Mint(ctx, doi)
+				if cerr != nil {
+					lg.Error("croid mint: "+cerr.Error()+" for "+doi)
+					continue
 				}
-			} else {
-				lg.Error("convert parquet: "+perr.Error()+" for "+doi)
 			}
-			parquetMu.Unlock()
+
+			// Write Parquet file
+			if parquetDir != "" && croid != "" {
+				parquetMu.Lock()
+				pb, perr := parquet.Convert(validItems[i])
+				if perr == nil {
+					pPath := filepath.Join(parquetDir, croid+".parquet")
+					if werr := atomicWrite(pPath, pb, 0o644); werr == nil {
+						parquetCount++
+					} else {
+						lg.Error("write parquet: "+werr.Error()+" for "+doi)
+					}
+				} else {
+					lg.Error("convert parquet: "+perr.Error()+" for "+doi)
+				}
+				parquetMu.Unlock()
+			}
 		}
 	}
 
-	return fileResult{name: name, outPath: outPath, items: inserted, parquet: parquetCount, dupes: dupes}
+	return fileResult{name: name, outPath: outPath, items: inserted, parquet: parquetCount, dupes: dupes, parquetFile: parquetFile}
 }
 
 // atomicWrite writes data to path, creating the parent directory if needed,

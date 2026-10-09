@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	_ "modernc.org/sqlite" // registers the "sqlite" driver (pure Go).
 )
@@ -44,6 +45,12 @@ func (s Source) Name() string { return s.name }
 // to the fulgora data root, so root must match Fulgora's own `-root` value.
 func (s Source) OutputPath() string {
 	return filepath.Join(s.root, s.path)
+}
+
+// ParquetPath returns the path to the consolidated Parquet file for this source,
+// derived from the JSON output path by appending `.parquet`.
+func (s Source) ParquetPath() string {
+	return strings.TrimSuffix(s.OutputPath(), ".json") + ".parquet"
 }
 
 // Open opens the fulgora SQLite database at path for reading and returns a
