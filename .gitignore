@@ -10,6 +10,10 @@ wheels/
 .venv
 
 .DS_Store
+marple/
+marple-go/
+
+.zvec-grep/
 
 *.zip
 *.csv
@@ -28,6 +32,7 @@ systems/nauvis/nauvis.sqlite3
 systems/nauvis/nauvis.sqlite3-shm
 systems/nauvis/nauvis.sqlite3-wal
 systems/nauvis/out
+systems/nauvis/parquet/
 
 # Fulgora: collected data artifacts (keep the system code, not the datasets)
 systems/fulgora/fulgora
@@ -37,3 +42,9 @@ systems/fulgora/retractionwatch/output/
 
 # Vulcanus
 systems/vulcanus/vulcanus
+
+# CROID
+systems/croid/croid
+systems/croid/croid.sqlite3
+systems/croid/croid.sqlite3-shm
+systems/croid/croid.sqlite3-wal

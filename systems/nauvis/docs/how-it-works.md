@@ -55,6 +55,8 @@ The pipeline is split into three packages, each with one job.
    `json.Compact` which may reorder/compact fields compared to the raw decompressed
    payload.
 4. **Extract** — unmarshal just the `items[].DOI` fields, in input order.
+    The DOIs are returned alongside the raw JSON for each item that has a DOI,
+    allowing downstream parquet conversion without re-reading files from disk.
 
 `extract.Files(dir)` lists the directory and returns the files it knows how to
 process: anything ending in `.json.gz` or (uncompressed) `.json`. This is what

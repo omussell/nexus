@@ -17,4 +17,67 @@ Example workflow:
 
 Since there are many thousands of files to process, this system runs multiple workers in parallel to quickly extract and process the total dataset.
 
-See [How Nauvis Works](docs/how-it-works.md) for the code-level walkthrough: the three stages (extract, store, ingest), how duplicates and SQLite single-writer concurrency are handled, and the database schema.
+## Data Flow
+
+```
+data/<N>.json.gz
+       │
+       ▼
+  extract.Process()
+  ┌──> out/<N>.json (NDJSON, unchanged)
+  │
+  └──> []json.RawMessage (full JSON per item)
+         │
+         ▼
+  CROID Client — POST /croid ───► CROID service
+         │                              │
+         ▼                              ▼
+    []json.RawMessage              CROID string
+         │                              │
+         ▼                              ▼
+   parquet.Convert()          RecordMany(ctx, file, dois)
+   ┌──> Parquet bytes                  ▼
+   │                              SQLite (unchanged)
+   ▼
+   parquet/<CROID>.parquet
+```
+
+## Usage
+
+```bash
+# Basic processing (default, unchanged behavior):
+nauvis -in data -out out -db nauvis.sqlite3
+
+# With CROID minting and Parquet export:
+nauvis -in data -out out -db nauvis.sqlite3 \
+  -croid-url http://localhost:9090 \
+  -parquet-dir parquet/
+
+# Suppress duplicate DOI logging:
+nauvis -in data -out out -db nauvis.sqlite3 -ignore-dupes
+```
+
+## CLI Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-in` | `data` | Directory containing `*.json.gz` input files |
+| `-out` | `out` | Directory to write decompressed `*.json` files |
+| `-db` | `nauvis.sqlite3` | Path to the SQLite database file |
+| `-jobs` | `GOMAXPROCS` | Number of parallel workers |
+| `-query` | (empty) | Look up a recorded DOI and print its file |
+| `-serve` | `false` | Start the HTTP server on `POST /query` |
+| `-host` | `localhost:8080` | Address the HTTP server listens on |
+| `-croid-url` | (empty) | CROID service URL (e.g. `http://localhost:9090`); empty disables CROID minting |
+| `-parquet-dir` | (empty) | Directory to write Parquet files named by CROID; empty disables Parquet export |
+| `-ignore-dupes` | `false` | Do not log duplicate DOIs across files |
+
+## Modes
+
+- **process** (default): extracts and records all files from `-in` to `-out` and `-db`
+- **query** (`-query "DOI"`): looks up a DOI and prints its source file
+- **serve** (`-serve`): starts an HTTP server answering `POST /query`
+
+## See Also
+
+- [How Nauvis Works](docs/how-it-works.md) — code-level walkthrough: extract, store, ingest stages, concurrency model, and database schema

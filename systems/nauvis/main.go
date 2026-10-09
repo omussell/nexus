@@ -43,6 +43,9 @@ func main() {
 	outDir := flag.String("out", "out", "directory to write decompressed *.json files")
 	dbPath := flag.String("db", "nauvis.sqlite3", "path to the SQLite database file")
 	jobs := flag.Int("jobs", 0, "number of parallel workers (default GOMAXPROCS)")
+	croidURL := flag.String("croid-url", "", "CROID service URL (e.g. http://localhost:9090; empty disables CROID minting)")
+	parquetDir := flag.String("parquet-dir", "", "directory to write Parquet files named by CROID (empty disables)")
+	ignoreDupes := flag.Bool("ignore-dupes", false, "do not log duplicate DOIs across files")
 	flag.Parse()
 
 	ctx := context.Background()
@@ -93,7 +96,12 @@ func main() {
 	defer conn.Close()
 
 	lg := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	ok, failed, err := ingest.Run(ctx, *inDir, *outDir, st, *jobs, lg)
+	cfg := ingest.Config{
+		CROIDURL:   *croidURL,
+		ParquetDir: *parquetDir,
+		IgnoreDupes: *ignoreDupes,
+	}
+	ok, failed, err := ingest.Run(ctx, *inDir, *outDir, st, *jobs, lg, cfg)
 	if failed > 0 {
 		log.Printf("nauvis: %d ok, %d failed: %v", ok, failed, err)
 		os.Exit(1)
