@@ -1,205 +1,103 @@
-// Command vulcanus ingests CROID events from RabbitMQ into a DuckDB database,
-// into separate tables (Nauvis DOI records into a `nauvis` table, each Fulgora
-// dataset into its own table). After consuming messages, it can run
-// retractionwatch matching (rebuilding the retraction views) and/or ROR
-// matching against the nauvis records.
-//
-// Vulcanus runs as a batch worker: it connects to RabbitMQ, consumes messages
-// into DuckDB, and exits on SIGINT/SIGTERM. It can be deployed as a container
-// that processes messages until stopped. At least one matching flag
-// (-match-retractions or -match-ror) must be given; otherwise vulcanus prints
-// usage and exits without doing anything.
+// Command vulcanus ingests the NDJSON files the nauvis and fulgora systems
+// wrote out into a DuckDB database, into separate tables (Nauvis into a single
+// `nauvis` table, each Fulgora source into its own table). After ingestion it
+// can optionally run ROR matching against the nauvis records.
 package main
 
 import (
 	"context"
-	"database/sql"
 	"flag"
 	"fmt"
 	"log"
-	"log/slog"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
+	"path/filepath"
 
+	"github.com/nexus/vulcanus/internal/fulgora"
 	"github.com/nexus/vulcanus/internal/ingest"
-	"github.com/nexus/vulcanus/internal/rabbitmq"
+	"github.com/nexus/vulcanus/internal/nauvis"
 )
 
 func main() {
-	log.SetOutput(os.Stderr)
-	log.SetFlags(0)
-
-	rabbitMQURL := flag.String("rabbitmq", "amqp://localhost:5672", "RabbitMQ AMQP URL")
-	exchange := flag.String("exchange", "croid", "RabbitMQ exchange to consume from")
-	queue := flag.String("queue", "vulcanus", "RabbitMQ queue name to declare/bind")
-	routingKey := flag.String("routing-key", "", "RabbitMQ routing key (empty = all)")
-	outDB := flag.String("duckdb", "vulcanus.duckdb", "path to the DuckDB database to write")
-	matchROR := flag.Bool("match-ror", false, "run ROR matching against nauvis records after consuming messages")
-	matchRetractions := flag.Bool("match-retractions", false, "run retractionwatch matching (rebuild the retraction views) after consuming messages")
+	only := flag.String("only", "all", "which provider to ingest: nauvis, fulgora, or all")
+	nauvisDB :=
+		flag.String("nauvis-db", "nauvis.sqlite3", "path to the nauvis SQLite database")
+	nauvisPath := flag.String("nauvis-dir", "", "path to the nauvis system directory (data root)")
+	fulgoraDB :=
+		flag.String("fulgora-db", "fulgora.sqlite3", "path to the fulgora SQLite database")
+	fulgoraPath :=
+		flag.String("fulgora-dir", "", "path to the fulgora data root (output dir)")
+	outDB :=
+		flag.String("duckdb", "vulcanus.duckdb", "path to the DuckDB database to write")
+	matchROR := flag.Bool("match-ror", false, "run ROR matching against nauvis records after ingestion")
 	flag.Parse()
 
-	if !*matchROR && !*matchRetractions {
-		fmt.Fprintln(os.Stderr, "vulcanus: at least one matching flag is required (-match-ror and/or -match-retractions)")
-		flag.Usage()
-		os.Exit(1)
+	if *only != "nauvis" && *only != "fulgora" && *only != "all" {
+		log.Fatalf("vulcanus: -only must be nauvis, fulgora, or all (got %q)", *only)
+	}
+	if *only == "nauvis" && *nauvisPath == "" {
+		log.Fatal("vulcanus: -nauvis-dir is required to ingest nauvis data")
+	}
+	if *only == "fulgora" && *fulgoraPath == "" {
+		log.Fatal("vulcanus: -fulgora-dir is required to ingest fulgora data")
+	}
+	if *only == "all" && (*nauvisPath == "" || *fulgoraPath == "") {
+		log.Fatal("vulcanus: both -nauvis-dir and -fulgora-dir are required when -only=all")
 	}
 
 	ctx := context.Background()
 
-	// Open DuckDB once and reuse for all ingests.
-	db, err := ingest.OpenDB(*outDB)
-	if err != nil {
-		log.Fatalf("vulcanus: open DuckDB: %v", err)
-	}
-	defer db.Close()
-
-	// Create the ingest writer that knows how to insert records into DuckDB.
-	writer := &ingestWriter{db: db}
-
-	// Set up signal handling for graceful shutdown.
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
-	// Create the RabbitMQ consumer.
-	handler := func(rec rabbitmq.Record) error {
-		return writer.Ingest(ctx, rec)
-	}
-
-	log.Println("vulcanus: starting consumer")
-	consumer, err := rabbitmq.New(*rabbitMQURL, *exchange, *queue, *routingKey, handler, slog.New(slog.NewTextHandler(os.Stderr, nil)))
-	if err != nil {
-		log.Fatalf("vulcanus: rabbitmq: %v", err)
-	}
-
-	// Wait for shutdown signal or consumer exit.
-	log.Println("vulcanus: waiting for messages (send SIGINT/SIGTERM to stop)")
-	select {
-	case <-sigCh:
-		log.Println("vulcanus: shutting down...")
-	case <-consumer.Done():
-		log.Println("vulcanus: consumer loop exited")
-	}
-
-	// Gracefully close with timeout.
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer shutdownCancel()
-
-	// Close in a goroutine so we can wait with timeout.
-	closeDone := make(chan struct{})
-	go func() {
-		consumer.Close()
-		close(closeDone)
-	}()
-
-	select {
-	case <-shutdownCtx.Done():
-		log.Println("vulcanus: shutdown timed out, forcing exit")
-	case <-closeDone:
-		// Clean shutdown
-	}
-
-	// Run the requested matching.
-	if *matchRetractions {
-		if err := ingest.RunRetractionMatches(ctx, *outDB); err != nil {
-			log.Fatalf("vulcanus: retraction matching: %v", err)
+	if doNauvis(*only) {
+		n, err := runNauvis(ctx, *nauvisDB, *nauvisPath, *outDB)
+		if err != nil {
+			log.Fatalf("vulcanus: nauvis ingest: %v", err)
 		}
-		log.Println("vulcanus: retraction matching complete")
+		fmt.Printf("vulcanus: ingested %d nauvis records into %s\n", n, filepath.Clean(*outDB))
 	}
 
+	if doFulgora(*only) {
+		n, err := runFulgora(ctx, *fulgoraDB, *fulgoraPath, *outDB)
+		if err != nil {
+			log.Fatalf("vulcanus: fulgora ingest: %v", err)
+		}
+		fmt.Printf("vulcanus: ingested %d fulgora records into %s\n", n, filepath.Clean(*outDB))
+	}
+
+	// Optionally run ROR matching if requested.
 	if *matchROR {
 		if err := ingest.RunRORMatches(ctx, *outDB); err != nil {
 			log.Fatalf("vulcanus: ROR matching: %v", err)
 		}
-		log.Println("vulcanus: ROR matching complete")
+		fmt.Printf("vulcanus: ROR matching complete\n")
 	}
-
-	log.Printf("vulcanus: done, DuckDB=%s", *outDB)
 }
 
-// ingestWriter handles ingesting CROID records into DuckDB tables.
-type ingestWriter struct {
-	db   *sql.DB
-	stmt map[string]*sql.Stmt // table name -> INSERT statement
+// doNauvis reports whether the selected provider includes Nauvis.
+func doNauvis(only string) bool {
+	return only == "nauvis" || only == "all"
 }
 
-// Ingest inserts a record into the appropriate DuckDB table based on the
-// system field (nauvis or fulgora).
-func (w *ingestWriter) Ingest(ctx context.Context, rec rabbitmq.Record) error {
-	table := w.tableFor(rec)
-	if table == "" {
-		return fmt.Errorf("unknown system %q, skipping record (croid=%s)", rec.System, rec.Croid)
-	}
+// doFulgora reports whether the selected provider includes Fulgora.
+func doFulgora(only string) bool {
+	return only == "fulgora" || only == "all"
+}
 
-	stmt, err := w.ensureStmt(table)
+// runNauvis opens the Nauvis store and ingests it into outDB, returning the
+// number of records loaded.
+func runNauvis(ctx context.Context, dbPath, outDir, outDB string) (int, error) {
+	vis, err := nauvis.Open(dbPath)
 	if err != nil {
-		return fmt.Errorf("prepare insert: %w", err)
+		return 0, fmt.Errorf("open nauvis store: %w", err)
 	}
+	defer vis.Close()
+	return ingest.Run(ctx, vis, outDir, outDB)
+}
 
-	_, err = stmt.ExecContext(ctx, rec.Record)
+// runFulgora opens the Fulgora store and ingests it into outDB, returning the
+// number of records loaded.
+func runFulgora(ctx context.Context, dbPath, outDir, outDB string) (int, error) {
+	store, err := fulgora.Open(dbPath, outDir)
 	if err != nil {
-		return fmt.Errorf("insert into %s: %w", table, err)
+		return 0, fmt.Errorf("open fulgora store: %w", err)
 	}
-
-	return nil
-}
-
-// tableFor returns the DuckDB table name for a given system and record.
-func (w *ingestWriter) tableFor(rec rabbitmq.Record) string {
-	switch rec.System {
-	case "nauvis":
-		return "nauvis"
-	case "fulgora":
-		// For fulgora, cro_value is "source:version". Extract the source name.
-		return parseFulgoraSource(rec.CroValue)
-	default:
-		return ""
-	}
-}
-
-// parseFulgoraSource extracts the source name from "source:version" format.
-func parseFulgoraSource(croValue string) string {
-	for i := 0; i < len(croValue); i++ {
-		if croValue[i] == ':' {
-			return croValue[:i]
-		}
-	}
-	return "fulgora"
-}
-
-func (w *ingestWriter) ensureStmt(table string) (*sql.Stmt, error) {
-	if w.stmt == nil {
-		w.stmt = make(map[string]*sql.Stmt)
-	}
-	if s, ok := w.stmt[table]; ok {
-		return s, nil
-	}
-
-	// Ensure the table exists BEFORE preparing the INSERT statement.
-	if err := ensureTable(context.Background(), w.db, table); err != nil {
-		return nil, fmt.Errorf("create table %s: %w", table, err)
-	}
-
-	query := fmt.Sprintf("INSERT INTO %s (record) VALUES (?)", table)
-	stmt, err := w.db.PrepareContext(context.Background(), query)
-	if err != nil {
-		return nil, fmt.Errorf("prepare %s: %w", table, err)
-	}
-	w.stmt[table] = stmt
-
-	return stmt, nil
-}
-
-// ensureTable creates the table if it doesn't exist.
-func ensureTable(ctx context.Context, db *sql.DB, name string) error {
-	query := fmt.Sprintf(`
-		CREATE TABLE IF NOT EXISTS %s (record JSON)
-	`, name)
-	_, err := db.ExecContext(ctx, query)
-	if err != nil {
-		return fmt.Errorf("create table %s: %w", name, err)
-	}
-
-	return nil
+	defer store.Close()
+	return ingest.Run(ctx, store, outDir, outDB)
 }

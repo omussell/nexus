@@ -27,7 +27,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/nexus/croid/client"
 	"github.com/nexus/nauvis/internal/ingest"
 	"github.com/nexus/nauvis/internal/server"
 	"github.com/nexus/nauvis/internal/store"
@@ -36,8 +35,6 @@ import (
 func main() {
 	log.SetOutput(os.Stderr)
 	log.SetFlags(0)
-
-	croidURL := flag.String("croid", "", "CROID service URL (e.g. http://croid:8080); if empty, no CROID minting")
 
 	query := flag.String("query", "", "look up a recorded DOI and print its file (implies -db)")
 	serve := flag.Bool("serve", false, "start the HTTP server (implies -db)")
@@ -77,9 +74,9 @@ func main() {
 			os.Exit(1)
 		}
 		defer conn.Close()
-		srv := server.New(st, slog.New(slog.NewTextHandler(os.Stderr, nil)), *outDir)
+		srv := server.New(st, slog.New(slog.NewTextHandler(os.Stderr, nil)))
 		httpSrv := &http.Server{Addr: *host, Handler: srv.Handler()}
-		log.Printf("nauvis: listening on %s (POST /query, GET /record)", *host)
+		log.Printf("nauvis: listening on %s (POST /query)", *host)
 		if err := httpSrv.ListenAndServe(); err != nil {
 			log.Printf("nauvis: server: %v", err)
 			os.Exit(1)
@@ -95,13 +92,8 @@ func main() {
 	}
 	defer conn.Close()
 
-	var croidClient *client.Client
-	if strings.TrimSpace(*croidURL) != "" {
-		croidClient = client.New(*croidURL)
-	}
-
 	lg := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	ok, failed, err := ingest.Run(ctx, *inDir, *outDir, st, *jobs, lg, croidClient)
+	ok, failed, err := ingest.Run(ctx, *inDir, *outDir, st, *jobs, lg)
 	if failed > 0 {
 		log.Printf("nauvis: %d ok, %d failed: %v", ok, failed, err)
 		os.Exit(1)

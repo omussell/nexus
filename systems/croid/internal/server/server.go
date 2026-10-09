@@ -7,15 +7,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"log/slog"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/nexus/croid/internal/db"
 	"github.com/nexus/croid/internal/migrate"
-	"github.com/nexus/croid/internal/rabbitmq"
 	"github.com/nexus/croid/internal/store"
 
 	_ "modernc.org/sqlite" // registers the "sqlite" database/sql driver (pure Go)
@@ -23,22 +19,14 @@ import (
 
 // Server is the CROID HTTP service.
 type Server struct {
-	db      *sql.DB
-	store   *store.Store
-	logf    func(format string, args ...any)
-	publisher *rabbitmq.Publisher
+	db    *sql.DB
+	store *store.Store
+	logf  func(format string, args ...any)
 }
 
 // New opens the SQLite database at dbPath, applies the schema, and returns a
 // ready Server. Call Close to release the underlying connection.
 func New(ctx context.Context, dbPath string, logf func(format string, args ...any)) (*Server, error) {
-	return NewWithAMQP(ctx, dbPath, "", "", logf)
-}
-
-// NewWithAMQP opens the SQLite database at dbPath, applies the schema,
-// connects to the RabbitMQ server at amqpURL, declares the named exchange,
-// and returns a ready Server. Call Close to release the underlying connections.
-func NewWithAMQP(ctx context.Context, dbPath, amqpURL, exchange string, logf func(format string, args ...any)) (*Server, error) {
 	if logf == nil {
 		logf = func(string, ...any) {}
 	}
@@ -69,51 +57,15 @@ func NewWithAMQP(ctx context.Context, dbPath, amqpURL, exchange string, logf fun
 		return nil, err
 	}
 
-	var publisher *rabbitmq.Publisher
-	if strings.TrimSpace(amqpURL) != "" {
-		publisher, err = rabbitmq.New(amqpURL, exchange, slog.New(slog.NewTextHandler(os.Stderr, nil)))
-		if err != nil {
-			conn.Close()
-			return nil, fmt.Errorf("server: rabbitmq: %w", err)
-		}
-	}
-
-	publishFn := func(r store.Message, record string) error {
-		if publisher == nil {
-			return nil
-		}
-		return publisher.Publish(rabbitmq.Message{
-			Croid:     r.Croid,
-			CroType:   r.CroType,
-			CroValue:  r.CroValue,
-			System:    r.System,
-			CreatedAt: r.CreatedAt,
-			Record:    record,
-		})
-	}
-
-	return &Server{
-		db:        conn,
-		store:     store.NewWithPublish(db.New(conn), publishFn).WithLogger(logf),
-		logf:      logf,
-		publisher: publisher,
-	}, nil
+	return &Server{db: conn, store: store.New(db.New(conn)), logf: logf}, nil
 }
 
-// Close releases the SQLite and RabbitMQ connections.
+// Close releases the SQLite connection.
 func (s *Server) Close() error {
-	var err error
 	if s.db != nil {
-		err = s.db.Close()
+		return s.db.Close()
 	}
-	if s.publisher != nil {
-		if rerr := s.publisher.Close(); rerr != nil {
-			if err == nil {
-				err = rerr
-			}
-		}
-	}
-	return err
+	return nil
 }
 
 // Record adapts the store record for output shared by the CLI and the HTTP
@@ -133,14 +85,14 @@ func (s *Server) CroidResponse(r Record) any {
 // MintCroid resolves or mints a CROID for the given identity using the exact
 // same store path as POST /croid. It trims the identity fields exactly as the
 // HTTP handler does before minting, so the CLI and POST /croid behave
-// identically. It returns the record and whether a new CROID was minted (as
+// identically. It returns the record and whether a new COID was minted (as
 // opposed to returning a pre-existing one). An invalid identity returns an
 // error, matching the 400 the HTTP handler returns.
-func (s *Server) MintCroid(ctx context.Context, id Identity, record string) (Record, bool, error) {
+func (s *Server) MintCroid(ctx context.Context, id Identity) (Record, bool, error) {
 	id.CroType = strings.TrimSpace(id.CroType)
 	id.CroValue = strings.TrimSpace(id.CroValue)
 	id.System = strings.TrimSpace(id.System)
-	rec, err := s.store.Create(ctx, id, record)
+	rec, err := s.store.Create(ctx, id)
 	if err != nil {
 		return Record{}, false, err
 	}
@@ -166,7 +118,6 @@ type croIDBody struct {
 	CroType  string `json:"cro_type"`
 	CroValue string `json:"cro_value"`
 	System   string `json:"system"`
-	Record   string `json:"record,omitempty"`
 }
 
 type croIDResponse struct {
@@ -181,7 +132,7 @@ type errorBody struct {
 	Error string `json:"error"`
 }
 
-const maxBodyBytes = 2 * 1024 * 1024
+const maxBodyBytes = 64 * 1024
 
 func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{
@@ -227,7 +178,7 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 		System:   strings.TrimSpace(body.System),
 	}
 
-	record, err := s.store.Create(r.Context(), identity, body.Record)
+	record, err := s.store.Create(r.Context(), identity)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, errorBody{Error: err.Error()})
 		return

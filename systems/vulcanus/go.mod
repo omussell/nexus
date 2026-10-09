@@ -5,7 +5,6 @@ go 1.25.0
 require (
 	github.com/adrg/strutil v0.3.1
 	github.com/duckdb/duckdb-go/v2 v2.10505.0
-	github.com/rabbitmq/amqp091-go v1.15.0
 	modernc.org/sqlite v1.29.6
 // ...see go.sum for transitive deps
 )

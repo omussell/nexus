@@ -1,5 +1,6 @@
-// Package ingest provides utilities for working with the DuckDB database
-// that Vulcanus writes to.
+// Package ingest loads the NDJSON files the nauvis and fulgora systems wrote
+// out into a DuckDB database, one row per record, storing the complete contents
+// of each record.
 package ingest
 
 import (
@@ -13,20 +14,29 @@ import (
 	"strings"
 
 	"github.com/duckdb/duckdb-go/v2"
+	_ "modernc.org/sqlite" // registers the "sqlite" driver (pure Go).
+
+	"github.com/nexus/vulcanus/internal/fulgora"
+	"github.com/nexus/vulcanus/internal/nauvis"
 )
 
-// OpenDB opens the DuckDB database at path, returning a handle usable through
-// the database/sql interface.
-func OpenDB(path string) (*sql.DB, error) {
-	return openDuckDB(path)
-}
-
-func openDuckDB(path string) (*sql.DB, error) {
-	conn, err := duckdb.NewConnector(path, nil)
-	if err != nil {
-		return nil, fmt.Errorf("connect to DB %s: %w", path, err)
+// Run ingests the data held by vis (a *nauvis.Store, landing in a single
+// `nauvis` table) or store (a *fulgora.Store, landing in one table per
+// source) into outDB. outDir is the base directory each of the provider's
+// recorded paths is joined against.
+//
+// All rows are written in a single transaction, so the load is atomic: either
+// the whole run lands or nothing does. Runs against the same outDB therefore
+// never interfere with each other — ingesting Nauvis now and Fulgora later is
+// safe. Returns the number of rows ingested.
+func Run(ctx context.Context, src any, outDir, outDB string) (int, error) {
+	if vis, ok := src.(*nauvis.Store); ok {
+		return runNauvis(ctx, vis, outDir, outDB)
 	}
-	return sql.OpenDB(conn), nil
+	if store, ok := src.(*fulgora.Store); ok {
+		return runFulgora(ctx, store, outDir, outDB)
+	}
+	return 0, fmt.Errorf("unknown source type %T", src)
 }
 
 // ingestFile writes one row per NDJSON line from path into the given insert,
@@ -86,4 +96,107 @@ func resetTable(ctx context.Context, tx *sql.Tx, name string) error {
 // the result is safe to use as a DuckDB table identifier.
 func quoted(name string) string {
 	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
+}
+
+// openDuckDB opens the DuckDB database at path, returning a handle usable
+// through the database/sql interface.
+func openDuckDB(path string) (*sql.DB, error) {
+	conn, err := duckdb.NewConnector(path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("connect to DB %s: %w", path, err)
+	}
+	return sql.OpenDB(conn), nil
+}
+
+// runNauvis ingests all nauvis output files into outDB, returning the number
+// of records loaded. Each distinct file is stored in the `nauvis` table.
+func runNauvis(ctx context.Context, vis *nauvis.Store, outDir, outDB string) (int, error) {
+	db, err := openDuckDB(outDB)
+	if err != nil {
+		return 0, fmt.Errorf("open duckdb: %w", err)
+	}
+	defer db.Close()
+
+	items, err := vis.Nauvis()
+	if err != nil {
+		return 0, fmt.Errorf("list nauvis: %w", err)
+	}
+
+	var total int
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("begin txn: %w", err)
+	}
+	defer tx.Rollback()
+
+	if err := resetTable(ctx, tx, "nauvis"); err != nil {
+		return 0, fmt.Errorf("reset nauvis table: %w", err)
+	}
+
+	insertStmt, err := tx.PrepareContext(ctx, `INSERT INTO nauvis (record) VALUES (?)`)
+	if err != nil {
+		return 0, fmt.Errorf("prepare insert: %w", err)
+	}
+	defer insertStmt.Close()
+
+	for _, item := range items {
+		path := filepath.Join(filepath.Clean(outDir), item.Path)
+		n, err := ingestFile(ctx, insertStmt, path)
+		if err != nil {
+			return 0, fmt.Errorf("ingest %s: %w", item.Path, err)
+		}
+		total += n
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("commit: %w", err)
+	}
+	return total, nil
+}
+
+// runFulgora ingests all fulgora output files into outDB, creating one table
+// per source. Returns the total number of records loaded.
+func runFulgora(ctx context.Context, store *fulgora.Store, outDir, outDB string) (int, error) {
+	db, err := openDuckDB(outDB)
+	if err != nil {
+		return 0, fmt.Errorf("open duckdb: %w", err)
+	}
+	defer db.Close()
+
+	sources, err := store.Sources(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("list fulgora sources: %w", err)
+	}
+
+	var total int
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("begin txn: %w", err)
+	}
+	defer tx.Rollback()
+
+	for _, src := range sources {
+		if err := resetTable(ctx, tx, src.Name()); err != nil {
+			return 0, fmt.Errorf("reset table %s: %w", src.Name(), err)
+		}
+
+		insertStmt, err := tx.PrepareContext(ctx, `INSERT INTO `+quoted(src.Name())+` (record) VALUES (?)`)
+		if err != nil {
+			return 0, fmt.Errorf("prepare insert %s: %w", src.Name(), err)
+		}
+
+		path := src.OutputPath()
+		n, err := ingestFile(ctx, insertStmt, path)
+		if err != nil {
+			insertStmt.Close()
+			return 0, fmt.Errorf("ingest %s: %w", src.Name(), err)
+		}
+		total += n
+		insertStmt.Close()
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("commit: %w", err)
+	}
+	return total, nil
 }

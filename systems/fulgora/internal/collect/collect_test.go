@@ -80,7 +80,7 @@ func TestCollectEndToEnd(t *testing.T) {
 	root := t.TempDir()
 	s := openStore(t)
 
-	res, err := Collect(context.Background(), src, s, root, nil)
+	res, err := Collect(context.Background(), src, s, root)
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -129,7 +129,7 @@ func TestCollectSkipsAlreadyRecorded(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 
-	res, err := Collect(ctx, src, s, root, nil)
+	res, err := Collect(ctx, src, s, root)
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -146,7 +146,7 @@ func TestCollectDownloadFailureLeavesNoFile(t *testing.T) {
 	root := t.TempDir()
 	s := openStore(t)
 
-	if _, err := Collect(context.Background(), src, s, root, nil); err == nil {
+	if _, err := Collect(context.Background(), src, s, root); err == nil {
 		t.Fatal("expected download to fail")
 	}
 	// Ensure nothing was recorded for this source.

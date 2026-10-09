@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/nexus/croid/client"
 	"github.com/nexus/fulgora/internal/source"
 	"github.com/nexus/fulgora/internal/store"
 )
@@ -32,11 +31,7 @@ type Result struct {
 // in the store. rawRoot is the root under which per-source directories live,
 // e.g. "systems/fulgora"; the raw file is stored under rawRoot/<source>/
 // initial_input and the standardized output under rawRoot/<source>/output.
-//
-// If croidClient is non-nil, a CROID is minted for the dataset after
-// successful recording. Errors from minting are logged but do not prevent
-// the collection from succeeding.
-func Collect(ctx context.Context, src source.Source, s *store.Store, rawRoot string, croidClient *client.Client) (*Result, error) {
+func Collect(ctx context.Context, src source.Source, s *store.Store, rawRoot string) (*Result, error) {
 	latest, err := src.CheckLatest(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("collect: %s: %w", src.Name(), err)
@@ -91,14 +86,6 @@ func Collect(ctx context.Context, src source.Source, s *store.Store, rawRoot str
 	})
 	if err != nil {
 		return nil, fmt.Errorf("collect: %s: record %s: %w", src.Name(), latest.Version, err)
-	}
-
-	// Mint a CROID for the newly collected dataset.
-	if croidClient != nil {
-		_, err := croidClient.Mint(ctx, "dataset", src.Name()+":"+latest.Version, "fulgora", fmt.Sprintf(`{"source":"%s","version":"%s","collected":"%s"}`, src.Name(), latest.Version, now.Format(time.RFC3339)))
-		if err != nil {
-			os.Stderr.WriteString(fmt.Sprintf("[%s] croid mint failed: %v\n", src.Name(), err))
-		}
 	}
 
 	return &Result{
