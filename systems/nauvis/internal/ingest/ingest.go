@@ -16,7 +16,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/nexus/nauvis/internal/croidclient"
+	"github.com/nexus/croid/client"
 	"github.com/nexus/nauvis/internal/extract"
 	"github.com/nexus/nauvis/internal/parquet"
 	"github.com/nexus/nauvis/internal/store"
@@ -59,9 +59,9 @@ func Run(ctx context.Context, inDir, outDir string, st *store.Store, jobs int, l
 	}
 
 	// Build CROID client if URL is provided.
-	var cClient *croidclient.Client
+	var cClient *client.Client
 	if cfg.CROIDURL != "" {
-		cClient = croidclient.New(cfg.CROIDURL)
+		cClient = client.New(cfg.CROIDURL)
 	}
 
 	// Prepare parquet directory if configured.
@@ -134,7 +134,7 @@ type fileResult struct {
 
 // processOne runs the full pipeline for a single input file.
 func processOne(ctx context.Context, inPath, outDir string, st *store.Store,
-	cClient *croidclient.Client, parquetDir string, parquetMu *sync.Mutex, ignoreDupes bool, lg *slog.Logger,
+	cClient *client.Client, parquetDir string, parquetMu *sync.Mutex, ignoreDupes bool, lg *slog.Logger,
 ) fileResult {
 	name := extract.BaseName(inPath)
 	outPath := filepath.Join(outDir, name)

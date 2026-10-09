@@ -1,5 +1,5 @@
-// Package croidclient provides an HTTP client for the CROID service.
-package croidclient
+// Package client provides an HTTP client for the CROID service.
+package client
 
 import (
 	"bytes"

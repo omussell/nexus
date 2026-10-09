@@ -3,6 +3,7 @@ module github.com/nexus/nauvis
 go 1.25.0
 
 require (
+	github.com/nexus/croid v0.0.0-00010101000000-000000000000
 	github.com/parquet-go/parquet-go v0.32.0
 	modernc.org/sqlite v1.57.0
 )
