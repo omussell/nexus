@@ -1,7 +1,8 @@
 // Command vulcanus ingests the NDJSON files the nauvis and fulgora systems
 // wrote out into a DuckDB database, into separate tables (Nauvis into a single
 // `nauvis` table, each Fulgora source into its own table). After ingestion it
-// can optionally run ROR matching against the nauvis records.
+// can optionally run ROR matching against the nauvis records or retraction
+// matching between nauvis and retractionwatch records.
 package main
 
 import (
@@ -17,7 +18,7 @@ import (
 )
 
 func main() {
-	only := flag.String("only", "all", "which provider to ingest: nauvis, fulgora, or all")
+	only := flag.String("only", "all", "which provider to ingest: nauvis, fulgora, or all (use 'match' to only run matching)")
 	nauvisDB :=
 		flag.String("nauvis-db", "nauvis.sqlite3", "path to the nauvis SQLite database")
 	nauvisPath := flag.String("nauvis-dir", "", "path to the nauvis system directory (data root)")
@@ -28,10 +29,15 @@ func main() {
 	outDB :=
 		flag.String("duckdb", "vulcanus.duckdb", "path to the DuckDB database to write")
 	matchROR := flag.Bool("match-ror", false, "run ROR matching against nauvis records after ingestion")
+	matchRetractions := flag.Bool("match-retractions", false, "run retraction matching against nauvis records after ingestion")
 	flag.Parse()
 
-	if *only != "nauvis" && *only != "fulgora" && *only != "all" {
-		log.Fatalf("vulcanus: -only must be nauvis, fulgora, or all (got %q)", *only)
+	if *only == "all" && (*matchROR || *matchRetractions) {
+		*only = "match"
+	}
+
+	if *only != "nauvis" && *only != "fulgora" && *only != "all" && *only != "match" {
+		log.Fatalf("vulcanus: -only must be nauvis, fulgora, all, or match (got %q)", *only)
 	}
 	if *only == "nauvis" && *nauvisPath == "" {
 		log.Fatal("vulcanus: -nauvis-dir is required to ingest nauvis data")
@@ -67,6 +73,14 @@ func main() {
 			log.Fatalf("vulcanus: ROR matching: %v", err)
 		}
 		fmt.Printf("vulcanus: ROR matching complete\n")
+	}
+
+	// Optionally run retraction matching if requested.
+	if *matchRetractions {
+		if err := ingest.RunRetractionMatches(ctx, *outDB); err != nil {
+			log.Fatalf("vulcanus: retraction matching: %v", err)
+		}
+		fmt.Printf("vulcanus: retraction matching complete\n")
 	}
 }
 
