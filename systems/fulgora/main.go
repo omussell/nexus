@@ -25,6 +25,7 @@ import (
 
 	_ "modernc.org/sqlite" // registers the "sqlite" database/sql driver (pure Go)
 
+	"github.com/nexus/croid/client"
 	"github.com/nexus/fulgora/internal/collect"
 	"github.com/nexus/fulgora/internal/db"
 	"github.com/nexus/fulgora/internal/migrate"
@@ -112,6 +113,7 @@ func runFetch(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("fetch", flag.ContinueOnError)
 	dbPath := fs.String("db", envOr("FULGORA_DB", "fulgora.sqlite3"), "path to the SQLite database file")
 	root := fs.String("root", envOr("FULGORA_ROOT", "."), "root directory under which per-source dirs live")
+	croidURL := fs.String("croid-url", "", "CROID service URL (e.g. http://localhost:9090; empty disables CROID minting)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -128,6 +130,11 @@ func runFetch(ctx context.Context, args []string) error {
 	}
 	defer closeFn()
 
+	var croidCli *client.Client
+	if *croidURL != "" {
+		croidCli = client.New(*croidURL, "fulgora")
+	}
+
 	var anyErr error
 	for _, name := range names {
 		src, err := sources.Get(name)
@@ -135,7 +142,7 @@ func runFetch(ctx context.Context, args []string) error {
 			anyErr = err
 			continue
 		}
-		res, err := collect.Collect(ctx, src, s, *root)
+		res, err := collect.Collect(ctx, src, s, *root, croidCli)
 		if err != nil {
 			log.Printf("[%s] %v", name, err)
 			anyErr = err

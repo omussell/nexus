@@ -61,7 +61,7 @@ func Run(ctx context.Context, inDir, outDir string, st *store.Store, jobs int, l
 	// Build CROID client if URL is provided.
 	var cClient *client.Client
 	if cfg.CROIDURL != "" {
-		cClient = client.New(cfg.CROIDURL)
+		cClient = client.New(cfg.CROIDURL, "nauvis")
 	}
 
 	// Prepare parquet directory if configured.

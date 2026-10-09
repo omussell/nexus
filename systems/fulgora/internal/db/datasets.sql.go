@@ -11,7 +11,7 @@ import (
 )
 
 const getDataset = `-- name: GetDataset :one
-SELECT id, source, version, collected_at, initial_input, output
+SELECT id, source, version, collected_at, initial_input, output, croid
 FROM datasets
 WHERE source = ? AND version = ?
 LIMIT 1
@@ -32,6 +32,7 @@ func (q *Queries) GetDataset(ctx context.Context, arg GetDatasetParams) (Dataset
 		&i.CollectedAt,
 		&i.InitialInput,
 		&i.Output,
+		&i.Croid,
 	)
 	return i, err
 }
@@ -89,7 +90,7 @@ func (q *Queries) InsertDataset(ctx context.Context, arg InsertDatasetParams) (s
 }
 
 const listDatasetsBySource = `-- name: ListDatasetsBySource :many
-SELECT id, source, version, collected_at, initial_input, output
+SELECT id, source, version, collected_at, initial_input, output, croid
 FROM datasets
 WHERE source = ?
 ORDER BY collected_at DESC
@@ -111,6 +112,7 @@ func (q *Queries) ListDatasetsBySource(ctx context.Context, source string) ([]Da
 			&i.CollectedAt,
 			&i.InitialInput,
 			&i.Output,
+			&i.Croid,
 		); err != nil {
 			return nil, err
 		}
@@ -167,6 +169,20 @@ func (q *Queries) ListLatest(ctx context.Context) ([]ListLatestRow, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateCroid = `-- name: UpdateCroid :exec
+UPDATE datasets SET croid = ? WHERE id = ?
+`
+
+type UpdateCroidParams struct {
+	Croid sql.NullString
+	ID    int64
+}
+
+func (q *Queries) UpdateCroid(ctx context.Context, arg UpdateCroidParams) error {
+	_, err := q.db.ExecContext(ctx, updateCroid, arg.Croid, arg.ID)
+	return err
 }
 
 const upsertLatest = `-- name: UpsertLatest :exec

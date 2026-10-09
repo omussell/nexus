@@ -15,11 +15,13 @@ import (
 
 // Dataset is a single version of a source's data, with its file locations.
 type Dataset struct {
+	ID           int64
 	Source       string
 	Version      string
 	CollectedAt  time.Time // actual collection time (UTC)
 	InitialInput string
 	Output       string
+	Croid        string
 }
 
 // LatestInfo mirrors the joined latest+datasets row returned by the sqlc query.
@@ -94,11 +96,12 @@ func (s *Store) Record(ctx context.Context, d Dataset) (Dataset, error) {
 	}
 
 	return Dataset{
-		Source:       d.Source,
-		Version:      d.Version,
-		CollectedAt:  d.CollectedAt,
+		ID:         datasetID,
+		Source:     d.Source,
+		Version:    d.Version,
+		CollectedAt: d.CollectedAt,
 		InitialInput: d.InitialInput,
-		Output:       d.Output,
+		Output:     d.Output,
 	}, nil
 }
 
@@ -147,15 +150,27 @@ func (s *Store) ListBySource(ctx context.Context, source string) ([]Dataset, err
 	return out, nil
 }
 
+// UpdateCroid stores the CROID for a dataset by its ID.
+func (s *Store) UpdateCroid(ctx context.Context, datasetID int64, croid string) error {
+	return s.q.UpdateCroid(ctx, db.UpdateCroidParams{
+		Croid: sql.NullString{String: croid, Valid: true},
+		ID:    datasetID,
+	})
+}
+
 func rowToDataset(row db.Dataset) Dataset {
 	t, _ := time.Parse(time.RFC3339, row.CollectedAt)
-	return Dataset{
+	d := Dataset{
 		Source:       row.Source,
 		Version:      row.Version,
 		CollectedAt:  t,
 		InitialInput: row.InitialInput,
 		Output:       row.Output,
 	}
+	if row.Croid.Valid {
+		d.Croid = row.Croid.String
+	}
+	return d
 }
 
 func rowToLatestInfo(row db.GetLatestRow) LatestInfo {

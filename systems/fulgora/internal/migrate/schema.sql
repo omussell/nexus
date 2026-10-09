@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS datasets (
     collected_at TEXT    NOT NULL,
     initial_input TEXT   NOT NULL,
     output       TEXT    NOT NULL,
+    croid        TEXT,
     UNIQUE (source, version)
 );
 

@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/nexus/croid/client"
 	"github.com/nexus/fulgora/internal/source"
 	"github.com/nexus/fulgora/internal/store"
 )
@@ -24,6 +25,7 @@ type Result struct {
 	CollectedAt  string
 	InitialInput string
 	Output       string
+	Croid        string
 	Skipped      bool // true when the version was already recorded in the database
 }
 
@@ -31,7 +33,9 @@ type Result struct {
 // in the store. rawRoot is the root under which per-source directories live,
 // e.g. "systems/fulgora"; the raw file is stored under rawRoot/<source>/
 // initial_input and the standardized output under rawRoot/<source>/output.
-func Collect(ctx context.Context, src source.Source, s *store.Store, rawRoot string) (*Result, error) {
+//
+// If croidClient is non-nil, a CROID is minted for the newly recorded dataset.
+func Collect(ctx context.Context, src source.Source, s *store.Store, rawRoot string, croidClient *client.Client) (*Result, error) {
 	latest, err := src.CheckLatest(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("collect: %s: %w", src.Name(), err)
@@ -41,17 +45,14 @@ func Collect(ctx context.Context, src source.Source, s *store.Store, rawRoot str
 	}
 
 	// If we already collected this exact version, do not download it again.
-	if _, err := s.Get(ctx, src.Name(), latest.Version); err == nil {
-		rec, err := s.Latest(ctx, src.Name())
-		if err != nil {
-			return nil, err
-		}
+	if rec, err := s.Get(ctx, src.Name(), latest.Version); err == nil {
 		return &Result{
 			Source:       rec.Source,
 			Version:      rec.Version,
-			CollectedAt:  rec.CollectedAt,
+			CollectedAt:  rec.CollectedAt.UTC().Format(time.RFC3339),
 			InitialInput: rec.InitialInput,
 			Output:       rec.Output,
+			Croid:        rec.Croid,
 			Skipped:      true,
 		}, nil
 	} else if !errors.Is(err, sql.ErrNoRows) {
@@ -88,12 +89,26 @@ func Collect(ctx context.Context, src source.Source, s *store.Store, rawRoot str
 		return nil, fmt.Errorf("collect: %s: record %s: %w", src.Name(), latest.Version, err)
 	}
 
+	// Mint a CROID for the newly recorded dataset if a CROID service is configured.
+	if croidClient != nil && rec.ID > 0 {
+		croid, mintErr := croidClient.MintWith(ctx, "dataset", fmt.Sprintf("%s:%s", src.Name(), latest.Version))
+		if mintErr != nil {
+			return nil, fmt.Errorf("collect: %s: mint croid %s: %w", src.Name(), latest.Version, mintErr)
+		}
+		rec.Croid = croid
+		if err := s.UpdateCroid(ctx, rec.ID, croid); err != nil {
+			return nil, fmt.Errorf("collect: %s: update croid %s: %w", src.Name(), latest.Version, err)
+		}
+	}
+
 	return &Result{
 		Source:       rec.Source,
 		Version:      rec.Version,
 		CollectedAt:  rec.CollectedAt.UTC().Format(time.RFC3339),
 		InitialInput: rec.InitialInput,
 		Output:       rec.Output,
+		Croid:        rec.Croid,
+		Skipped:      false,
 	}, nil
 }
 

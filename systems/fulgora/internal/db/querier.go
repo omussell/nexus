@@ -15,6 +15,7 @@ type Querier interface {
 	InsertDataset(ctx context.Context, arg InsertDatasetParams) (sql.Result, error)
 	ListDatasetsBySource(ctx context.Context, source string) ([]Dataset, error)
 	ListLatest(ctx context.Context) ([]ListLatestRow, error)
+	UpdateCroid(ctx context.Context, arg UpdateCroidParams) error
 	UpsertLatest(ctx context.Context, arg UpsertLatestParams) error
 }
 

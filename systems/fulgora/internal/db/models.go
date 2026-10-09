@@ -4,6 +4,10 @@
 
 package db
 
+import (
+	"database/sql"
+)
+
 type Dataset struct {
 	ID           int64
 	Source       string
@@ -11,6 +15,7 @@ type Dataset struct {
 	CollectedAt  string
 	InitialInput string
 	Output       string
+	Croid        sql.NullString
 }
 
 type Latest struct {

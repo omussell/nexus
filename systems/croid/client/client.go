@@ -13,11 +13,13 @@ import (
 type Client struct {
 	baseURL string
 	client  *http.Client
+	system  string
 }
 
-// New creates a Client for the given base URL (e.g. "http://localhost:9090").
-func New(baseURL string) *Client {
-	return &Client{baseURL: baseURL, client: &http.Client{}}
+// New creates a Client for the given base URL (e.g. "http://localhost:9090")
+// and system name (e.g. "nauvis", "fulgora").
+func New(baseURL, system string) *Client {
+	return &Client{baseURL: baseURL, client: &http.Client{}, system: system}
 }
 
 // MintRequest is the JSON body sent to the CROID service.
@@ -40,10 +42,17 @@ type MintResponse struct {
 // CROID string. It is idempotent: requesting the same (cro_type, cro_value,
 // system) triple twice returns the same CROID.
 func (c *Client) Mint(ctx context.Context, doi string) (string, error) {
+	return c.MintWith(ctx, "DOI", doi)
+}
+
+// MintWith sends a CROID minting request for the given type/value pair and
+// returns the CROID string. It is idempotent: requesting the same
+// (cro_type, cro_value, system) triple twice returns the same CROID.
+func (c *Client) MintWith(ctx context.Context, croType, croValue string) (string, error) {
 	body, err := json.Marshal(MintRequest{
-		CroType:  "DOI",
-		CroValue: doi,
-		System:   "nauvis",
+		CroType:  croType,
+		CroValue: croValue,
+		System:   c.system,
 	})
 	if err != nil {
 		return "", fmt.Errorf("marshal request: %w", err)
@@ -67,7 +76,7 @@ func (c *Client) Mint(ctx context.Context, doi string) (string, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return "", fmt.Errorf("mint %s: HTTP %d", doi, resp.StatusCode)
+		return "", fmt.Errorf("mint %s/%s: HTTP %d", croType, croValue, resp.StatusCode)
 	}
 
 	return result.Croid, nil
