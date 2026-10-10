@@ -88,9 +88,16 @@ func NewDuckDBClient(dbPath string) (*DuckDBClient, error) {
 
 // Query searches for organization candidates from the DuckDB index.
 func (c *DuckDBClient) Query(keyword string, maxCandidates int) []Candidate {
+	return c.QueryWithCountry(keyword, maxCandidates, "")
+}
+
+// QueryWithCountry searches for organization candidates from the DuckDB index,
+// optionally filtering by country code (e.g., "US", "GB").
+func (c *DuckDBClient) QueryWithCountry(keyword string, maxCandidates int, country string) []Candidate {
 	if c.client == nil {
 		return nil
 	}
+	c.client.SetCountryFilter(country)
 	orgs := c.client.Query(keyword, maxCandidates)
 	if orgs == nil {
 		return nil
@@ -135,7 +142,18 @@ func (c *DuckDBClient) Close() error {
 func (c *DuckDBClient) MatchFunder(inputData string) []map[string]interface{} {
 	fund := New(inputData)
 	fundRegions := findRegions(inputData)
-	candidates := c.Query(inputData, 200)
+
+	// Derive country codes from input for DuckDB-level pre-filtering.
+	countryCodes := FindCountries(inputData, embeddedCountries, fund)
+
+	// Query with country filter to reduce candidate count before fuzzy matching.
+	var candidates []Candidate
+	if len(countryCodes) > 0 {
+		candidates = c.QueryWithCountry(inputData, 200, countryCodes[0])
+	}
+	if len(candidates) == 0 {
+		candidates = c.QueryWithCountry(inputData, 200, "")
+	}
 	candidates = filterEligible(candidates, fundRegions)
 	if len(candidates) == 0 {
 		return nil
@@ -225,7 +243,7 @@ func FindCountries(s string, countries []country.Country, strRep *StringRep) []s
 			}
 		} else {
 			score := PartialRatio(c.Name, strRep.AlphaLower())
-			if score >= 80.0 {
+			if score >= 90.0 {
 				codes[strings.ToUpper(c.Code)] = true
 			}
 		}
