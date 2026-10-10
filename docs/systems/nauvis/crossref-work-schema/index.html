@@ -1,0 +1,891 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../http-server/">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../images/xml.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Crossref work schema - systems/nauvis</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#crossref-work-schema" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="systems/nauvis" class="md-header__button md-logo" aria-label="systems/nauvis" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14 6h8v16h-8zM2 4h20V2H2zm0 4h10V6H2zm7 14h3V10H9zm-7 0h5V10H2z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            systems/nauvis
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Crossref work schema
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="systems/nauvis" class="md-nav__button md-logo" aria-label="systems/nauvis" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14 6h8v16h-8zM2 4h20V2H2zm0 4h10V6H2zm7 14h3V10H9zm-7 0h5V10H2z"/></svg>
+
+    </a>
+    systems/nauvis
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NAUVIS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-it-works/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How it works
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../http-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HTTP server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Crossref work schema
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Crossref work schema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-it-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What it models
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-the-validator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running the validator
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Running the validator">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-accepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What it accepts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#exit-code-and-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exit code and output
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-it-validates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What it validates
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#schema-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema structure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Schema structure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#required-top-level-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required top-level fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#enforced-vocabulary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Enforced vocabulary
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reusable-definitions-defs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reusable definitions ($defs)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fields-modelled-to-match-the-real-api-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fields modelled to match the real API data
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-it-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What it models
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-the-validator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running the validator
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Running the validator">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-accepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What it accepts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#exit-code-and-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exit code and output
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-it-validates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What it validates
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#schema-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema structure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Schema structure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#required-top-level-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required top-level fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#enforced-vocabulary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Enforced vocabulary
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reusable-definitions-defs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reusable definitions ($defs)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fields-modelled-to-match-the-real-api-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fields modelled to match the real API data
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="crossref-work-schema">Crossref Work Schema</h1>
+<p>Nauvis ingests Crossref "work" records. The JSON that lands in <code>out/</code> and the
+raw <code>data/*.json.gz</code> downloads are all produced by <code>api.crossref.org</code>, and each
+record is a <strong>subset</strong> of the full Crossref deposit XML described by the
+<code>crossref5.5.0</code> XSD. This schema validates that JSON shape (not the deposit
+XML), so the XSD is used only as a reference for field names and vocabulary,
+never as a 1:1 template.</p>
+<p>Two files live in <code>systems/nauvis/schemas/</code>:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>crossref-work.schema.json</code></td>
+<td>JSON Schema (draft 2020-12) for a single Crossref work</td>
+</tr>
+<tr>
+<td><code>validate.py</code></td>
+<td>Small CLI that validates one or more data files against the schema</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-it-models">What it models</h2>
+<ul>
+<li><strong>Root is one work object.</strong> It is applied to a single JSON object. For a
+  JSONL dump (each line is one work) it is applied once per line.</li>
+<li><strong>Draft 2020-12.</strong></li>
+<li><strong>Permissive by design.</strong> Fields Crossref controls tightly (dates,
+  <code>content-domain</code>, <code>resource</code>, <code>issn-type</code>, <code>author</code>, <code>license</code>, <code>link</code>,
+  <code>funder</code>, …) are closed objects with <code>additionalProperties: false</code>. Fields
+  that publishers populate themselves (<code>reference</code>, <code>assertion</code>, <code>relation</code>,
+  <code>institution</code>, <code>event</code>) allow extra properties so new publisher-specific keys
+  do not break validation.</li>
+</ul>
+<h2 id="running-the-validator">Running the validator</h2>
+<p>From the <code>schemas/</code> directory:</p>
+<pre><code>cd systems/nauvis/schemas
+uv run --with &quot;jsonschema&gt;=4&quot; python validate.py crossref-work.schema.json ../out/*.json ../10.json
+</code></pre>
+<p><code>jsonschema</code> is not a project dependency, so it is pulled in on the fly with
+<code>uv run --with "jsonschema&gt;=4"</code>. Pass the schema as the first argument
+explicitly so it is never confused with a data file.</p>
+<p>Validate the raw gzipped API envelopes too:</p>
+<pre><code>uv run --with &quot;jsonschema&gt;=4&quot; python validate.py crossref-work.schema.json ../data/*.json.gz
+</code></pre>
+<h3 id="what-it-accepts">What it accepts</h3>
+<p><code>validate.py</code> handles the three shapes that appear in this repo:</p>
+<table>
+<thead>
+<tr>
+<th>Shape</th>
+<th>Example</th>
+<th>Handling</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JSONL (one work per line)</td>
+<td><code>out/*.json</code></td>
+<td>each top-level object validated</td>
+</tr>
+<tr>
+<td>Single work object</td>
+<td><code>10.json</code></td>
+<td>the object validated</td>
+</tr>
+<tr>
+<td>API response envelope</td>
+<td><code>data/*.json.gz</code></td>
+<td>every object in <code>items[]</code> validated</td>
+</tr>
+</tbody>
+</table>
+<p><code>.gz</code> files are decompressed automatically.</p>
+<h3 id="exit-code-and-output">Exit code and output</h3>
+<ul>
+<li><code>0</code> — every work validated.</li>
+<li><code>1</code> — one or more works failed.</li>
+<li><code>2</code> — no data files were given.</li>
+</ul>
+<p>On failure it prints up to 25 sample errors, then a per-file count, and a
+histogram of failure signatures (<code>&lt;path-tail&gt; :: &lt;validator&gt;</code>) so recurring
+problems are easy to spot:</p>
+<pre><code>[../out/9.json] 5000 works, 1 failed
+[../10.json] 1 works, 0 failed
+
+TOTAL 55001 works, 1 failed
+
+== error categories (path :: validator) ==
+       1  0/DOI :: pattern
+</code></pre>
+<h2 id="what-it-validates">What it validates</h2>
+<ul>
+<li><code>systems/nauvis/out/0.json</code> … <code>10.json</code> — 5,000 works each (JSONL).</li>
+<li><code>systems/nauvis/10.json</code> — a single pretty-printed work.</li>
+<li><code>systems/nauvis/data/*.json.gz</code> — the raw <code>{"items": [...]}</code> API responses.</li>
+</ul>
+<p>Across all of them the schema currently reports <strong>0 failures</strong> (110,001 work
+objects total).</p>
+<h2 id="schema-structure">Schema structure</h2>
+<h3 id="required-top-level-fields">Required top-level fields</h3>
+<p>A work must contain these 15 fields:</p>
+<p><code>DOI</code>, <code>URL</code>, <code>content-domain</code>, <code>created</code>, <code>deposited</code>, <code>indexed</code>,
+<code>is-referenced-by-count</code>, <code>issued</code>, <code>prefix</code>, <code>reference-count</code>,
+<code>references-count</code>, <code>resource</code>, <code>score</code>, <code>source</code>, <code>type</code></p>
+<p>Everything else is optional. The root object is closed, so a work must not
+contain keys other than the ones declared in <code>properties</code>.</p>
+<h3 id="dates">Dates</h3>
+<p>All date fields (<code>created</code>, <code>issued</code>, <code>published</code>, <code>accepted</code>, …) use the
+Crossref date object <code>{ date-parts, date-time?, timestamp? }</code>. <code>date-parts</code> is
+an array of arrays of <strong>integer-or-null</strong> (Crossref uses <code>null</code> for a missing
+month or day, e.g. <code>[[2024, null]]</code>), with 1–3 parts per row.</p>
+<h3 id="enforced-vocabulary">Enforced vocabulary</h3>
+<ul>
+<li><code>type</code> — enum of 22 values (<code>book</code>, <code>journal-article</code>, <code>report</code>, <code>dataset</code>, …).</li>
+<li><code>issn-type.type</code> / <code>isbn-type.type</code> — <code>print</code> | <code>electronic</code>.</li>
+<li><code>author.sequence</code> / <code>editor.sequence</code> — <code>first</code> | <code>additional</code>.</li>
+<li><code>DOI</code> — pattern <code>^10\.[0-9]{4,}/.+$</code>.</li>
+<li><code>ISSN</code> (top-level) and <code>issn-type.value</code> — pattern <code>^[0-9]{4}-[0-9]{3}[0-9Xx]$</code>.</li>
+</ul>
+<h3 id="reusable-definitions-defs">Reusable definitions (<code>$defs</code>)</h3>
+<p><code>dateObj</code>, <code>contentDomain</code>, <code>resourceLink</code>, <code>resource</code>, <code>journalIssue</code>,
+<code>issnType</code>, <code>isbnType</code>, <code>idRef</code>, <code>affiliation</code>, <code>person</code>, <code>author</code>,
+<code>institution</code>, <code>license</code>, <code>link</code>, <code>reference</code>, <code>assertionGroup</code>, <code>assertion</code>,
+<code>funderId</code>, <code>funderAward</code>, <code>funder</code>, <code>updateTo</code>, <code>relationItem</code>, <code>relation</code>,
+<code>eventLocation</code>, <code>event</code></p>
+<h3 id="fields-modelled-to-match-the-real-api-data">Fields modelled to match the real API data</h3>
+<p>A few shapes differ from intuition and are handled to match what
+<code>api.crossref.org</code> actually returns:</p>
+<ul>
+<li><code>reference[].issn-type</code> / <code>reference[].isbn-type</code> are <strong>strings</strong>, not the
+  array-of-objects used at the top level.</li>
+<li><code>relation</code> items use <code>asserted-by</code> (and require only <code>id</code> + <code>id-type</code>).</li>
+<li><code>funder[].award[]</code> items may be a plain string (an award number) or an
+  object with <code>award-number</code> / <code>award-uri</code>.</li>
+<li><code>event.location</code> may be a string or an object.</li>
+<li>Affiliation sub-fields (<code>place</code>, <code>department</code>, <code>acronym</code>) may be a string or
+  an array, and <code>affiliation.id</code> may be a string or an array of
+  <code>{id, id-type, asserted-by}</code> objects.</li>
+</ul>
+<h2 id="design-notes">Design notes</h2>
+<p>The schema favours catching genuine structural errors over rejecting valid
+publisher data. Closed objects are used where Crossref itself guarantees a
+fixed shape; permissive objects are used where the content is effectively
+free-form and defined by the publisher. If the API adds a new top-level field,
+the closed root will flag it — that is intentional, so the schema is kept in
+sync with the data.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

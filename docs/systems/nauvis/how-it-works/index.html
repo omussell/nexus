@@ -441,6 +441,33 @@
   
 
     
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../crossref-work-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Crossref work schema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
   </ul>
 </nav>
                   </div>
@@ -666,7 +693,9 @@ demo of the expected structure.</p>
    to <code>out/&lt;n&gt;.json.tmp</code>, then rename into place<code>), so a process that is killed
    mid-file never leaves a half-written</code>.json<code>. Note: the output uses</code>json.Compact` which may reorder/compact fields compared to the raw decompressed
    payload.</li>
-<li><strong>Extract</strong> — unmarshal just the <code>items[].DOI</code> fields, in input order.</li>
+<li><strong>Extract</strong> — unmarshal just the <code>items[].DOI</code> fields, in input order.
+    The DOIs are returned alongside the raw JSON for each item that has a DOI,
+    allowing downstream parquet conversion without re-reading files from disk.</li>
 </ol>
 <p><code>extract.Files(dir)</code> lists the directory and returns the files it knows how to
 process: anything ending in <code>.json.gz</code> or (uncompressed) <code>.json</code>. This is what

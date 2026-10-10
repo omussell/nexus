@@ -296,10 +296,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#example" class="md-nav__link">
+  <a href="#examples" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Example
+        Examples
       
     </span>
   </a>
@@ -327,6 +327,17 @@
     <span class="md-ellipsis">
       
         Deployment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependencies
       
     </span>
   </a>
@@ -483,10 +494,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#example" class="md-nav__link">
+  <a href="#examples" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Example
+        Examples
       
     </span>
   </a>
@@ -520,6 +531,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -540,30 +562,31 @@
 <h1 id="vulcanus">VULCANUS</h1>
 <p>Vulcanus ingests data from Nauvis and Fulgora into a DuckDB database, enabling citation and retraction analysis.</p>
 <h2 id="overview">Overview</h2>
-<p>Vulcanus is a batch worker that connects to RabbitMQ, consumes CROID events from Nauvis and Fulgora, and ingests each record into DuckDB. It runs as a container that processes messages until stopped with SIGINT or SIGTERM.</p>
+<p>Vulcanus is a batch worker that reads output files from Nauvis and Fulgora (stored as JSON or Parquet) and ingests them into a DuckDB database. After ingestion it can optionally run ROR matching against nauvis records and retraction matching between nauvis and retractionwatch records.</p>
 <h2 id="key-functionalities">Key Functionalities</h2>
 <ul>
-<li><strong>RabbitMQ Consumer:</strong> Connects to the CROID exchange, consumes events one at a time (QoS=1), and exits on shutdown signal.</li>
-<li><strong>Per-Record Ingestion:</strong> Each CROID event triggers ingestion of a single record into the appropriate DuckDB table (<code>nauvis</code> or <code>&lt;source&gt;</code> for Fulgora sources).</li>
-<li><strong>Provider Isolation:</strong> Nauvis DOI records land in a single <code>nauvis</code> table; each Fulgora source (e.g. <code>ror</code>, <code>retractionwatch</code>) gets its own table.</li>
-<li><strong>Faithful Preservation:</strong> Ingests raw JSON records verbatim into a <code>JSON</code> column in DuckDB.</li>
+<li><strong>Batch Ingestion:</strong> Reads Nauvis output files from a JSON or Parquet store and ingests them into a single <code>nauvis</code> table in DuckDB.</li>
+<li><strong>Fulgora Ingestion:</strong> Reads output files from each Fulgora source (e.g. <code>ror</code>, <code>retractionwatch</code>) and ingests them into separate tables per source.</li>
+<li><strong>Provider Isolation:</strong> Nauvis DOI records land in a single <code>nauvis</code> table; each Fulgora source gets its own table.</li>
+<li><strong>JSON Parquet Support:</strong> When the <code>-parquet</code> flag is given, Vulcanus reads Parquet files via DuckDB's <code>read_parquet()</code> function, converting columns back to JSON via <code>to_json(row(*))</code> to preserve the existing table schema.</li>
+<li><strong>Faithful Preservation:</strong> Ingests raw JSON records verbatim into a <code>JSON</code> column in DuckDB — one row per record.</li>
 <li><strong>Retraction Matching:</strong> Optional <code>-match-retractions</code> flag rebuilds the <code>retractions</code> view, which pairs each Nauvis record with its <code>retractionwatch</code> notice on the paper's DOI.</li>
-<li><strong>Bidirectional Retraction Provenance:</strong> Derives both passive (<code>X is-retracted-by Y</code>) and active (<code>Y retracts X</code>) provenance strings.</li>
-<li><strong>ROR Matching:</strong> Optional <code>-match-ror</code> flag runs ROR entity matching against nauvis records after consuming.</li>
-<li><strong>Required Matching:</strong> At least one matching flag (<code>-match-retractions</code> or <code>-match-ror</code>) must be given; otherwise Vulcanus prints usage and exits.</li>
+<li><strong>Bidirectional Retraction Provenance:</strong> Derives both passive (<code>X is-retracted-by Y</code>) and active (<code>Y retracts X</code>) provenance strings in the <code>retraction_provenance</code> view.</li>
+<li><strong>ROR Matching:</strong> Optional <code>-match-ror</code> flag runs ROR entity matching against nauvis records, finding matching funder and affiliation organizations.</li>
+<li><strong>Table Reset:</strong> Each run empties the target tables before re-inserting, so re-running replaces the previous snapshot rather than accumulating duplicates.</li>
 </ul>
 <h2 id="running-vulcanus">Running Vulcanus</h2>
 <pre><code class="language-bash">go run . \
-  [-rabbitmq amqp://localhost:5672] \
-  [-exchange croid] \
-  [-queue vulcanus] \
-  [-routing-key &quot;&quot;] \
+  [-only all|nauvis|fulgora|match] \
+  [-nauvis-db nauvis.sqlite3] \
+  [-nauvis-dir /path/to/nauvis] \
+  [-fulgora-db fulgora.sqlite3] \
+  [-fulgora-dir /path/to/fulgora] \
   [-duckdb vulcanus.duckdb] \
+  [-parquet] \
   [-match-retractions] \
   [-match-ror]
 </code></pre>
-<p>At least one matching flag (<code>-match-retractions</code> or <code>-match-ror</code>) is
-required; without one, Vulcanus prints usage and exits.</p>
 <table>
 <thead>
 <tr>
@@ -574,24 +597,29 @@ required; without one, Vulcanus prints usage and exits.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>-rabbitmq</code></td>
-<td><code>amqp://localhost:5672</code></td>
-<td>RabbitMQ AMQP URL</td>
+<td><code>-only</code></td>
+<td><code>all</code></td>
+<td>Which provider to ingest: <code>nauvis</code>, <code>fulgora</code>, <code>all</code>, or <code>match</code> (to only run matching without ingestion)</td>
 </tr>
 <tr>
-<td><code>-exchange</code></td>
-<td><code>croid</code></td>
-<td>RabbitMQ exchange to consume from</td>
+<td><code>-nauvis-db</code></td>
+<td><code>nauvis.sqlite3</code></td>
+<td>Path to the nauvis SQLite database</td>
 </tr>
 <tr>
-<td><code>-queue</code></td>
-<td><code>vulcanus</code></td>
-<td>RabbitMQ queue name to declare/bind</td>
+<td><code>-nauvis-dir</code></td>
+<td>(required when -only includes nauvis)</td>
+<td>Path to the nauvis system directory (data root)</td>
 </tr>
 <tr>
-<td><code>-routing-key</code></td>
-<td>(empty)</td>
-<td>RabbitMQ routing key (empty = all)</td>
+<td><code>-fulgora-db</code></td>
+<td><code>fulgora.sqlite3</code></td>
+<td>Path to the fulgora SQLite database</td>
+</tr>
+<tr>
+<td><code>-fulgora-dir</code></td>
+<td>(required when -only includes fulgora)</td>
+<td>Path to the fulgora data root (output dir)</td>
 </tr>
 <tr>
 <td><code>-duckdb</code></td>
@@ -599,39 +627,61 @@ required; without one, Vulcanus prints usage and exits.</p>
 <td>DuckDB database file to write</td>
 </tr>
 <tr>
+<td><code>-parquet</code></td>
+<td><code>false</code></td>
+<td>Read Parquet files instead of JSON</td>
+</tr>
+<tr>
 <td><code>-match-retractions</code></td>
 <td><code>false</code></td>
-<td>Run retractionwatch matching (rebuild the retraction views) after consuming</td>
+<td>Run retractionwatch matching (rebuild the retraction views) after ingestion</td>
 </tr>
 <tr>
 <td><code>-match-ror</code></td>
 <td><code>false</code></td>
-<td>Run ROR matching after consuming</td>
+<td>Run ROR matching after ingestion</td>
 </tr>
 </tbody>
 </table>
-<h3 id="example">Example</h3>
-<pre><code class="language-bash">go run . -duckdb vulcanus.duckdb -match-retractions -match-ror
-vulcanus: starting consumer
-vulcanus: waiting for messages (send SIGINT/SIGTERM to stop)
-^C
-vulcanus: shutting down...
+<h3 id="examples">Examples</h3>
+<p>Ingest all sources with JSON files:</p>
+<pre><code class="language-bash">go run . -nauvis-dir /data/nauvis -fulgora-dir /data/fulgora -duckdb vulcanus.duckdb
+</code></pre>
+<p>Ingest with Parquet files and run all matching:</p>
+<pre><code class="language-bash">go run . -nauvis-dir /data/nauvis -fulgora-dir /data/fulgora -duckdb vulcanus.duckdb -parquet -match-retractions -match-ror
+vulcanus: ingested 1234567 nauvis records into vulcanus.duckdb
+vulcanus: ingested 45678 fulgora records into vulcanus.duckdb
 vulcanus: retraction matching complete
 vulcanus: ROR matching complete
-vulcanus: done, DuckDB=vulcanus.duckdb
+</code></pre>
+<p>Run matching only (no ingestion):</p>
+<pre><code class="language-bash">go run . -only match -duckdb vulcanus.duckdb -match-retractions -match-ror
+vulcanus: retraction matching complete
+vulcanus: ROR matching complete
 </code></pre>
 <h2 id="how-it-works">How it works</h2>
-<p>See <a href="how-it-works/">How Vulcanus Works</a> for a detailed explanation of the consumer flow, DuckDB tables, and views.</p>
+<p>See <a href="how-it-works/">How Vulcanus Works</a> for a detailed explanation of the ingestion flow, DuckDB tables, and views.</p>
 <h2 id="deployment">Deployment</h2>
-<p>Vulcanus is designed for container deployment:</p>
+<p>Vulcanus is designed for batch execution. It runs to completion and exits:</p>
 <ol>
-<li>Container starts → connects to RabbitMQ → begins consuming</li>
-<li>If queue is empty: blocks waiting for messages</li>
-<li>On SIGINT/SIGTERM: finishes current message, closes connection, exits</li>
-<li>Max 30s shutdown timeout prevents hanging</li>
+<li>Parse flags and open stores</li>
+<li>Ingest Nauvis files (JSON or Parquet) into DuckDB <code>nauvis</code> table</li>
+<li>Ingest Fulgora files (JSON or Parquet) into DuckDB <code>&lt;source&gt;</code> tables</li>
+<li>If <code>-match-retractions</code>: rebuild retraction views</li>
+<li>If <code>-match-ror</code>: run ROR matching and write results</li>
+<li>Exit</li>
 </ol>
-<p>Set <code>terminationGracePeriodSeconds: 35</code> in Kubernetes to allow graceful shutdown.</p>
-<p>Multiple containers can consume from the same queue; RabbitMQ distributes messages across them.</p>
+<h2 id="dependencies">Dependencies</h2>
+<p>Nauvis and Fulgora must be run first to produce output files and update their SQLite registries:</p>
+<pre><code class="language-bash"># Nauvis: ingest and produce JSON/Parquet output
+go run github.com/nexus/nauvis ingest -in /data/crossref -out /data/nauvis/out -parquet-dir /data/nauvis/parquet
+
+# Fulgora: collect and produce JSON/Parquet output
+go run github.com/nexus/fulgora collect -root /data/fulgora -parquet-dir /data/fulgora/parquet
+</code></pre>
+<p>Then Vulcanus can read the output:</p>
+<pre><code class="language-bash">go run . -nauvis-dir /data/nauvis -fulgora-dir /data/fulgora -duckdb vulcanus.duckdb -parquet
+</code></pre>
 
 
 
