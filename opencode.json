@@ -11,11 +11,11 @@
     }
   },
   "provider": {
-    "wintermute": {
+    "solstice": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "wintermute",
+      "name": "solstice",
       "options": {
-        "baseURL": "http://192.168.0.24:8000/v1"
+        "baseURL": "http://192.168.0.30:8000/v1"
       },
       "models": {
         "nemotron3.5:30b-a3b": {
