@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -31,7 +33,7 @@ const (
 	project       = "crossref%2Fretraction-watch-data"
 	csvPath       = "retraction_watch.csv"
 	csvFilename   = "retraction_watch.csv"
-	csvRawURL     = gitlabAPIBase + "/crossref/retraction-watch-data/-/raw/main/retraction_watch.csv"
+	csvRawURL     = gitlabAPIBase + "/crossref/retraction-watch-data/-/raw/main/retraction_watch.csv?ref_type=heads&inline=false"
 )
 
 // Source fetches and standardizes the Retraction Watch CSV.
@@ -42,16 +44,13 @@ type Source struct {
 
 // New returns a Retraction Watch source.
 func New() *Source {
-	return &Source{apiBase: gitlabAPIBase, client: &http.Client{Timeout: 60 * time.Second}}
+	return &Source{apiBase: gitlabAPIBase, client: &http.Client{Timeout: 15 * time.Second}}
 }
 
 // NewWithAPIBase returns a source whose GitLab API base is base (testing hook).
 func NewWithAPIBase(base string) *Source {
-	return &Source{apiBase: base, client: &http.Client{Timeout: 60 * time.Second}}
+	return &Source{apiBase: base, client: &http.Client{Timeout: 15 * time.Second}}
 }
-
-// Name implements source.Source.
-func (s *Source) Name() string { return name }
 
 // gitlabCommit is the subset of a GitLab commit we need for the version label.
 type gitlabCommit struct {
@@ -60,6 +59,8 @@ type gitlabCommit struct {
 
 // CheckLatest asks the GitLab API for the commit that last touched
 // retraction_watch.csv and derives the version (its date) and download URL.
+// If the API is unreachable (e.g. 403), the fallback version is taken from
+// the version of the most recent file already on disk.
 func (s *Source) CheckLatest(ctx context.Context) (*source.Latest, error) {
 	u := fmt.Sprintf("%s/api/v4/projects/%s/repository/commits?path=%s&per_page=1&simplified=true",
 		s.apiBase, project, csvPath)
@@ -74,7 +75,9 @@ func (s *Source) CheckLatest(ctx context.Context) (*source.Latest, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("retractionwatch: query gitlab: unexpected status %s", resp.Status)
+		// GitLab may return 403 for unauthenticated commit queries.
+		// Fall back to the latest version already on disk.
+		return s.checkLocalFallback()
 	}
 
 	var commits []gitlabCommit
@@ -96,6 +99,33 @@ func (s *Source) CheckLatest(ctx context.Context) (*source.Latest, error) {
 		Filename: csvFilename,
 	}, nil
 }
+
+// checkLocalFallback returns a Latest derived from the latest version
+// already on disk. It looks for the most recent CSV under the source's
+// initial_input directory relative to the current working directory (which
+// is the Fulgora data root when the script runs).
+func (s *Source) checkLocalFallback() (*source.Latest, error) {
+	files, err := filepath.Glob(filepath.Join(s.Name(), "initial_input", name+"-*.csv"))
+	if err != nil || len(files) == 0 {
+		return nil, fmt.Errorf("retractionwatch: no local files found for fallback")
+	}
+	// Pick the file with the newest date stamp (last in lexicographic order).
+	sort.Strings(files)
+	f := files[len(files)-1]
+	base := filepath.Base(f)
+	// Strip "retractionwatch-<date>_timestamp.csv" -> "<date>"
+	base = strings.TrimPrefix(base, name+"-")
+	base = strings.SplitN(base, "_", 2)[0]
+
+	return &source.Latest{
+		Version:  base,
+		URL:      csvRawURL,
+		Filename: base + ".csv",
+	}, nil
+}
+
+// Name implements source.Source.
+func (s *Source) Name() string { return name }
 
 // Process places the raw CSV into a versioned output file under outRoot and
 // returns that file path.

@@ -233,20 +233,18 @@ type nauvisRecord struct {
 }
 
 // queryNauvisRecords extracts DOI and funder/affiliation names from all nauvis
-// records. Affiliation names come from author entries; the paper-level
-// affiliation array is not present in Crossref metadata.
+// records using the denormalized columns. Affiliation names come from author
+// entries; the paper-level affiliation array is not present in Crossref metadata.
 func queryNauvisRecords(ctx context.Context, db *sql.DB) ([]nauvisRecord, error) {
 	q := `
 		SELECT
-			json_extract_string(record, '$.DOI') AS doi,
-			CASE
-				WHEN json_extract(record, '$.funder[*].name') IS NULL THEN ''
-				ELSE CAST(json_extract(record, '$.funder[*].name') AS VARCHAR)
-			END AS funder_names,
-			CASE
-				WHEN json_extract(record, '$.author[*].affiliation[*].name') IS NULL THEN ''
-				ELSE CAST(json_extract(record, '$.author[*].affiliation[*].name') AS VARCHAR)
-			END AS aff_names
+			doi,
+			CASE WHEN funder_names IS NULL THEN ''
+				ELSE CAST(funder_names AS VARCHAR)
+			END,
+			CASE WHEN affiliation_names IS NULL THEN ''
+				ELSE CAST(affiliation_names AS VARCHAR)
+			END
 		FROM nauvis`
 
 	rows, err := db.QueryContext(ctx, q)

@@ -65,11 +65,10 @@ func buildRetractionsView(ctx context.Context, tx *sql.Tx) error {
 		SELECT
 			n.record AS nauvis_record,
 			r.record AS retractionwatch_record,
-			json_extract_string(n.record, '$.DOI') AS matched_doi
+			r.retraction_doi AS retraction_notice_doi
 		FROM nauvis AS n
 		JOIN retractionwatch AS r
-		  ON json_extract_string(n.record, '$.DOI') =
-		  	json_extract_string(r.record, '$.OriginalPaperDOI')`
+   		  ON n.doi = r.original_paper_doi`
 	if _, err := tx.ExecContext(ctx, stmt); err != nil {
 		return fmt.Errorf("create view %s: %w", retractionsViewName, err)
 	}
@@ -93,26 +92,24 @@ func buildRetractionProvenanceView(ctx context.Context, tx *sql.Tx) error {
 		SELECT
 			n.record AS nauvis_record,
 			r.record AS retractionwatch_record,
-			json_extract_string(n.record, '$.DOI') AS paper_doi,
-			json_extract_string(r.record, '$.RetractionDOI') AS retraction_doi,
-			json_extract_string(n.record, '$.DOI') || ' is-retracted-by ' || json_extract_string(r.record, '$.RetractionDOI') AS provenance
+			n.doi AS paper_doi,
+			r.retraction_doi AS retraction_notice_doi,
+			n.doi || ' is-retracted-by ' || r.retraction_doi AS provenance
 		FROM nauvis AS n
 		JOIN retractionwatch AS r
-		  ON json_extract_string(n.record, '$.DOI') =
-		  	json_extract_string(r.record, '$.OriginalPaperDOI')
+   		  ON n.doi = r.original_paper_doi
 
 		UNION ALL
 
 		SELECT
 			r.record AS nauvis_record,
 			n.record AS retractionwatch_record,
-			json_extract_string(r.record, '$.RetractionDOI') AS paper_doi,
-			json_extract_string(n.record, '$.DOI') AS retraction_doi,
-			json_extract_string(r.record, '$.RetractionDOI') || ' retracts ' || json_extract_string(n.record, '$.DOI') AS provenance
+			n.doi AS paper_doi,
+			r.retraction_doi AS retraction_notice_doi,
+			r.retraction_doi || ' retracts ' || n.doi AS provenance
 		FROM retractionwatch AS r
 		JOIN nauvis AS n
-		  ON json_extract_string(n.record, '$.DOI') =
-		  	json_extract_string(r.record, '$.OriginalPaperDOI')`
+   		  ON r.original_paper_doi = n.doi`
 	if _, err := tx.ExecContext(ctx, stmt); err != nil {
 		return fmt.Errorf("create view %s: %w", retractionProvenanceViewName, err)
 	}

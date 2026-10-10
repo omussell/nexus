@@ -107,6 +107,19 @@ func RunFiltered(ctx context.Context, s *store.Store, rawRoot, parquetDir string
 func Collect(ctx context.Context, src source.Source, s *store.Store, rawRoot, parquetDir string, croidClient *client.Client) (*Result, error) {
 	latest, err := src.CheckLatest(ctx)
 	if err != nil {
+		// If CheckLatest fails (network issue, API down, etc.), fall back to the
+		// latest version we already have on disk so that the skip path is used
+		// and no download is needed.
+		if rec, getErr := s.Latest(ctx, src.Name()); getErr == nil {
+			return &Result{
+				Source:      rec.Source,
+				Version:     rec.Version,
+				CollectedAt: rec.CollectedAt,
+				Output:      rec.Output,
+				Skipped:     true,
+			}, nil
+		}
+		// Nothing on disk — this is a real error.
 		return nil, fmt.Errorf("collect: %s: %w", src.Name(), err)
 	}
 	if latest.Version == "" {
@@ -272,26 +285,36 @@ type ROROrganization struct {
 
 // RetractionWatchRecord captures fields from a retraction watch entry.
 type RetractionWatchRecord struct {
-	ArticleType       string `parquet:"article_type,optional"`
-	Author            string `parquet:"author,optional"`
-	Country           string `parquet:"country,optional"`
-	Institution       string `parquet:"institution,optional"`
-	Journal           string `parquet:"journal,optional"`
-	Notes             string `parquet:"notes,optional"`
-	OriginalPaperDOI  string `parquet:"original_paper_doi,optional"`
-	OriginalPaperDate string `parquet:"original_paper_date,optional"`
-	PaperTitle        string `parquet:"paper_title,optional"`
+	ArticleType            string `parquet:"article_type,optional"`
+	Author                 string `parquet:"author,optional"`
+	Country                string `parquet:"country,optional"`
+	Institution            string `parquet:"institution,optional"`
+	Journal                string `parquet:"journal,optional"`
+	Notes                  string `parquet:"notes,optional"`
+	OriginalPaperDOI       string `parquet:"original_paper_doi,optional"`
+	OriginalPaperDate      string `parquet:"original_paper_date,optional"`
+	PaperTitle             string `parquet:"paper_title,optional"`
 	PublishedRetractionDOI string `parquet:"published_retraction_doi,optional"`
-	RetractionDate    string `parquet:"retraction_date,optional"`
-	RetractionDOI     string `parquet:"retraction_doi,optional"`
-	RetractionReason  string `parquet:"retraction_reason,optional"`
-	RetractionType    string `parquet:"retraction_type,optional"`
+	RetractionDate         string `parquet:"retraction_date,optional"`
+	RetractionDOI          string `parquet:"retraction_doi,optional"`
+	RetractionReason       string `parquet:"retraction_reason,optional"`
+	RetractionType         string `parquet:"retraction_type,optional"`
 }
 
+// convertROR converts ROR JSON data to parquet. Returns nil if no data.
 func convertROR(data []byte) ([]byte, error) {
+	// Parse NDJSON (one JSON object per line), matching what output.JSONFile writes.
+	lines := bytes.Split(data, []byte{'\n'})
 	var rawArray []json.RawMessage
-	if err := json.Unmarshal(data, &rawArray); err != nil {
-		return nil, fmt.Errorf("parse ror json array: %w", err)
+	for _, line := range lines {
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
+		rawArray = append(rawArray, json.RawMessage(line))
+	}
+	if len(rawArray) == 0 {
+		return nil, nil
 	}
 
 	var rows []ROROrganization
@@ -330,22 +353,59 @@ func convertROR(data []byte) ([]byte, error) {
 		rows = append(rows, r)
 	}
 
-	return marshalParquet(rows)
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	return marshalRows(rows)
 }
 
 func convertRetractionWatch(data []byte) ([]byte, error) {
+	// Try JSON array first
 	var rawArray []json.RawMessage
-	if err := json.Unmarshal(data, &rawArray); err != nil {
-		return nil, fmt.Errorf("parse retractionwatch json array: %w", err)
+	if err := json.Unmarshal(data, &rawArray); err == nil {
+		fmt.Printf("DEBUG: parsed as JSON array with %d items\n", len(rawArray))
+		var rows []RetractionWatchRecord
+		for _, raw := range rawArray {
+			var obj map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &obj); err != nil {
+				continue
+			}
+			r := RetractionWatchRecord{
+				ArticleType:            strField(obj, "ArticleType"),
+				Author:                 strField(obj, "Author"),
+				Country:                strField(obj, "Country"),
+				Institution:            strField(obj, "Institution"),
+				Journal:                strField(obj, "Journal"),
+				Notes:                  strField(obj, "Notes"),
+				OriginalPaperDOI:       strField(obj, "OriginalPaperDOI"),
+				OriginalPaperDate:      strField(obj, "OriginalPaperDate"),
+				PaperTitle:             strField(obj, "PaperTitle"),
+				PublishedRetractionDOI: strField(obj, "PublishedRetractionDOI"),
+				RetractionDate:         strField(obj, "RetractionDate"),
+				RetractionDOI:          strField(obj, "RetractionDOI"),
+				RetractionReason:       strField(obj, "RetractionReason"),
+				RetractionType:         strField(obj, "RetractionType"),
+			}
+			rows = append(rows, r)
+		}
+		if len(rows) == 0 {
+			return nil, nil
+		}
+		return marshalRows(rows)
 	}
 
+	// Fallback: NDJSON (one object per line)
 	var rows []RetractionWatchRecord
-	for _, raw := range rawArray {
-		var obj map[string]json.RawMessage
-		if err := json.Unmarshal(raw, &obj); err != nil {
+	lines := bytes.Split(data, []byte{'\n'})
+	for _, line := range lines {
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 {
 			continue
 		}
-
+		var obj map[string]json.RawMessage
+		if err := json.Unmarshal(line, &obj); err != nil {
+			continue
+		}
 		r := RetractionWatchRecord{
 			ArticleType:            strField(obj, "ArticleType"),
 			Author:                 strField(obj, "Author"),
@@ -362,11 +422,13 @@ func convertRetractionWatch(data []byte) ([]byte, error) {
 			RetractionReason:       strField(obj, "RetractionReason"),
 			RetractionType:         strField(obj, "RetractionType"),
 		}
-
 		rows = append(rows, r)
 	}
 
-	return marshalParquet(rows)
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	return marshalRows(rows)
 }
 
 func convertGeneric(data []byte) ([]byte, error) {
@@ -387,29 +449,51 @@ func convertGeneric(data []byte) ([]byte, error) {
 			}
 			rows = append(rows, Record{Data: string(line)})
 		}
-		return marshalParquet(rows)
+	} else {
+		for _, obj := range jsonRows {
+			raw, _ := json.Marshal(obj)
+			rows = append(rows, Record{Data: string(raw)})
+		}
 	}
 
-	for _, obj := range jsonRows {
-		raw, _ := json.Marshal(obj)
-		rows = append(rows, Record{Data: string(raw)})
+	if len(rows) == 0 {
+		return nil, nil
 	}
-
-	return marshalParquet(rows)
+	return marshalRows(rows)
 }
 
 type Record struct {
 	Data string `parquet:"data,optional"`
 }
 
-func marshalParquet(rows interface{}) ([]byte, error) {
+func marshalRows(rows interface{}) ([]byte, error) {
 	buf := &bytes.Buffer{}
-	writer := parquet.NewWriter(buf)
-	if err := writer.Write(rows); err != nil {
-		return nil, fmt.Errorf("parquet: write: %w", err)
+	w := parquet.NewWriter(buf)
+	// parquet-go needs a pointer to the slice to infer the schema.
+	switch v := rows.(type) {
+	case []RetractionWatchRecord:
+		for i := range v {
+			if err := w.Write(&v[i]); err != nil {
+				return nil, err
+			}
+		}
+	case []ROROrganization:
+		for i := range v {
+			if err := w.Write(&v[i]); err != nil {
+				return nil, err
+			}
+		}
+	case []Record:
+		for i := range v {
+			if err := w.Write(&v[i]); err != nil {
+				return nil, err
+			}
+		}
+	default:
+		return nil, fmt.Errorf("marshalRows: unknown row type %T", rows)
 	}
-	if err := writer.Close(); err != nil {
-		return nil, fmt.Errorf("parquet: close: %w", err)
+	if err := w.Close(); err != nil {
+		return nil, err
 	}
 	return buf.Bytes(), nil
 }

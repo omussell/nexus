@@ -38,10 +38,6 @@ func main() {
 	// Create a logger that writes to stderr.
 	lg := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
-	if *only == "all" && (*matchROR || *matchRetractions) {
-		*only = "match"
-	}
-
 	if *only != "nauvis" && *only != "fulgora" && *only != "all" && *only != "match" {
 		log.Fatalf("vulcanus: -only must be nauvis, fulgora, all, or match (got %q)", *only)
 	}

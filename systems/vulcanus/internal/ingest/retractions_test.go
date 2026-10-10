@@ -15,16 +15,16 @@ func TestRunRetractionMatches_BuildsViews(t *testing.T) {
 	if err != nil {
 		t.Fatalf("openDuckDB: %v", err)
 	}
-	if _, err := db.ExecContext(ctx, `CREATE TABLE nauvis (record JSON)`); err != nil {
+	if _, err := db.ExecContext(ctx, `CREATE TABLE nauvis (record JSON, doi TEXT, funder_names JSON, affiliation_names JSON)`); err != nil {
 		t.Fatalf("create nauvis: %v", err)
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO nauvis VALUES ('{"DOI":"10.1/paper"}')`); err != nil {
+	if _, err := db.ExecContext(ctx, `INSERT INTO nauvis VALUES ('{"DOI":"10.1/paper"}', '10.1/paper', '[]', '[]')`); err != nil {
 		t.Fatalf("insert nauvis: %v", err)
 	}
-	if _, err := db.ExecContext(ctx, `CREATE TABLE retractionwatch (record JSON)`); err != nil {
+	if _, err := db.ExecContext(ctx, `CREATE TABLE retractionwatch (record JSON, original_paper_doi TEXT, retraction_doi TEXT)`); err != nil {
 		t.Fatalf("create retractionwatch: %v", err)
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO retractionwatch VALUES ('{"OriginalPaperDOI":"10.1/paper","RetractionDOI":"10.1/retract"}')`); err != nil {
+	if _, err := db.ExecContext(ctx, `INSERT INTO retractionwatch VALUES ('{"OriginalPaperDOI":"10.1/paper","RetractionDOI":"10.1/retract"}', '10.1/paper', '10.1/retract')`); err != nil {
 		t.Fatalf("insert retractionwatch: %v", err)
 	}
 	if err := db.Close(); err != nil {
@@ -41,12 +41,12 @@ func TestRunRetractionMatches_BuildsViews(t *testing.T) {
 	}
 	defer db2.Close()
 
-	var matched string
-	if err := db2.QueryRowContext(ctx, `SELECT matched_doi FROM retractions`).Scan(&matched); err != nil {
-		t.Fatalf("query retractions view: %v", err)
+	var doi string
+	if err := db2.QueryRowContext(ctx, `SELECT paper_doi FROM retraction_provenance`).Scan(&doi); err != nil {
+		t.Fatalf("query retraction_provenance view: %v", err)
 	}
-	if matched != "10.1/paper" {
-		t.Fatalf("matched_doi = %q, want 10.1/paper", matched)
+	if doi != "10.1/paper" {
+		t.Fatalf("paper_doi = %q, want 10.1/paper", doi)
 	}
 
 	var provenance string
