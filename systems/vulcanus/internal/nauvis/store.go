@@ -5,6 +5,7 @@ package nauvis
 import (
 	"context"
 	"database/sql"
+	"path/filepath"
 
 	_ "modernc.org/sqlite" // registers the "sqlite" driver (pure Go).
 )
@@ -66,11 +67,42 @@ func (s *Store) ByDOI(ctx context.Context, doi string) (string, error) {
 	return file, err
 }
 
+// CroidRecord holds a DOI and the path to its CROID-based parquet file.
+type CroidRecord struct {
+	Doi  string
+	Path string
+}
+
+// ParquetFiles returns the CROID-based parquet file paths from the nauvis-parquet directory,
+// keyed by DOI. The parquetDir parameter is the root directory containing the CROID-named parquet files.
+func (s *Store) ParquetFiles(parquetDir string) ([]CroidRecord, error) {
+	rows, err := s.db.Query(
+		`SELECT doi, croid FROM nauvis WHERE croid IS NOT NULL AND croid != '' ORDER BY doi`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []CroidRecord
+	for rows.Next() {
+		var doi, croid string
+		if err := rows.Scan(&doi, &croid); err != nil {
+			return nil, err
+		}
+		records = append(records, CroidRecord{
+			Doi:  doi,
+			Path: filepath.Join(parquetDir, croid+".parquet"),
+		})
+	}
+	return records, rows.Err()
+}
+
 // ParquetFiles returns the output file paths (parquet format) recorded in the store.
 // Files that don't end in ".json" are returned as-is.
-func (s *Store) ParquetFiles() ([]Nauvis, error) {
+func (s *Store) ParquetFilesLegacy() ([]Nauvis, error) {
 	rows, err := s.db.Query(
-		`SELECT REPLACE(file, '.json', '.parquet'), COUNT(*)
+		`SELECT file || '.parquet', COUNT(*)
 		 FROM nauvis
 		 GROUP BY file
 		 ORDER BY file`,

@@ -7,7 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/nexus/croid/internal/server"
 	"flag"
@@ -57,9 +62,41 @@ func run(addr, dbPath string, generate bool, inputJSON []byte) error {
 		return runGenerate(dbPath, inputJSON)
 	}
 
-	// HTTP server mode - just print a message for now
-	fmt.Fprintf(os.Stderr, "croid: starting HTTP server on %s\n", addr)
-	return nil
+	// Start the HTTP server
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	srv, err := server.New(ctx, dbPath, log.Printf)
+	if err != nil {
+		return fmt.Errorf("init server: %w", err)
+	}
+	defer srv.Close()
+
+	log.Printf("croid: listening on %s", addr)
+	hs := &http.Server{
+		Addr:              addr,
+		Handler:           srv.Handler(),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		if err := hs.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			errCh <- err
+		}
+		close(errCh)
+	}()
+
+	select {
+	case <-ctx.Done():
+		log.Printf("croid: shutting down")
+	case err := <-errCh:
+		return err
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return hs.Shutdown(shutdownCtx)
 }
 
 func main() {
