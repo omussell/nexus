@@ -3,13 +3,14 @@
 # Run the full Crossref Research Nexus pipeline from scratch.
 #
 #   1. Clean existing artifacts (SQLite DBs, output dirs, DuckDB, Parquet dirs)
-#   2. Build nauvis, croid, fulgora, vulcanus from source
+#   2. Build nauvis, croid, fulgora, vulcanus, aquilo from source
 #   3. Start croid as an HTTP server
 #   4. Run nauvis to decompress Crossref snapshots, mint CROIDs, and record DOIs
 #   5. Run fulgora fetch per-source (ror, retractionwatch)
 #   6. Run vulcanus to ingest nauvis + fulgora data and run ROR/retraction
 #      matching
-#   7. Shut down croid
+#   7. Run aquilo sync to copy nauvis data from vulcanus DuckDB into SQLite
+#   8. Shut down croid
 #
 # Every step fails fast: any non-zero exit aborts the script immediately and
 # kills the background croid process.
@@ -23,6 +24,7 @@ NAUVIS_DIR="$REPO_ROOT/systems/nauvis"
 CROID_DIR="$REPO_ROOT/systems/croid"
 FULGORA_DIR="$REPO_ROOT/systems/fulgora"
 VULCANUS_DIR="$REPO_ROOT/systems/vulcanus"
+AQUILO_DIR="$REPO_ROOT/systems/aquilo"
 
 CROID_PORT=9090
 CROID_URL="http://localhost:${CROID_PORT}"
@@ -46,6 +48,7 @@ rm -f "$NAUVIS_DIR/nauvis.db"
 rm -rf "$NAUVIS_DIR/out" "$NAUVIS_DIR/parquet"
 rm -f "$CROID_DIR/croid.db"
 rm -f "$FULGORA_DIR/fulgora.db"
+rm -f "$AQUILO_DIR/aquilo.db"
 rm -rf "$FULGORA_DIR/ror/output" "$FULGORA_DIR/retractionwatch/output"
 rm -f "$VULCANUS_DIR/vulcanus.duckdb"
 
@@ -70,13 +73,17 @@ echo ""
 echo "=== Building vulcanus ==="
 cd "$VULCANUS_DIR" && go build -o vulcanus .
 
+echo ""
+echo "=== Building aquilo ==="
+cd "$AQUILO_DIR" && go build -o aquilo .
+
 echo "=== Build complete ==="
 
 ###############################################################################
 # 3. Start croid (background)
 ###############################################################################
 echo ""
-echo "=== Step 2/5: croid (HTTP server on port $CROID_PORT) ==="
+echo "=== Step 2/7: croid (HTTP server on port $CROID_PORT) ==="
 cd "$CROID_DIR" && ./croid -addr ":${CROID_PORT}" -db croid.db &
 CROID_PID=$!
 
@@ -96,7 +103,7 @@ done
 # 4. Run nauvis: decompress + mint CROIDs + record DOIs
 ###############################################################################
 echo ""
-echo "=== Step 3/5: nauvis (decompress + record DOIs) ==="
+echo "=== Step 3/7: nauvis (decompress + record DOIs) ==="
 cd "$NAUVIS_DIR" && ./nauvis \
   -in data -out out -db nauvis.db \
   -croid-url "$CROID_URL" \
@@ -106,7 +113,7 @@ cd "$NAUVIS_DIR" && ./nauvis \
 # 5. Run fulgora fetch per-source
 ###############################################################################
 echo ""
-echo "=== Step 4/5: fulgora fetch (per-source) ==="
+echo "=== Step 4/7: fulgora fetch (per-source) ==="
 cd "$FULGORA_DIR"
 
 echo "--- fulgora fetch ror ---"
@@ -121,7 +128,7 @@ echo "=== Fulgora fetch complete ==="
 # 6. Run vulcanus: ingest + matching
 ###############################################################################
 echo ""
-echo "=== Step 5/5: vulcanus (ingest + matching) ==="
+echo "=== Step 5/7: vulcanus (ingest + matching) ==="
 cd "$VULCANUS_DIR" && ./vulcanus \
   -nauvis-db "$NAUVIS_DIR/nauvis.db" \
   -nauvis-dir "$NAUVIS_DIR/out" \
@@ -129,6 +136,15 @@ cd "$VULCANUS_DIR" && ./vulcanus \
   -fulgora-dir "$FULGORA_DIR" \
   -match-ror \
   -match-retractions
+
+###############################################################################
+# 7. Run aquilo sync: copy nauvis data from vulcanus DuckDB into SQLite
+###############################################################################
+echo ""
+echo "=== Step 6/7: aquilo sync (vulcanus → SQLite) ==="
+cd "$AQUILO_DIR" && ./aquilo sync \
+  -duckdb "$VULCANUS_DIR/vulcanus.duckdb" \
+  -db aquilo.db
 
 echo ""
 echo "=== Pipeline complete ==="
