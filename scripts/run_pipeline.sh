@@ -4,8 +4,8 @@
 #
 #   1. Clean existing artifacts (SQLite DBs, output dirs, DuckDB, Parquet dirs)
 #   2. Build nauvis, croid, fulgora, vulcanus from source
-#   3. Run nauvis to decompress Crossref snapshots and record DOIs
-#   4. Start croid as an HTTP server
+#   3. Start croid as an HTTP server
+#   4. Run nauvis to decompress Crossref snapshots, mint CROIDs, and record DOIs
 #   5. Run fulgora fetch per-source (ror, retractionwatch)
 #   6. Run vulcanus to ingest nauvis + fulgora data and run ROR/retraction
 #      matching
@@ -42,10 +42,10 @@ trap cleanup EXIT
 ###############################################################################
 echo "=== Cleaning existing artifacts ==="
 
-rm -f "$NAUVIS_DIR/nauvis.sqlite3"
+rm -f "$NAUVIS_DIR/nauvis.db"
 rm -rf "$NAUVIS_DIR/out" "$NAUVIS_DIR/parquet"
-rm -f "$CROID_DIR/croid.sqlite3"
-rm -f "$FULGORA_DIR/fulgora.sqlite3"
+rm -f "$CROID_DIR/croid.db"
+rm -f "$FULGORA_DIR/fulgora.db"
 rm -rf "$FULGORA_DIR/ror/output" "$FULGORA_DIR/retractionwatch/output"
 rm -f "$VULCANUS_DIR/vulcanus.duckdb"
 
@@ -73,18 +73,11 @@ cd "$VULCANUS_DIR" && go build -o vulcanus .
 echo "=== Build complete ==="
 
 ###############################################################################
-# 3. Run nauvis: decompress + record DOIs
+# 3. Start croid (background)
 ###############################################################################
 echo ""
-echo "=== Step 1/4: nauvis (decompress + record DOIs) ==="
-cd "$NAUVIS_DIR" && ./nauvis -in data -out out -db nauvis.sqlite3
-
-###############################################################################
-# 4. Start croid (background)
-###############################################################################
-echo ""
-echo "=== Step 2/4: croid (HTTP server on port $CROID_PORT) ==="
-cd "$CROID_DIR" && ./croid -addr ":${CROID_PORT}" -db croid.sqlite3 &
+echo "=== Step 2/5: croid (HTTP server on port $CROID_PORT) ==="
+cd "$CROID_DIR" && ./croid -addr ":${CROID_PORT}" -db croid.db &
 CROID_PID=$!
 
 for i in $(seq 1 10); do
@@ -100,10 +93,20 @@ for i in $(seq 1 10); do
 done
 
 ###############################################################################
+# 4. Run nauvis: decompress + mint CROIDs + record DOIs
+###############################################################################
+echo ""
+echo "=== Step 3/5: nauvis (decompress + record DOIs) ==="
+cd "$NAUVIS_DIR" && ./nauvis \
+  -in data -out out -db nauvis.db \
+  -croid-url "$CROID_URL" \
+  -parquet-dir parquet/
+
+###############################################################################
 # 5. Run fulgora fetch per-source
 ###############################################################################
 echo ""
-echo "=== Step 3/4: fulgora fetch (per-source) ==="
+echo "=== Step 4/5: fulgora fetch (per-source) ==="
 cd "$FULGORA_DIR"
 
 echo "--- fulgora fetch ror ---"
@@ -118,11 +121,11 @@ echo "=== Fulgora fetch complete ==="
 # 6. Run vulcanus: ingest + matching
 ###############################################################################
 echo ""
-echo "=== Step 4/4: vulcanus (ingest + matching) ==="
+echo "=== Step 5/5: vulcanus (ingest + matching) ==="
 cd "$VULCANUS_DIR" && ./vulcanus \
-  -nauvis-db "$NAUVIS_DIR/nauvis.sqlite3" \
-  -nauvis-dir "$NAUVIS_DIR" \
-  -fulgora-db "$FULGORA_DIR/fulgora.sqlite3" \
+  -nauvis-db "$NAUVIS_DIR/nauvis.db" \
+  -nauvis-dir "$NAUVIS_DIR/out" \
+  -fulgora-db "$FULGORA_DIR/fulgora.db" \
   -fulgora-dir "$FULGORA_DIR" \
   -match-ror \
   -match-retractions

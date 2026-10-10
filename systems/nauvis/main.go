@@ -41,7 +41,7 @@ func main() {
 	host := flag.String("host", "localhost:8080", "address the server listens on (only with -serve)")
 	inDir := flag.String("in", "data", "directory containing *.json.gz input files")
 	outDir := flag.String("out", "out", "directory to write decompressed *.json files")
-	dbPath := flag.String("db", "nauvis.sqlite3", "path to the SQLite database file")
+	dbPath := flag.String("db", "nauvis.db", "path to the SQLite database file")
 	jobs := flag.Int("jobs", 0, "number of parallel workers (default GOMAXPROCS)")
 	croidURL := flag.String("croid-url", "", "CROID service URL (e.g. http://localhost:9090; empty disables CROID minting)")
 	parquetDir := flag.String("parquet-dir", "", "directory to write Parquet files named by CROID (empty disables)")

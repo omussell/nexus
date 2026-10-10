@@ -10,7 +10,7 @@ import (
 
 func openStore(t *testing.T, rows map[string][]string) *Store {
 	t.Helper()
-	store, err := Open(t.TempDir() + "/nauvis.sqlite3")
+	store, err := Open(t.TempDir() + "/nauvis.db")
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}

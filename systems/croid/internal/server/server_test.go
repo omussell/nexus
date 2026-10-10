@@ -15,7 +15,7 @@ import (
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
 	dir := t.TempDir()
-	dbPath := filepath.Join(dir, "test.sqlite3")
+	dbPath := filepath.Join(dir, "test.db")
 	srv, err := New(context.Background(), dbPath, nil)
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -146,7 +146,7 @@ func TestHealthz(t *testing.T) {
 // works (schema already applied).
 func TestMigrateIsIdempotent(t *testing.T) {
 	dir := t.TempDir()
-	dbPath := filepath.Join(dir, "test.sqlite3")
+	dbPath := filepath.Join(dir, "test.db")
 	if _, err := New(context.Background(), dbPath, nil); err != nil {
 		t.Fatalf("first New: %v", err)
 	}

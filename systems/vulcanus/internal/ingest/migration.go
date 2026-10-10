@@ -94,13 +94,17 @@ func migrateNauvis(ctx context.Context, tx *sql.Tx) error {
 	if err := addColumn(ctx, tx, "nauvis", "affiliation_names JSON"); err != nil {
 		return err
 	}
+	if err := addColumn(ctx, tx, "nauvis", "croid TEXT"); err != nil {
+		return err
+	}
 
 	// Back-fill from existing record column.
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE nauvis
 		SET doi = json_extract_string(record, '$.DOI'),
 			funder_names = json_extract(record, '$.funder[*].name'),
-			affiliation_names = json_extract(record, '$.author[*].affiliation[*].name')
+			affiliation_names = json_extract(record, '$.author[*].affiliation[*].name'),
+			croid = COALESCE(croid, '')
 		WHERE doi IS NULL OR funder_names IS NULL OR affiliation_names IS NULL
 	`); err != nil {
 		return fmt.Errorf("backfill nauvis: %w", err)
@@ -109,7 +113,8 @@ func migrateNauvis(ctx context.Context, tx *sql.Tx) error {
 	// Create indexes (ignore if already exists).
 	// Note: DuckDB does not support "USING GIN"; it auto-selects the best index type.
 	for _, idx := range []string{
-		`CREATE UNIQUE INDEX IF NOT EXISTS idx_nauvis_doi ON nauvis(doi)`,
+		`CREATE INDEX IF NOT EXISTS idx_nauvis_croid ON nauvis(croid)`,
+		`CREATE INDEX IF NOT EXISTS idx_nauvis_doi ON nauvis(doi)`,
 		`CREATE INDEX IF NOT EXISTS idx_nauvis_funder ON nauvis(funder_names)`,
 		`CREATE INDEX IF NOT EXISTS idx_nauvis_affil ON nauvis(affiliation_names)`,
 	} {

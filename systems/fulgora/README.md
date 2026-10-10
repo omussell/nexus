@@ -69,7 +69,7 @@ Flags (or `FULGORA_DB`, `FULGORA_ROOT`, `FULGORA_CROID_URL`, `FULGORA_PARQUET_DI
 
 | flag | env var | default | meaning |
 |------|---------|---------|---------|
-| `-db` | `FULGORA_DB` | `fulgora.sqlite3` | path to the SQLite database |
+| `-db` | `FULGORA_DB` | `fulgora.db` | path to the SQLite database |
 | `-root` | `FULGORA_ROOT` | `.` | root dir for per-source data |
 | `-croid-url` | `FULGORA_CROID_URL` | `` | CROID service URL; empty disables CROID minting |
 | `-parquet-dir` | `FULGORA_PARQUET_DIR` | `` | directory to write Parquet files; empty disables |

@@ -20,7 +20,7 @@ func log() *slog.Logger {
 
 func openStore(t *testing.T) *store.Store {
 	t.Helper()
-	st, conn, err := store.Open(context.Background(), t.TempDir()+"/test.sqlite3")
+	st, conn, err := store.Open(context.Background(), t.TempDir()+"/test.db")
 	if err != nil {
 		t.Fatalf("open store: %v", err)
 	}

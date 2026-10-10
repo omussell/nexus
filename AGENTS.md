@@ -21,23 +21,27 @@ NEXUS is a prototype monorepo linking metadata from journals, articles, books, a
 
 - `go test ./...` — run all tests in a system directory
 - `go build ./...` — build a system's binary
+- `sqlc generate` — regenerate SQL client code from sqlc queries (aquilo, croid, fulgora, nauvis)
 - `uv run mkdocs build -f ./mkdocs.yml -d ./docs` — build docs (root)
 - `uv run mkdocs build -f systems/<sys>/mkdocs.yml -d ../../docs/systems/<sys>` — build per-system docs
 - `python3 -m http.server -d docs` — serve docs locally
 
 ## Database Operations
 
-- Most systems use SQLite with `SetMaxOpenConns(1)`, WAL mode, `_busy_timeout=5000`
-- `nauvis` preserves exact byte-for-byte decompressed payloads; uses atomic writes via `.tmp` rename
+- Each system stores data in an sqlite database in systems/<sys>/<sys>.db
+- `aquilo`, `croid`, `fulgora`, and `nauvis` use sqlc for interacting with sqlite
 - `vulcanus` uses DuckDB as column store for ingested/nauvis/fulgora data
-- `aquilo` stores data in ScyllaDB
+
+## Testing
+
+- Build the binary inside the system directory like systems/<sys>/<sys>
+- If any other files are required to be created for testing, create them in the system directory.
 
 ## Key Conventions & Gotchas
 
 - **SQLite concurrency**: Always `MaxOpenConns(1)` with concurrent workers (e.g., `nauvis/internal/store`, `croid/internal/server`)
-- **Atomic writes**: `nauvis` writes to `.tmp` files then renames
 - **Module boundary**: Each system in `systems/` is self-contained with its own `go.mod`, `docs/`, `internal/`
-- **Go version**: Most systems use `go 1.25.0`; gleba/pomus/nexus use `go 1.24.0`
+- **Go version**: Systems use `go 1.25.0`
 
 ## Verification
 
@@ -48,3 +52,7 @@ NEXUS is a prototype monorepo linking metadata from journals, articles, books, a
 ## Git
 
 Commit messages must end with your model name in parentheses, e.g. `(ornith1.5:35b)` or `(qwen3.6:35b-a3b)`.
+
+## WARNING
+
+Never write into the `/tmp` directory. If you do, you will be killed with an electromagnetic shotgun.

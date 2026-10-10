@@ -22,9 +22,9 @@ Vulcanus is a batch worker that reads output files from Nauvis and Fulgora (stor
 ```bash
 go run . \
   [-only all|nauvis|fulgora|match] \
-  [-nauvis-db nauvis.sqlite3] \
+  [-nauvis-db nauvis.db] \
   [-nauvis-dir /path/to/nauvis] \
-  [-fulgora-db fulgora.sqlite3] \
+  [-fulgora-db fulgora.db] \
   [-fulgora-dir /path/to/fulgora] \
   [-duckdb vulcanus.duckdb] \
   [-parquet] \
@@ -35,9 +35,9 @@ go run . \
 | flag | default | meaning |
 |------|---------|---------|
 | `-only` | `all` | Which provider to ingest: `nauvis`, `fulgora`, `all`, or `match` (to only run matching without ingestion) |
-| `-nauvis-db` | `nauvis.sqlite3` | Path to the nauvis SQLite database |
+| `-nauvis-db` | `nauvis.db` | Path to the nauvis SQLite database |
 | `-nauvis-dir` | (required when -only includes nauvis) | Path to the nauvis system directory (data root) |
-| `-fulgora-db` | `fulgora.sqlite3` | Path to the fulgora SQLite database |
+| `-fulgora-db` | `fulgora.db` | Path to the fulgora SQLite database |
 | `-fulgora-dir` | (required when -only includes fulgora) | Path to the fulgora data root (output dir) |
 | `-duckdb` | `vulcanus.duckdb` | DuckDB database file to write |
 | `-parquet` | `false` | Read Parquet files instead of JSON |

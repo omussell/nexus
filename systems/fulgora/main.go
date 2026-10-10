@@ -111,7 +111,7 @@ func openStore(ctx context.Context, dbPath string) (*store.Store, func() error, 
 // runFetch implements `fulgora fetch [source ...]`.
 func runFetch(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("fetch", flag.ContinueOnError)
-	dbPath := fs.String("db", envOr("FULGORA_DB", "fulgora.sqlite3"), "path to the SQLite database file")
+	dbPath := fs.String("db", envOr("FULGORA_DB", "fulgora.db"), "path to the SQLite database file")
 	root := fs.String("root", envOr("FULGORA_ROOT", "."), "root directory under which per-source dirs live")
 	croidURL := fs.String("croid-url", "", "CROID service URL (e.g. http://localhost:9090; empty disables CROID minting)")
 	parquetDir := fs.String("parquet-dir", "", "directory to write Parquet files (empty disables)")
@@ -154,7 +154,7 @@ func runFetch(ctx context.Context, args []string) error {
 // runStatus implements `fulgora status [source ...]`.
 func runStatus(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("status", flag.ContinueOnError)
-	dbPath := fs.String("db", envOr("FULGORA_DB", "fulgora.sqlite3"), "path to the SQLite database file")
+	dbPath := fs.String("db", envOr("FULGORA_DB", "fulgora.db"), "path to the SQLite database file")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -191,7 +191,7 @@ func runStatus(ctx context.Context, args []string) error {
 func runServe(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
 	addr := fs.String("addr", envOr("FULGORA_ADDR", defaultAddr), "listen address (host:port)")
-	dbPath := fs.String("db", envOr("FULGORA_DB", "fulgora.sqlite3"), "path to the SQLite database file")
+	dbPath := fs.String("db", envOr("FULGORA_DB", "fulgora.db"), "path to the SQLite database file")
 	root := fs.String("root", envOr("FULGORA_ROOT", "."), "root directory under which per-source dirs live")
 	if err := fs.Parse(args); err != nil {
 		return err

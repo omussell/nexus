@@ -8,7 +8,7 @@ import (
 
 func openTestStore(t *testing.T) *Store {
 	t.Helper()
-	st, conn, err := Open(context.Background(), t.TempDir()+"/test.sqlite3")
+	st, conn, err := Open(context.Background(), t.TempDir()+"/test.db")
 	if err != nil {
 		t.Fatalf("open store: %v", err)
 	}

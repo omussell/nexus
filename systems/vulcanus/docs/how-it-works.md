@@ -167,9 +167,9 @@ results are idempotent.
 `main.go` orchestrates the batch workflow:
 
 ```
--nauvis-db      Nauvis SQLite database path (default nauvis.sqlite3)
+-nauvis-db      Nauvis SQLite database path (default nauvis.db)
 -nauvis-dir     Nauvis data root directory (required to ingest nauvis data)
--fulgora-db     Fulgora SQLite database path (default fulgora.sqlite3)
+-fulgora-db     Fulgora SQLite database path (default fulgora.db)
 -fulgora-dir    Fulgora data root directory (required to ingest fulgora data)
 -duckdb         DuckDB file to write (default vulcanus.duckdb)
 -only           Which to run: nauvis, fulgora, all, or match (default all)
@@ -241,9 +241,9 @@ go run . [-only all|nauvis|fulgora|match] [-nauvis-dir path] [-fulgora-dir path]
 | flag | default | meaning |
 |------|---------|---------|
 | `-only` | `all` | Which provider to ingest: nauvis, fulgora, all, or match |
-| `-nauvis-db` | `nauvis.sqlite3` | Nauvis SQLite database path |
+| `-nauvis-db` | `nauvis.db` | Nauvis SQLite database path |
 | `-nauvis-dir` | (required for nauvis) | Nauvis data root (output dir) |
-| `-fulgora-db` | `fulgora.sqlite3` | Fulgora SQLite database path |
+| `-fulgora-db` | `fulgora.db` | Fulgora SQLite database path |
 | `-fulgora-dir` | (required for fulgora) | Fulgora data root (output dir) |
 | `-duckdb` | `vulcanus.duckdb` | DuckDB database file to write |
 | `-parquet` | `false` | Read Parquet files instead of JSON |

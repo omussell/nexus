@@ -9,7 +9,7 @@ import (
 
 func createTestStore(t *testing.T) (*store.Store, interface{ Close() error }, error) {
 	t.Helper()
-	st, conn, err := store.Open(context.Background(), t.TempDir()+"/test.sqlite3")
+	st, conn, err := store.Open(context.Background(), t.TempDir()+"/test.db")
 	if err != nil {
 		return nil, nil, err
 	}

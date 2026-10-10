@@ -76,7 +76,7 @@ minting CROIDs and publishing them to RabbitMQ.
 ## Quick Start
 To run the service:
 ```bash
-go run main.go --addr :8080 --db croid.sqlite3
+go run main.go --addr :8080 --db croid.db
 ```
 
 To test via HTTP:
@@ -88,13 +88,13 @@ curl -X POST -H "Content-Type: application/json" -d '{"cro_type":"DOI","cro_valu
 The CLI can mint a CROID without starting the HTTP server, using the `--generate` flag. It runs the exact same code path as `POST /croid` (same SQLite setup, schema, and `store.Create`), so it mints, dedupes, and validates identically:
 
 ```bash
-go run . --generate --db croid.sqlite3
+go run . --generate --db croid.db
 ```
 
 With a JSON identity input, the CLI resolves or mints a CROID for that identity (deduplicating against whatever already lives in `--db`):
 
 ```bash
-go run . --generate --db croid.sqlite3 --input '{"cro_type":"DOI","cro_value":"10.5555/example","system":"nauvis"}'
+go run . --generate --db croid.db --input '{"cro_type":"DOI","cro_value":"10.5555/example","system":"nauvis"}'
 ```
 
 The output matches the `POST /croid` response body:

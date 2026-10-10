@@ -129,7 +129,7 @@ files are written.
 
 ### The registry
 
-All records live in a SQLite database (default file `fulgora.sqlite3`, pure Go
+All records live in a SQLite database (default file `fulgora.db`, pure Go
 driver `modernc.org/sqlite`, WAL mode, single writer connection). Three tables
 (defined in `internal/migrate/schema.sql`, applied idempotently on startup):
 
@@ -162,7 +162,7 @@ Flags (each also available as an environment variable):
 
 | flag | env var | default | meaning |
 |------|---------|---------|---------|
-| `-db` | `FULGORA_DB` | `fulgora.sqlite3` | path to the SQLite database |
+| `-db` | `FULGORA_DB` | `fulgora.db` | path to the SQLite database |
 | `-root` | `FULGORA_ROOT` | `.` | root dir for per-source data |
 | `-croid-url` | `FULGORA_CROID_URL` | `` | CROID service URL (e.g. `http://localhost:9090`; empty disables CROID minting) |
 | `-parquet-dir` | `FULGORA_PARQUET_DIR` | `` | directory to write Parquet files (empty disables); writes `{croid}.parquet` after minting |

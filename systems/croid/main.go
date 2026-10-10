@@ -108,7 +108,7 @@ func main() {
 	)
 
 	flag.StringVar(&addr, "addr", ":8080", "listen address (host:port)")
-	flag.StringVar(&dbPath, "db", "croid.sqlite3", "path to the SQLite database file")
+	flag.StringVar(&dbPath, "db", "croid.db", "path to the SQLite database file")
 	flag.BoolVar(&generate, "generate", false, "generate a new CROID and output as JSON")
 	flag.StringVar(&input, "input", "", "JSON input: {\"cro_type\":\"...\",\"cro_value\":\"...\",\"system\":\"...\"}")
 	flag.Parse()

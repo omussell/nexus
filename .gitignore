@@ -48,3 +48,7 @@ systems/croid/croid
 systems/croid/croid.sqlite3
 systems/croid/croid.sqlite3-shm
 systems/croid/croid.sqlite3-wal
+
+# Aquilo
+systems/aquilo/aquilo
+systems/aquilo/aquilo.db

@@ -7,7 +7,7 @@ request.
 ## Running it
 
 ```
-./nauvis -serve [-host :8080] [-db ./nauvis.sqlite3]
+./nauvis -serve [-host :8080] [-db ./nauvis.db]
 ```
 
 - `-serve` turns on the HTTP handler (and implies `-db`).

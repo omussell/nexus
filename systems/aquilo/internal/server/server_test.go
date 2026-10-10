@@ -19,7 +19,7 @@ import (
 
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
-	conn, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "test.sqlite3")+"?_busy_timeout=5000")
+	conn, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "test.db")+"?_busy_timeout=5000")
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}

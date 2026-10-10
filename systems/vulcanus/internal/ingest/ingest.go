@@ -132,7 +132,7 @@ func ingestParquet(ctx context.Context, tx *sql.Tx, tableName, path string, lg *
 
 // ingestParquetNauvis loads a nauvis parquet file into the nauvis table,
 // projecting typed columns directly instead of converting everything to JSON.
-func ingestParquetNauvis(ctx context.Context, tx *sql.Tx, path string, lg *slog.Logger) (int, error) {
+func ingestParquetNauvis(ctx context.Context, tx *sql.Tx, croid, path string, lg *slog.Logger) (int, error) {
 	if _, err := os.Stat(path); err != nil {
 		return 0, fmt.Errorf("parquet file %s: %w", path, err)
 	}
@@ -148,25 +148,10 @@ func ingestParquetNauvis(ctx context.Context, tx *sql.Tx, path string, lg *slog.
 	// funder_name[] and author_name[] are arrays that need to be flattened and
 	// deduplicated for affiliation_names.
 	query := `
-		INSERT INTO nauvis (record, doi, funder_names, affiliation_names)
+		INSERT INTO nauvis (record, croid, doi, funder_names, affiliation_names)
 		SELECT
 			to_json(T),
-			T.doi,
-			-- Deduplicate funder names
-			CASE WHEN T.funder_name IS NOT NULL
-				THEN (SELECT array_distinct(CAST(array_filter(T.funder_name, x -> x IS NOT NULL AND x != '') AS JSON)) FROM (SELECT unnest(T.funder_name) AS funder_name))
-				ELSE '[]' END,
-			-- Flatten nested author affiliations and deduplicate
-			CASE WHEN T.author_name IS NOT NULL
-				THEN (SELECT array_distinct(CAST(array_filter(T.author_name, x -> x IS NOT NULL AND x != '') AS JSON)) FROM (SELECT unnest(T.author_name) AS author_name))
-				ELSE '[]' END
-		FROM read_parquet(?) AS T
-	`
-	// Actually the above subquery approach won't work. Let me use a simpler approach:
-	query = `
-		INSERT INTO nauvis (record, doi, funder_names, affiliation_names)
-		SELECT
-			to_json(T),
+			?,
 			T.doi,
 			CASE WHEN T.funder_name IS NOT NULL
 				THEN CAST(array_distinct(array_filter(T.funder_name, x -> x IS NOT NULL AND x != '')) AS JSON)
@@ -176,7 +161,7 @@ func ingestParquetNauvis(ctx context.Context, tx *sql.Tx, path string, lg *slog.
 				ELSE '[]' END
 		FROM read_parquet(?) AS T
 	`
-	_, err = tx.ExecContext(ctx, query, path, path)
+	_, err = tx.ExecContext(ctx, query, croid, path, path)
 	if err != nil {
 		return 0, fmt.Errorf("insert parquet nauvis %s: %w", path, err)
 	}
@@ -366,6 +351,7 @@ func ensureNauvisTable(ctx context.Context, tx *sql.Tx) error {
 	if _, err := tx.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS nauvis (
 			record JSON,
+			croid TEXT,
 			doi TEXT,
 			funder_names JSON,
 			affiliation_names JSON
@@ -487,42 +473,115 @@ func runNauvis(ctx context.Context, vis *nauvis.Store, outDir, outDB string, use
 			return 0, fmt.Errorf("list parquet files: %w", err)
 		}
 		for _, rec := range records {
-			n, err := ingestParquetNauvis(ctx, tx, rec.Path, lg)
+			n, err := ingestParquetNauvis(ctx, tx, rec.Croid, rec.Path, lg)
 			if err != nil {
 				return 0, fmt.Errorf("ingest %s: %w", rec.Path, err)
 			}
 			total += n
 		}
 	} else {
-		insertStmt, err := tx.PrepareContext(ctx, `
-			INSERT INTO nauvis (record, doi, funder_names, affiliation_names)
-			VALUES (?,
-				json_extract_string(?, '$.DOI'),
-				json_extract(?, '$.funder[*].name'),
-				json_extract(?, '$.author[*].affiliation[*].name')
-			)
-		`)
+		// Build DOI->CROID lookup for non-parquet ingest.
+		croids, err := vis.Croids()
 		if err != nil {
-			return 0, fmt.Errorf("prepare insert: %w", err)
+			return 0, fmt.Errorf("lookup croids: %w", err)
 		}
-		defer insertStmt.Close()
 
-		items, err := vis.Nauvis()
+		n, err := ingestNDJSONWithCroids(ctx, tx, outDir, croids, lg)
 		if err != nil {
-			return 0, fmt.Errorf("list nauvis: %w", err)
+			return 0, err
 		}
-		for _, item := range items {
-			path := filepath.Join(filepath.Clean(outDir), item.Path)
-			n, err := ingestFileDenormalized(ctx, insertStmt, path, 4)
-			if err != nil {
-				return 0, fmt.Errorf("ingest %s: %w", item.Path, err)
-			}
-			total += n
-		}
+		total += n
 	}
 
 	if err := tx.Commit(); err != nil {
 		return 0, fmt.Errorf("commit: %w", err)
+	}
+	return total, nil
+}
+
+// ingestNDJSONWithCroids reads all nauvis NDJSON files from outDir, extracts
+// each record's DOI, looks up its CROID from the croids map, and inserts it
+// into the nauvis DuckDB table with denormalized columns.
+func ingestNDJSONWithCroids(ctx context.Context, tx *sql.Tx, outDir string, croids map[string]string, lg *slog.Logger) (int, error) {
+	files, err := os.ReadDir(outDir)
+	if err != nil {
+		return 0, fmt.Errorf("read dir %s: %w", outDir, err)
+	}
+
+	insertStmt, err := tx.PrepareContext(ctx, `
+		INSERT INTO nauvis (record, croid, doi, funder_names, affiliation_names)
+		VALUES (?, ?, ?, json_extract_string(?, '$.funder[*].name'), json_extract_string(?, '$.author[*].affiliation[*].name'))
+	`)
+	if err != nil {
+		return 0, fmt.Errorf("prepare insert: %w", err)
+	}
+	defer insertStmt.Close()
+
+	var total int
+	for _, fi := range files {
+		if fi.Type()&os.ModeType != 0 {
+			continue
+		}
+		if !strings.HasSuffix(fi.Name(), ".json") {
+			continue
+		}
+
+		path := filepath.Join(outDir, fi.Name())
+		n, err := ingestFileWithCroids(ctx, insertStmt, path, croids)
+		if err != nil {
+			return 0, fmt.Errorf("ingest %s: %w", fi.Name(), err)
+		}
+		total += n
+		lg.Info("ingested NDJSON", "file", fi.Name(), "rows", n)
+	}
+	return total, nil
+}
+
+// ingestFileWithCroids reads an NDJSON file, extracts each record's DOI,
+// looks up its CROID, and inserts into the prepared statement.
+func ingestFileWithCroids(ctx context.Context, insert *sql.Stmt, path string, croids map[string]string) (int, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, fmt.Errorf("open %s: %w", path, err)
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 0, 64*1024), 8*1024*1024)
+
+	total := 0
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		if !json.Valid(line) {
+			return total, fmt.Errorf("invalid JSON at line %d of %s", total+1, filepath.Base(path))
+		}
+		lineStr := string(line)
+
+		// Extract DOI to look up CROID.
+		var raw map[string]json.RawMessage
+		if err := json.Unmarshal(line, &raw); err != nil {
+			continue
+		}
+		var croid string
+		if doiRaw, ok := raw["DOI"]; ok {
+			var doi string
+			if err := json.Unmarshal(doiRaw, &doi); err == nil && doi != "" {
+				if c, ok := croids[doi]; ok {
+					croid = c
+				}
+			}
+		}
+
+		if _, err := insert.ExecContext(ctx, lineStr, croid, lineStr, lineStr, lineStr); err != nil {
+			return total, fmt.Errorf("bind line %d of %s: %w", total+1, filepath.Base(path), err)
+		}
+		total++
+	}
+	if err := scanner.Err(); err != nil {
+		return total, fmt.Errorf("read %s: %w", filepath.Base(path), err)
 	}
 	return total, nil
 }

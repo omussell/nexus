@@ -30,7 +30,7 @@ Two things distinguish Nauvis from a plain `gunzip` loop:
 |-------------|--------|--------------------------------------------------------------------|
 | `./data`    | input  | Directory holding the `*.json.gz` source files (default `-in`).      |
 | `./out`     | output | Directory holding the decompressed `*.json` files (default `-out`).  |
-| `./nauvis.sqlite3` | db | SQLite database of `items` (default `-db`). |
+| `./nauvis.db` | db | SQLite database of `items` (default `-db`). |
 
 Each `data/<n>.json.gz` produces one `out/<n>.json`. The output filename is the
 input's base name with the trailing `.gz` stripped, so `data/5.json.gz` →
@@ -161,7 +161,7 @@ The full schema is at `internal/migrate/schema.sql`; see `sqlc.yaml` for how the
 ## Running Nauvis
 
 ```
-go run . [-query "DOI"] [-in ./data] [-out ./out] [-db ./nauvis.sqlite3] [-jobs N]
+go run . [-query "DOI"] [-in ./data] [-out ./out] [-db ./nauvis.db] [-jobs N]
 ```
 
 - **process** (default): `-in` directory of `*.json.gz`, `-out` for the `.json`

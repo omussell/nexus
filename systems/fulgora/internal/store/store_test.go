@@ -17,7 +17,7 @@ import (
 
 func openStore(t *testing.T) *store.Store {
 	t.Helper()
-	conn, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "store.sqlite3")+"?_fk=1&_busy_timeout=5000")
+	conn, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "store.db")+"?_fk=1&_busy_timeout=5000")
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}

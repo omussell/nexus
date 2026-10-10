@@ -16,7 +16,7 @@ const root = "systems/fulgora"
 // one "latest" row. Stored output paths are relative to root.
 func openStore(t *testing.T, rows map[string]string) *Store {
 	t.Helper()
-	store, err := Open(t.TempDir()+"/fulgora.sqlite3", root)
+	store, err := Open(t.TempDir()+"/fulgora.db", root)
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestVersion(t *testing.T) {
 }
 
 func TestVersionEmptyRoot(t *testing.T) {
-	if _, err := Open(t.TempDir()+"/fulgora.sqlite3", ""); err == nil {
+	if _, err := Open(t.TempDir()+"/fulgora.db", ""); err == nil {
 		t.Fatalf("expected error for empty root")
 	}
 }

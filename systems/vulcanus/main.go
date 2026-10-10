@@ -21,11 +21,11 @@ import (
 
 func main() {
 	only := flag.String("only", "all", "which provider to ingest: nauvis, fulgora, or all (use 'match' to only run matching)")
-	nauvisDB :=
-		flag.String("nauvis-db", "nauvis.sqlite3", "path to the nauvis SQLite database")
+		nauvisDB :=
+		flag.String("nauvis-db", "nauvis.db", "path to the nauvis SQLite database")
 	nauvisPath := flag.String("nauvis-dir", "", "path to the nauvis system directory (data root)")
-	fulgoraDB :=
-		flag.String("fulgora-db", "fulgora.sqlite3", "path to the fulgora SQLite database")
+		fulgoraDB :=
+		flag.String("fulgora-db", "fulgora.db", "path to the fulgora SQLite database")
 	fulgoraPath :=
 		flag.String("fulgora-dir", "", "path to the fulgora data root (output dir)")
 	outDB :=

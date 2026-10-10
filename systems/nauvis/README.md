@@ -46,15 +46,15 @@ data/<N>.json.gz
 
 ```bash
 # Basic processing (default, unchanged behavior):
-nauvis -in data -out out -db nauvis.sqlite3
+nauvis -in data -out out -db nauvis.db
 
 # With CROID minting and Parquet export:
-nauvis -in data -out out -db nauvis.sqlite3 \
+nauvis -in data -out out -db nauvis.db \
   -croid-url http://localhost:9090 \
   -parquet-dir parquet/
 
 # Suppress duplicate DOI logging:
-nauvis -in data -out out -db nauvis.sqlite3 -ignore-dupes
+nauvis -in data -out out -db nauvis.db -ignore-dupes
 ```
 
 ## CLI Flags
@@ -63,7 +63,7 @@ nauvis -in data -out out -db nauvis.sqlite3 -ignore-dupes
 |------|---------|-------------|
 | `-in` | `data` | Directory containing `*.json.gz` input files |
 | `-out` | `out` | Directory to write decompressed `*.json` files |
-| `-db` | `nauvis.sqlite3` | Path to the SQLite database file |
+| `-db` | `nauvis.db` | Path to the SQLite database file |
 | `-jobs` | `GOMAXPROCS` | Number of parallel workers |
 | `-query` | (empty) | Look up a recorded DOI and print its file |
 | `-serve` | `false` | Start the HTTP server on `POST /query` |

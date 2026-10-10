@@ -67,10 +67,34 @@ func (s *Store) ByDOI(ctx context.Context, doi string) (string, error) {
 	return file, err
 }
 
-// CroidRecord holds a DOI and the path to its CROID-based parquet file.
+// CroidRecord holds a DOI, CROID, and the path to its CROID-based parquet file.
 type CroidRecord struct {
-	Doi  string
-	Path string
+	Doi   string
+	Croid string
+	Path  string
+}
+
+// Croids returns a map from DOI to CROID for all rows that have a non-empty
+// CROID value.  This is used by downstream systems that need the CROID as the
+// primary identifier.
+func (s *Store) Croids() (map[string]string, error) {
+	rows, err := s.db.Query(
+		`SELECT doi, croid FROM nauvis WHERE croid IS NOT NULL AND croid != ''`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	m := make(map[string]string)
+	for rows.Next() {
+		var doi, croid string
+		if err := rows.Scan(&doi, &croid); err != nil {
+			return nil, err
+		}
+		m[doi] = croid
+	}
+	return m, rows.Err()
 }
 
 // ParquetFiles returns the CROID-based parquet file paths from the nauvis-parquet directory,
@@ -91,8 +115,9 @@ func (s *Store) ParquetFiles(parquetDir string) ([]CroidRecord, error) {
 			return nil, err
 		}
 		records = append(records, CroidRecord{
-			Doi:  doi,
-			Path: filepath.Join(parquetDir, croid+".parquet"),
+			Doi:   doi,
+			Croid: croid,
+			Path:  filepath.Join(parquetDir, croid+".parquet"),
 		})
 	}
 	return records, rows.Err()
