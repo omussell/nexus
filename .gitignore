@@ -23,32 +23,29 @@ marple-go/
 *.sqlite3-shm
 *.sqlite3-wal
 *.duckdb
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
 
 *.json.gz
 
-# Nauvis: built binary and its generated SQLite DB
-systems/nauvis/nauvis
-systems/nauvis/nauvis.sqlite3
-systems/nauvis/nauvis.sqlite3-shm
-systems/nauvis/nauvis.sqlite3-wal
-systems/nauvis/out
-systems/nauvis/parquet/
+# aquilo
+systems/aquilo/aquilo
 
-# Fulgora: collected data artifacts (keep the system code, not the datasets)
+# croid
+systems/croid/croid
+
+# fulgora
 systems/fulgora/fulgora
 systems/fulgora/initial_input/
 systems/fulgora/ror/output/
 systems/fulgora/retractionwatch/output/
 
-# Vulcanus
+# nauvis
+systems/nauvis/nauvis
+systems/nauvis/out
+systems/nauvis/parquet/
+
+# vulcanus
 systems/vulcanus/vulcanus
-
-# CROID
-systems/croid/croid
-systems/croid/croid.sqlite3
-systems/croid/croid.sqlite3-shm
-systems/croid/croid.sqlite3-wal
-
-# Aquilo
-systems/aquilo/aquilo
-systems/aquilo/aquilo.db
