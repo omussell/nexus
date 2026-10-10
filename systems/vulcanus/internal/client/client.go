@@ -396,47 +396,6 @@ func (c *Client) QueryRetractionsView(ctx context.Context, offset, limit int) ([
 	return records, rows.Err()
 }
 
-// --- Provenance view ---
-
-// ProvenanceRow holds one row from the retraction_provenance view.
-type ProvenanceRow struct {
-	NauvisRecord        string
-	RetractionWatchRecord string
-	PaperDOI            string
-	RetractionNoticeDOI string
-	Provenance          string
-}
-
-// QueryProvenance returns all rows from the retraction_provenance view.
-func (c *Client) QueryProvenance(ctx context.Context, offset, limit int) ([]ProvenanceRow, error) {
-	q := `
-		SELECT CAST(nauvis_record AS VARCHAR), CAST(retractionwatch_record AS VARCHAR), paper_doi, retraction_notice_doi, provenance
-		FROM retraction_provenance
-		ORDER BY paper_doi`
-	if limit > 0 {
-		q += fmt.Sprintf(" LIMIT %d", limit)
-		if offset > 0 {
-			q += fmt.Sprintf(" OFFSET %d", offset)
-		}
-	}
-
-	rows, err := c.db.QueryContext(ctx, q)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var rows2 []ProvenanceRow
-	for rows.Next() {
-		var rec ProvenanceRow
-		if err := rows.Scan(&rec.NauvisRecord, &rec.RetractionWatchRecord, &rec.PaperDOI, &rec.RetractionNoticeDOI, &rec.Provenance); err != nil {
-			continue
-		}
-		rows2 = append(rows2, rec)
-	}
-	return rows2, rows.Err()
-}
-
 // --- Metadata helpers ---
 
 // Tables lists all user tables and views in the DuckDB database.

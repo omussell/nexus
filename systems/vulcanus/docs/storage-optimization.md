@@ -15,7 +15,7 @@ Parquet ingestion already reads columnar files but immediately converts them bac
 
 ## Target Architecture
 
-Keep the existing `record JSON` column for raw data and provenance, but add denormalized columns for fields used in matching/joins:
+Keep the existing `record JSON` column for raw data, but add denormalized columns for fields used in matching/joins:
 
 ### nauvis table
 

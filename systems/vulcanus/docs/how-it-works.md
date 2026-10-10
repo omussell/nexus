@@ -19,16 +19,13 @@ The two providers stay separate: Nauvis lands in a single `nauvis` table, while
 each Fulgora source (e.g. `ror`, `retractionwatch`) gets its own table. They can
 be ingested independently and re-running replaces the previous snapshot.
 
-After the source tables exist, Vulcanus can build two **derived views** on top
-of the Nauvis and retractionwatch tables:
+After the source tables exist, Vulcanus can build a **derived view** on top of
+the Nauvis and retractionwatch tables:
 
 * `retractions` — pairs each Nauvis record with its matching
   `retractionwatch` notice on the paper's DOI (`nauvis.DOI` =
   `retractionwatch.OriginalPaperDOI`), exposing both full records plus the
   matching DOI.
-* `retraction_provenance` — reduces matches to two consumer-ready provenance
-  strings per match: one passive (`X is-retracted-by Y`) and one active
-  (`Y retracts X`).
 
 The views are only built when the `-match-retractions` flag is given and are a
 projection over the loaded tables — they never copy data.
@@ -131,7 +128,7 @@ quotes and escaping embedded quotes.
 
 #### Retraction matching (`RunRetractionMatches`)
 
-When `-match-retractions` is set, Vulcanus rebuilds two views:
+When `-match-retractions` is set, Vulcanus rebuilds the `retractions` view:
 
 **`retractions` view** — joins Nauvis against retractionwatch on DOI:
 ```sql
@@ -146,35 +143,7 @@ JOIN retractionwatch AS r
      json_extract_string(r.record, '$.OriginalPaperDOI')
 ```
 
-**`retraction_provenance` view** — produces bidirectional provenance strings:
-```sql
-CREATE OR REPLACE VIEW retraction_provenance AS
-SELECT
-    n.record AS nauvis_record,
-    r.record AS retractionwatch_record,
-    json_extract_string(n.record, '$.DOI') AS paper_doi,
-    json_extract_string(r.record, '$.RetractionDOI') AS retraction_doi,
-    json_extract_string(n.record, '$.DOI') || ' is-retracted-by ' || json_extract_string(r.record, '$.RetractionDOI') AS provenance
-FROM nauvis AS n
-JOIN retractionwatch AS r
-  ON json_extract_string(n.record, '$.DOI') =
-     json_extract_string(r.record, '$.OriginalPaperDOI')
-
-UNION ALL
-
-SELECT
-    r.record AS nauvis_record,
-    n.record AS retractionwatch_record,
-    json_extract_string(r.record, '$.RetractionDOI') AS paper_doi,
-    json_extract_string(n.record, '$.DOI') AS retraction_doi,
-    json_extract_string(r.record, '$.RetractionDOI') || ' retracts ' || json_extract_string(n.record, '$.DOI') AS provenance
-FROM retractionwatch AS r
-JOIN nauvis AS n
-  ON json_extract_string(n.record, '$.DOI') =
-     json_extract_string(r.record, '$.OriginalPaperDOI')
-```
-
-Both views are a no-op if either `nauvis` or `retractionwatch` table is absent,
+The view is a no-op if either `nauvis` or `retractionwatch` table is absent,
 so providers can be ingested at different times.
 
 #### ROR matching (`RunRORMatches`)
@@ -215,7 +184,7 @@ Flow:
 3. Create an `slog` logger that writes to stderr.
 4. If `-only` includes nauvis: open the Nauvis store, ingest files into DuckDB.
 5. If `-only` includes fulgora: open the Fulgora store, ingest files into DuckDB.
-6. If `-match-retractions`: rebuild the `retractions` and `retraction_provenance` views.
+6. If `-match-retractions`: rebuild the `retractions` view.
 7. If `-match-ror`: run ROR matching against nauvis records.
 8. Exit.
 
@@ -236,19 +205,14 @@ DuckDB's `read_parquet()` efficiently reads these columns, and `to_json(row(*))`
 converts each row back to a JSON string that matches the existing `record JSON`
 column schema.
 
-In addition, retraction matching (`-match-retractions`) derives two **views**
-that sit on the same Nauvis↔retractionwatch `JOIN`:
+In addition, retraction matching (`-match-retractions`) derives a **view**
+that sits on the same Nauvis↔retractionwatch `JOIN`:
 
 | view | columns | type | notes |
 |------|---------|------|-------|
 | `retractions` | `nauvis_record` | JSON | the full Nauvis record (Crossref item) |
 | | `retractionwatch_record` | JSON | the full retractionwatch record |
 | | `matched_doi` | VARCHAR | the DOI that linked the two (Nauvis's `DOI`) |
-| `retraction_provenance` | `nauvis_record` | JSON | the Nauvis record for the passive row; swapped for the active row |
-| | `retractionwatch_record` | JSON | the retractionwatch record for the passive row; swapped for the active row |
-| | `paper_doi` | VARCHAR | Nauvis's `DOI` in the passive row; retraction notices' `RetractionDOI` in the active. Equals the join key in the passive row. |
-| | `retraction_doi` | VARCHAR | Retraction notice's own DOI (`RetractionDOI`) in the passive row; Nauvis's `DOI` in the active. |
-| | `provenance` | VARCHAR | bidirectional provenance: `X is-retracted-by Y` and `Y retracts X` per match, two rows per join result |
 
 The ROR matching tables (`-match-ror`) hold structured match results:
 
@@ -303,7 +267,7 @@ tables. List them with the DuckDB CLI:
 $ duckdb vulcanus.duckdb
 duckdb> .tables
 nauvis            retractionwatch  ror
-retractions       retraction_provenance
+retractions       
 ror_funder_matches ror_affiliation_matches
 ```
 

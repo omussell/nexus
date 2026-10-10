@@ -14,7 +14,6 @@ Vulcanus is a batch worker that reads output files from Nauvis and Fulgora (stor
 * **JSON Parquet Support:** When the `-parquet` flag is given, Vulcanus reads Parquet files via DuckDB's `read_parquet()` function, converting columns back to JSON via `to_json(row(*))` to preserve the existing table schema.
 * **Faithful Preservation:** Ingests raw JSON records verbatim into a `JSON` column in DuckDB — one row per record.
 * **Retraction Matching:** Optional `-match-retractions` flag rebuilds the `retractions` view, which pairs each Nauvis record with its `retractionwatch` notice on the paper's DOI.
-* **Bidirectional Retraction Provenance:** Derives both passive (`X is-retracted-by Y`) and active (`Y retracts X`) provenance strings in the `retraction_provenance` view.
 * **ROR Matching:** Optional `-match-ror` flag runs ROR entity matching against nauvis records, finding matching funder and affiliation organizations.
 * **Table Reset:** Each run empties the target tables before re-inserting, so re-running replaces the previous snapshot rather than accumulating duplicates.
 

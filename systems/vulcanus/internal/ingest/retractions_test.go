@@ -41,20 +41,12 @@ func TestRunRetractionMatches_BuildsViews(t *testing.T) {
 	}
 	defer db2.Close()
 
-	var doi string
-	if err := db2.QueryRowContext(ctx, `SELECT paper_doi FROM retraction_provenance`).Scan(&doi); err != nil {
-		t.Fatalf("query retraction_provenance view: %v", err)
+	var retractionDOI string
+	if err := db2.QueryRowContext(ctx, `SELECT retraction_notice_doi FROM retractions`).Scan(&retractionDOI); err != nil {
+		t.Fatalf("query retractions view: %v", err)
 	}
-	if doi != "10.1/paper" {
-		t.Fatalf("paper_doi = %q, want 10.1/paper", doi)
-	}
-
-	var provenance string
-	if err := db2.QueryRowContext(ctx, `SELECT provenance FROM retraction_provenance WHERE paper_doi = '10.1/paper'`).Scan(&provenance); err != nil {
-		t.Fatalf("query retraction_provenance view: %v", err)
-	}
-	if provenance != "10.1/paper is-retracted-by 10.1/retract" {
-		t.Fatalf("provenance = %q, want %q", provenance, "10.1/paper is-retracted-by 10.1/retract")
+	if retractionDOI != "10.1/retract" {
+		t.Fatalf("retraction_notice_doi = %q, want 10.1/retract", retractionDOI)
 	}
 }
 
@@ -84,13 +76,11 @@ func TestRunRetractionMatches_NoOpWhenTablesMissing(t *testing.T) {
 	}
 	defer db2.Close()
 
-	for _, view := range []string{"retractions", "retraction_provenance"} {
-		var count int
-		if err := db2.QueryRowContext(ctx, `SELECT COUNT(*) FROM information_schema.views WHERE table_name = ? AND table_schema = 'main'`, view).Scan(&count); err != nil {
-			t.Fatalf("lookup view %s: %v", view, err)
-		}
-		if count != 0 {
-			t.Fatalf("view %s must not exist when a source table is missing", view)
-		}
+	var count int
+	if err := db2.QueryRowContext(ctx, `SELECT COUNT(*) FROM information_schema.views WHERE table_name = 'retractions' AND table_schema = 'main'`).Scan(&count); err != nil {
+		t.Fatalf("lookup view retractions: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("view retractions must not exist when a source table is missing")
 	}
 }

@@ -97,21 +97,6 @@ func createSchema(t *testing.T, c *Client) {
 	if err != nil {
 		t.Fatalf("create retractions view: %v", err)
 	}
-
-	_, err = c.db.ExecContext(ctx, `
-		CREATE VIEW retraction_provenance AS
-		SELECT
-			n.record AS nauvis_record,
-			r.record AS retractionwatch_record,
-			n.doi AS paper_doi,
-			r.retraction_doi AS retraction_notice_doi,
-			'paper->retraction:' || n.doi || '|retraction->paper:' || r.retraction_doi AS provenance
-		FROM nauvis n
-		JOIN retractionwatch r ON n.doi = r.original_paper_doi
-	`)
-	if err != nil {
-		t.Fatalf("create retraction_provenance view: %v", err)
-	}
 }
 
 func insertTestData(t *testing.T, c *Client) {
@@ -467,18 +452,6 @@ func TestViews(t *testing.T) {
 	}
 	if retracts[0].RetractionNoticeDOI != "10.1.0.1/ret1" {
 		t.Errorf("RetractionNoticeDOI = %q, want %q", retracts[0].RetractionNoticeDOI, "10.1.0.1/ret1")
-	}
-
-	// Provenance view
-	prov, err := c.QueryProvenance(ctx, 0, 10)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(prov) != 1 {
-		t.Errorf("QueryProvenance = %d, want 1", len(prov))
-	}
-	if prov[0].PaperDOI != "10.1.0.1/test1" {
-		t.Errorf("PaperDOI = %q, want %q", prov[0].PaperDOI, "10.1.0.1/test1")
 	}
 }
 
