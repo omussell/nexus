@@ -15,8 +15,9 @@ import (
 
 // Item is a DOI and the file it was found in.
 type Item struct {
-	File string `json:"file"`
-	Doi  string `json:"doi"`
+	File  string `json:"file"`
+	Doi   string `json:"doi"`
+	Croid string `json:"croid,omitempty"`
 }
 
 // Duplicate reports a DOI that was found in more than one file; the database
@@ -89,7 +90,42 @@ func (s *Store) GetByDOI(ctx context.Context, doi string) (Item, error) {
 	if err != nil {
 		return Item{}, err
 	}
-	return Item{File: it.File, Doi: it.Doi}, nil
+	return Item{File: it.File, Doi: it.Doi, Croid: it.Croid.String}, nil
+}
+
+// Croids returns all DOIs with their CROIDs.
+func (s *Store) Croids(ctx context.Context) (map[string]string, error) {
+	rows, err := s.querier.GetDOIsWithCroids(ctx)
+	if err != nil {
+		return nil, err
+	}
+	m := make(map[string]string, len(rows))
+	for _, r := range rows {
+		if r.Croid.Valid {
+			m[r.Doi] = r.Croid.String
+		}
+	}
+	return m, nil
+}
+
+// RecordCroid stores the CROID for a DOI.
+func (s *Store) RecordCroid(ctx context.Context, doi, croid string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+	q := s.querier.WithTx(tx)
+	err = q.UpdateItemCroid(ctx, db.UpdateItemCroidParams{
+		Croid: sql.NullString{String: croid, Valid: true},
+		Doi:   doi,
+	})
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // isUniqueViolation reports whether err is a SQLite unique-constraint failure

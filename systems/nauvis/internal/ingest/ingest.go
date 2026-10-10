@@ -24,10 +24,9 @@ import (
 
 // Config holds optional configuration for the ingest pipeline.
 type Config struct {
-	CROIDURL          string // CROID service URL (e.g. "http://localhost:9090")
-	ParquetDir        string // directory to write Parquet files ("" to disable)
-	IgnoreDupes       bool   // skip duplicate DOI logging
-	ConsolidateParquet bool  // write consolidated parquet alongside JSON output
+	CROIDURL     string // CROID service URL (e.g. "http://localhost:9090")
+	ParquetDir   string // directory to write Parquet files ("" to disable)
+	IgnoreDupes  bool   // skip duplicate DOI logging
 }
 
 // Run processes every input file in inDir in parallel, writing decompressed
@@ -115,7 +114,7 @@ func Run(ctx context.Context, inDir, outDir string, st *store.Store, jobs int, l
 			}
 		}
 		ok++
-		lg.Info("file: "+res.name+" -> "+res.outPath, "items", res.items, "parquet", res.parquet, "parquet_file", res.parquetFile)
+		lg.Info("file: "+res.name+" -> "+res.outPath, "items", res.items, "parquet", res.parquet)
 	}
 
 	if failed > 0 {
@@ -125,13 +124,12 @@ func Run(ctx context.Context, inDir, outDir string, st *store.Store, jobs int, l
 }
 
 type fileResult struct {
-	name       string
-	outPath    string
-	items      int
-	parquet    int
-	parquetFile string // path to consolidated parquet file ("" if not written)
-	dupes      []store.Duplicate
-	err        error
+	name    string
+	outPath string
+	items   int
+	parquet int
+	dupes   []store.Duplicate
+	err     error
 }
 
 // processOne runs the full pipeline for a single input file.
@@ -146,19 +144,9 @@ func processOne(ctx context.Context, inPath, outDir string, st *store.Store,
 		return fileResult{name: name, outPath: outPath, err: err}
 	}
 
-	// Write consolidated parquet alongside JSON output if enabled.
-	var parquetFile string
-	if cfg.ConsolidateParquet {
-		if err := extract.WriteParquet(outPath); err != nil {
-			lg.Error("write consolidated parquet: "+err.Error()+" for "+name)
-		} else {
-			parquetFile = outPath + ".parquet"
-		}
-	}
-
 	dupes, inserted, err := st.RecordMany(ctx, outPath, dois)
 	if err != nil {
-		return fileResult{name: name, outPath: outPath, items: len(dois), dupes: dupes, err: err, parquetFile: parquetFile}
+		return fileResult{name: name, outPath: outPath, items: len(dois), dupes: dupes, err: err}
 	}
 
 	// Skip CROID + Parquet work for duplicate items only.
@@ -190,6 +178,10 @@ func processOne(ctx context.Context, inPath, outDir string, st *store.Store,
 					lg.Error("croid mint: "+cerr.Error()+" for "+doi)
 					continue
 				}
+				// Store CROID in DB for vulcanus to use
+				if sterr := st.RecordCroid(ctx, doi, croid); sterr != nil {
+					lg.Error("store croid: "+sterr.Error()+" for "+doi)
+				}
 			}
 
 			// Write Parquet file
@@ -210,8 +202,7 @@ func processOne(ctx context.Context, inPath, outDir string, st *store.Store,
 			}
 		}
 	}
-
-	return fileResult{name: name, outPath: outPath, items: inserted, parquet: parquetCount, dupes: dupes, parquetFile: parquetFile}
+	return fileResult{name: name, outPath: outPath, items: inserted, parquet: parquetCount, dupes: dupes}
 }
 
 // atomicWrite writes data to path, creating the parent directory if needed,

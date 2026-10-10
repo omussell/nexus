@@ -7,10 +7,43 @@ package db
 
 import (
 	"context"
+	"database/sql"
 )
 
+const getDOIsWithCroids = `-- name: GetDOIsWithCroids :many
+SELECT doi, croid FROM nauvis WHERE croid IS NOT NULL AND croid != '' ORDER BY doi
+`
+
+type GetDOIsWithCroidsRow struct {
+	Doi   string
+	Croid sql.NullString
+}
+
+func (q *Queries) GetDOIsWithCroids(ctx context.Context) ([]GetDOIsWithCroidsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getDOIsWithCroids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetDOIsWithCroidsRow
+	for rows.Next() {
+		var i GetDOIsWithCroidsRow
+		if err := rows.Scan(&i.Doi, &i.Croid); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getItemByDOI = `-- name: GetItemByDOI :one
-SELECT id, file, doi
+SELECT id, file, doi, croid
 FROM nauvis
 WHERE doi = ?
 LIMIT 1
@@ -19,21 +52,41 @@ LIMIT 1
 func (q *Queries) GetItemByDOI(ctx context.Context, doi string) (Nauvis, error) {
 	row := q.db.QueryRowContext(ctx, getItemByDOI, doi)
 	var i Nauvis
-	err := row.Scan(&i.ID, &i.File, &i.Doi)
+	err := row.Scan(
+		&i.ID,
+		&i.File,
+		&i.Doi,
+		&i.Croid,
+	)
 	return i, err
 }
 
 const insertItem = `-- name: InsertItem :exec
-INSERT INTO nauvis (file, doi)
-VALUES (?, ?)
+INSERT INTO nauvis (file, doi, croid)
+VALUES (?, ?, ?)
 `
 
 type InsertItemParams struct {
-	File string
-	Doi  string
+	File  string
+	Doi   string
+	Croid sql.NullString
 }
 
 func (q *Queries) InsertItem(ctx context.Context, arg InsertItemParams) error {
-	_, err := q.db.ExecContext(ctx, insertItem, arg.File, arg.Doi)
+	_, err := q.db.ExecContext(ctx, insertItem, arg.File, arg.Doi, arg.Croid)
+	return err
+}
+
+const updateItemCroid = `-- name: UpdateItemCroid :exec
+UPDATE nauvis SET croid = ? WHERE doi = ?
+`
+
+type UpdateItemCroidParams struct {
+	Croid sql.NullString
+	Doi   string
+}
+
+func (q *Queries) UpdateItemCroid(ctx context.Context, arg UpdateItemCroidParams) error {
+	_, err := q.db.ExecContext(ctx, updateItemCroid, arg.Croid, arg.Doi)
 	return err
 }

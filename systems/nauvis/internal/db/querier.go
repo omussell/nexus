@@ -10,8 +10,10 @@ import (
 )
 
 type Querier interface {
+	GetDOIsWithCroids(ctx context.Context) ([]GetDOIsWithCroidsRow, error)
 	GetItemByDOI(ctx context.Context, doi string) (Nauvis, error)
 	InsertItem(ctx context.Context, arg InsertItemParams) error
+	UpdateItemCroid(ctx context.Context, arg UpdateItemCroidParams) error
 	WithTx(tx *sql.Tx) *Queries
 }
 

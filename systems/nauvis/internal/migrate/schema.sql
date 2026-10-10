@@ -1,7 +1,8 @@
 CREATE TABLE IF NOT EXISTS nauvis (
     id    INTEGER PRIMARY KEY AUTOINCREMENT,
     file  TEXT NOT NULL,
-    doi   TEXT NOT NULL UNIQUE
+    doi   TEXT NOT NULL UNIQUE,
+    croid TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_nauvis_file ON nauvis (file);

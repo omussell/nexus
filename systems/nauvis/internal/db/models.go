@@ -4,8 +4,13 @@
 
 package db
 
+import (
+	"database/sql"
+)
+
 type Nauvis struct {
-	ID   int64
-	File string
-	Doi  string
+	ID    int64
+	File  string
+	Doi   string
+	Croid sql.NullString
 }

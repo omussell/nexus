@@ -97,8 +97,8 @@ func main() {
 
 	lg := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	cfg := ingest.Config{
-		CROIDURL:   *croidURL,
-		ParquetDir: *parquetDir,
+		CROIDURL:    *croidURL,
+		ParquetDir:  *parquetDir,
 		IgnoreDupes: *ignoreDupes,
 	}
 	ok, failed, err := ingest.Run(ctx, *inDir, *outDir, st, *jobs, lg, cfg)

@@ -38,7 +38,7 @@ func TestApply_CreatesTable(t *testing.T) {
 		if err := rows.Scan(&cid, &name, &typ, &notNull, &defltRaw, &pk); err != nil {
 			t.Fatalf("scan: %v", err)
 		}
-		if name != "id" && name != "file" && name != "doi" {
+		if name != "id" && name != "file" && name != "doi" && name != "croid" {
 			t.Errorf("unexpected column %q", name)
 		}
 	}

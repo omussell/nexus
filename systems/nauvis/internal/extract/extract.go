@@ -157,8 +157,10 @@ func WriteParquet(path string) error {
 
 	buf := &bytes.Buffer{}
 	writer := parquet.NewWriter(buf)
-	if err := writer.Write(records); err != nil {
-		return fmt.Errorf("write parquet: %w", err)
+	for i := range records {
+		if err := writer.Write(&records[i]); err != nil {
+			return fmt.Errorf("write parquet: %w", err)
+		}
 	}
 	if err := writer.Close(); err != nil {
 		return fmt.Errorf("close parquet: %w", err)
