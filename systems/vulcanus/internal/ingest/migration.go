@@ -7,9 +7,9 @@ import (
 	"strings"
 )
 
-// migrateSchema adds denormalized columns and indexes to existing source
-// tables so matching queries can use typed columns instead of parsing JSON at
-// query time.  The function is safe to call on fresh or existing databases.
+// migrateSchema adds denormalized columns to existing source tables so
+// matching queries can use typed columns instead of parsing JSON at query
+// time.  Indexes are created by the ingest path after the data is inserted.
 func migrateSchema(ctx context.Context, tx *sql.Tx) error {
 	if err := migrateNauvis(ctx, tx); err != nil {
 		return fmt.Errorf("migrate nauvis: %w", err)
@@ -109,22 +109,6 @@ func migrateNauvis(ctx context.Context, tx *sql.Tx) error {
 	`); err != nil {
 		return fmt.Errorf("backfill nauvis: %w", err)
 	}
-
-	// Create indexes (ignore if already exists).
-	// Note: DuckDB does not support "USING GIN"; it auto-selects the best index type.
-	for _, idx := range []string{
-		`CREATE INDEX IF NOT EXISTS idx_nauvis_croid ON nauvis(croid)`,
-		`CREATE INDEX IF NOT EXISTS idx_nauvis_doi ON nauvis(doi)`,
-		`CREATE INDEX IF NOT EXISTS idx_nauvis_funder ON nauvis(funder_names)`,
-		`CREATE INDEX IF NOT EXISTS idx_nauvis_affil ON nauvis(affiliation_names)`,
-	} {
-		if _, err := tx.ExecContext(ctx, idx); err != nil {
-			// Ignore "already exists" errors.
-			if !isDuplicateIndex(err) {
-				return fmt.Errorf("create index %s: %w", idx, err)
-			}
-		}
-	}
 	return nil
 }
 
@@ -157,19 +141,6 @@ func migrateRor(ctx context.Context, tx *sql.Tx) error {
 	`); err != nil {
 		return fmt.Errorf("backfill ror: %w", err)
 	}
-
-	// Create indexes (ignore if already exists).
-	for _, idx := range []string{
-		`CREATE UNIQUE INDEX IF NOT EXISTS idx_ror_id ON ror(ror_id)`,
-		`CREATE INDEX IF NOT EXISTS idx_ror_country ON ror(country)`,
-		`CREATE INDEX IF NOT EXISTS idx_ror_status ON ror(status)`,
-	} {
-		if _, err := tx.ExecContext(ctx, idx); err != nil {
-			if !isDuplicateIndex(err) {
-				return fmt.Errorf("create index %s: %w", idx, err)
-			}
-		}
-	}
 	return nil
 }
 
@@ -188,22 +159,11 @@ func migrateRetractionWatch(ctx context.Context, tx *sql.Tx) error {
 	// Back-fill from existing record column.
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE retractionwatch
-		SET original_paper_doi = json_extract_string(record, '$.original_paper_doi'),
-			retraction_doi = json_extract_string(record, '$.retraction_doi')
+		SET original_paper_doi = json_extract_string(record, '$.OriginalPaperDOI'),
+			retraction_doi = json_extract_string(record, '$.RetractionDOI')
 		WHERE original_paper_doi IS NULL
 	`); err != nil {
 		return fmt.Errorf("backfill retractionwatch: %w", err)
-	}
-
-	// Create indexes (ignore if already exists).
-	for _, idx := range []string{
-		`CREATE INDEX IF NOT EXISTS idx_retraction_doi ON retractionwatch(original_paper_doi)`,
-	} {
-		if _, err := tx.ExecContext(ctx, idx); err != nil {
-			if !isDuplicateIndex(err) {
-				return fmt.Errorf("create index %s: %w", idx, err)
-			}
-		}
 	}
 	return nil
 }

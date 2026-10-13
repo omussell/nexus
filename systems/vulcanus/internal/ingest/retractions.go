@@ -27,6 +27,11 @@ func RunRetractionMatches(ctx context.Context, dbPath string) error {
 		return nil
 	}
 
+	// Ensure the index on original_paper_doi exists for the join query.
+	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_retraction_doi ON retractionwatch(original_paper_doi)`); err != nil {
+		return fmt.Errorf("create retraction index: %w", err)
+	}
+
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)

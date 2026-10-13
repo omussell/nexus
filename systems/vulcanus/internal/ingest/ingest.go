@@ -241,8 +241,8 @@ func ingestParquetRetractionWatch(ctx context.Context, tx *sql.Tx, path string, 
 		INSERT INTO retractionwatch (record, original_paper_doi, retraction_doi)
 		SELECT
 			to_json(T),
-			COALESCE(T.original_paper_doi, json_extract_string(T, '$.original_paper_doi'), ''),
-			COALESCE(T.retraction_doi, json_extract_string(T, '$.retraction_doi'), '')
+			COALESCE(T.OriginalPaperDOI, json_extract_string(T, '$.OriginalPaperDOI'), ''),
+			COALESCE(T.RetractionDOI, json_extract_string(T, '$.RetractionDOI'), '')
 		FROM read_parquet(?) AS T
 	`
 	_, err = tx.ExecContext(ctx, query, path)
@@ -252,8 +252,8 @@ func ingestParquetRetractionWatch(ctx context.Context, tx *sql.Tx, path string, 
 			INSERT INTO retractionwatch (record, original_paper_doi, retraction_doi)
 			SELECT
 				to_json(T),
-				COALESCE(json_extract_string(T, '$.original_paper_doi'), ''),
-				COALESCE(json_extract_string(T, '$.retraction_doi'), '')
+				COALESCE(json_extract_string(T, '$.OriginalPaperDOI'), ''),
+				COALESCE(json_extract_string(T, '$.RetractionDOI'), '')
 			FROM read_parquet(?) AS T
 		`
 		_, err = tx.ExecContext(ctx, query, path)
@@ -510,7 +510,7 @@ func ingestNDJSONWithCroids(ctx context.Context, tx *sql.Tx, outDir string, croi
 
 	insertStmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO nauvis (record, croid, doi, funder_names, affiliation_names)
-		VALUES (?, ?, ?, json_extract_string(?, '$.funder[*].name'), json_extract_string(?, '$.author[*].affiliation[*].name'))
+		VALUES (?, ?, json_extract_string(?, '$.DOI'), json_extract_string(?, '$.funder[*].name'), json_extract_string(?, '$.author[*].affiliation[*].name'))
 	`)
 	if err != nil {
 		return 0, fmt.Errorf("prepare insert: %w", err)
@@ -656,8 +656,8 @@ func runFulgora(ctx context.Context, store *fulgora.Store, outDir, outDB string,
 				insertStmt, err := tx.PrepareContext(ctx, `
 					INSERT INTO retractionwatch (record, original_paper_doi, retraction_doi)
 					VALUES (?,
-						json_extract_string(?, '$.original_paper_doi'),
-						json_extract_string(?, '$.retraction_doi')
+						json_extract_string(?, '$.OriginalPaperDOI'),
+						json_extract_string(?, '$.RetractionDOI')
 					)
 				`)
 				if err != nil {
