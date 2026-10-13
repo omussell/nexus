@@ -166,7 +166,7 @@ When `-match-ror` is set, Vulcanus:
    (up to 8 workers). Each worker runs `MatchRORFunder()` or `MatchAffiliation()`
    against the DuckDB ROR table.
 4. Writes results to `ror_funder_matches` and `ror_affiliation_matches` tables
-   with columns: `paper_doi`, `name`, `ror_id`, `ror_name`, `confidence`.
+   with columns: `nauvis_item_doi`, `name`, `ror_id`, `ror_name`, `confidence`.
 
 The matching tables are reset (dropped and recreated) before each run so the
 results are idempotent.
@@ -182,7 +182,7 @@ When `-match-ofr` is set, Vulcanus:
    parallel worker pool (up to 8 workers). Each worker runs `MatchOFR()`
    against the DuckDB openfunderregistry table.
 4. Writes results to an `ofr_matches` table with columns:
-   `paper_doi`, `funder_name`, `funder_uri`, `funder_match`, `score`.
+   `nauvis_item_doi`, `funder_name`, `funder_uri`, `funder_match`, `score`.
 
 The matching table is reset (dropped and recreated) before each run so the
 results are idempotent. The step is a no-op if either the `nauvis` or
@@ -249,14 +249,14 @@ The ROR matching tables (`-match-ror`) hold structured match results:
 
 | table | columns | type | notes |
 |-------|---------|------|-------|
-| `ror_funder_matches` | `paper_doi`, `name`, `ror_id`, `ror_name`, `confidence` | TEXT, TEXT, TEXT, TEXT, DOUBLE | Paper-to-funder ROR matches |
-| `ror_affiliation_matches` | `paper_doi`, `name`, `ror_id`, `ror_name`, `confidence` | TEXT, TEXT, TEXT, TEXT, DOUBLE | Paper-to-affiliation ROR matches |
+| `ror_funder_matches` | `nauvis_item_doi`, `name`, `ror_id`, `ror_name`, `confidence` | TEXT, TEXT, TEXT, TEXT, DOUBLE | Nauvis item-to-funder ROR matches |
+| `ror_affiliation_matches` | `nauvis_item_doi`, `name`, `ror_id`, `ror_name`, `confidence` | TEXT, TEXT, TEXT, TEXT, DOUBLE | Nauvis item-to-affiliation ROR matches |
 
 The OFR matching tables (`-match-ofr`) hold structured openfunderregistry-name matches:
 
 | table | columns | type | notes |
 |-------|---------|------|-------|
-| `ofr_matches` | `paper_doi`, `funder_name`, `funder_uri`, `funder_match`, `score` | TEXT, TEXT, TEXT, TEXT, DOUBLE | Paper-to-funder (openfunderregistry) matches |
+| `ofr_matches` | `nauvis_item_doi`, `funder_name`, `funder_uri`, `funder_match`, `score` | TEXT, TEXT, TEXT, TEXT, DOUBLE | Nauvis item-to-funder (openfunderregistry) matches |
 
 Nauvis and Fulgora are kept **separate**: Nauvis always lands in the single
 `nauvis` table, while each Fulgora source gets its own table named after the

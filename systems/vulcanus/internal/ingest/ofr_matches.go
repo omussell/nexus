@@ -150,13 +150,13 @@ func RunOFRMatches(ctx context.Context, dbPath string) error {
 		return err
 	}
 
-	insertStmt, err := tx.PrepareContext(ctx, `INSERT INTO ofr_matches (paper_doi, funder_name, funder_uri, funder_match, score) VALUES (?, ?, ?, ?, ?)`)
+	insertStmt, err := tx.PrepareContext(ctx, `INSERT INTO ofr_matches (nauvis_item_doi, funder_name, funder_uri, funder_match, score) VALUES (?, ?, ?, ?, ?)`)
 	if err != nil {
 		return fmt.Errorf("prepare insert: %w", err)
 	}
 	defer insertStmt.Close()
 
-	// Emit matches for each paper.
+	// Emit matches for each nauvis item.
 	var matchCount int
 	for i, rec := range records {
 		if i > 0 && i%5000 == 0 {
@@ -176,7 +176,7 @@ func RunOFRMatches(ctx context.Context, dbPath string) error {
 		return fmt.Errorf("commit transaction: %w", err)
 	}
 
-	fmt.Printf("vulcanus: OFR matching: %d paper-funder matches written\n", matchCount)
+	fmt.Printf("vulcanus: OFR matching: %d nauvis item-funder matches written\n", matchCount)
 	return nil
 }
 
@@ -225,7 +225,7 @@ func resetOFRMatchesTable(ctx context.Context, tx *sql.Tx) error {
 		return fmt.Errorf("drop ofr_matches: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `CREATE TABLE ofr_matches (
-		paper_doi     TEXT,
+		nauvis_item_doi  TEXT,
 		funder_name   TEXT,
 		funder_uri    TEXT,
 		funder_match  TEXT,

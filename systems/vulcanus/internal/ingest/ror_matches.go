@@ -181,8 +181,8 @@ func RunRORMatches(ctx context.Context, dbPath string) error {
 		return err
 	}
 
-	rorInsertFunder := `INSERT INTO ror_funder_matches (paper_doi, name, ror_id, ror_name, confidence) VALUES (?, ?, ?, ?, ?)`
-	insertAffil := `INSERT INTO ror_affiliation_matches (paper_doi, name, ror_id, ror_name, confidence) VALUES (?, ?, ?, ?, ?)`
+	rorInsertFunder := `INSERT INTO ror_funder_matches (nauvis_item_doi, name, ror_id, ror_name, confidence) VALUES (?, ?, ?, ?, ?)`
+	insertAffil := `INSERT INTO ror_affiliation_matches (nauvis_item_doi, name, ror_id, ror_name, confidence) VALUES (?, ?, ?, ?, ?)`
 	rorFunderStmt, err := tx.PrepareContext(ctx, rorInsertFunder)
 	if err != nil {
 		return fmt.Errorf("prepare ROR funder insert: %w", err)
@@ -194,7 +194,7 @@ func RunRORMatches(ctx context.Context, dbPath string) error {
 	}
 	defer affilStmt.Close()
 
-	// Emit matches for each paper.
+	// Emit matches for each nauvis item.
 	for i, rec := range records {
 		if i > 0 && i%5000 == 0 {
 			fmt.Printf("vulcanus: ROR matching: emitting matches for %d/%d records\n", i, len(records))
@@ -307,7 +307,7 @@ func resetRorMatchesTable(ctx context.Context, tx *sql.Tx, name string) error {
 		return fmt.Errorf("drop %s: %w", name, err)
 	}
 	if _, err := tx.ExecContext(ctx, `CREATE TABLE `+quoted(name)+` (
-		paper_doi    TEXT,
+		nauvis_item_doi  TEXT,
 		name         TEXT,
 		ror_id       TEXT,
 		ror_name     TEXT,

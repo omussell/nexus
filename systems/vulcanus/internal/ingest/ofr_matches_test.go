@@ -84,7 +84,7 @@ func TestRunOFRMatchesCreatesTable(t *testing.T) {
 	// Verify specific matches are present.
 	var uri string
 	if err := db.QueryRowContext(ctx, `
-		SELECT funder_uri FROM ofr_matches WHERE paper_doi = '10.1.1.1' LIMIT 1
+		SELECT funder_uri FROM ofr_matches WHERE nauvis_item_doi = '10.1.1.1' LIMIT 1
 	`).Scan(&uri); err != nil {
 		if err != sql.ErrNoRows {
 			t.Fatalf("query match: %v", err)

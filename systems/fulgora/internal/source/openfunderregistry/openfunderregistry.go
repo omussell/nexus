@@ -101,6 +101,7 @@ func parseCSV(path string) ([]string, [][]string, error) {
 
 	r := csv.NewReader(f)
 	r.FieldsPerRecord = -1
+	r.LazyQuotes = true
 	records, err := r.ReadAll()
 	if err != nil {
 		return nil, nil, err
