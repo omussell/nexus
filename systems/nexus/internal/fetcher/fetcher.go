@@ -27,7 +27,7 @@ type NauvisItemMatches struct {
 // fulgora dataset croid, relationship kind) triplet.
 //
 // The three relationship kinds are:
-//   - "ror_funder"     — nauvis item linked to the ROR dataset via funder matching
+//   - "is-funded-by"   — nauvis item funded by the ROR dataset via funder matching
 //   - "ror_affiliation" — nauvis item linked to the ROR dataset via affiliation matching
 //   - "is-retracted-by" — nauvis item retracted by the Fulgora retraction dataset
 //
@@ -101,9 +101,16 @@ func Run(ctx context.Context, vulcanusDBPath, fulgoraDBPath string, nexusStore *
 		}
 
 		if m.rorFunder {
-			ins, skip, err := insertIfNew(ctx, nexusStore, croid, rorCroid, "ror_funder")
+			ins, skip, err := insertIfNew(ctx, nexusStore, croid, rorCroid, "is-funded-by")
 			if err != nil {
-				return fmt.Errorf("insert ror_funder %s: %w", croid, err)
+				return fmt.Errorf("insert is-funded-by %s: %w", croid, err)
+			}
+			totalInserted += ins
+			totalSkipped += skip
+
+			ins, skip, err = insertIfNew(ctx, nexusStore, rorCroid, croid, "funds")
+			if err != nil {
+				return fmt.Errorf("insert funds %s: %w", croid, err)
 			}
 			totalInserted += ins
 			totalSkipped += skip

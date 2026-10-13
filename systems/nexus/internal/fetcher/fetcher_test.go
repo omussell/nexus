@@ -182,25 +182,32 @@ func TestRunGeneratesRelationships(t *testing.T) {
 			t.Fatalf("fetcher.Run: %v", err)
 		}
 
-		// Should have exactly 4 relationships (2 per retraction-matched nauvis item).
+		// Should have exactly 5 relationships (2 per bidirectional match, 1 for affiliation).
 		all, err := nexusStore.ListAll(ctx)
 		if err != nil {
 			t.Fatalf("ListAll: %v", err)
 		}
-		if len(all) != 4 {
-			t.Fatalf("expected 4 relationships, got %d", len(all))
+		if len(all) != 5 {
+			t.Fatalf("expected 5 relationships, got %d", len(all))
 		}
 
-		// Nauvis item 1 → ROR dataset (ror_funder).
+		// Nauvis item 1 → ROR dataset (is-funded-by / funds).
 		foundRorFunder := false
+		foundFunds := false
 		foundRorAffil := false
 		foundIsRetractedBy := false
 		foundRetracts := false
 		for _, r := range all {
-			if r.Source == "nauvis1croidxxxxxxxxxxxxxxxxxxxxxx" && r.Relationship == "ror_funder" {
+			if r.Source == "nauvis1croidxxxxxxxxxxxxxxxxxxxxxx" && r.Relationship == "is-funded-by" {
 				foundRorFunder = true
 				if r.Target != "fulgora_ror_croidxxxxxxxxxxxxxxxxxxxx" {
-					t.Fatalf("ror_funder target = %q, want fulgora_ror_croidxxxxxxxxxxxxxxxxxxxx", r.Target)
+					t.Fatalf("is-funded-by target = %q, want fulgora_ror_croidxxxxxxxxxxxxxxxxxxxx", r.Target)
+				}
+			}
+			if r.Source == "fulgora_ror_croidxxxxxxxxxxxxxxxxxxxx" && r.Relationship == "funds" {
+				foundFunds = true
+				if r.Target != "nauvis1croidxxxxxxxxxxxxxxxxxxxxxx" {
+					t.Fatalf("funds target = %q, want nauvis1croidxxxxxxxxxxxxxxxxxxxxxx", r.Target)
 				}
 			}
 			if r.Source == "nauvis2croidxxxxxxxxxxxxxxxxxxxxxx" && r.Relationship == "ror_affiliation" {
@@ -223,7 +230,10 @@ func TestRunGeneratesRelationships(t *testing.T) {
 			}
 		}
 		if !foundRorFunder {
-			t.Fatal("missing ror_funder relationship for nauvis item 1")
+			t.Fatal("missing is-funded-by relationship for nauvis item 1")
+		}
+		if !foundFunds {
+			t.Fatal("missing funds relationship for nauvis item 1")
 		}
 		if !foundRorAffil {
 			t.Fatal("missing ror_affiliation relationship for nauvis item 2")
@@ -385,11 +395,15 @@ func TestRunGeneratesRelationships(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ListAll: %v", err)
 		}
-		if len(all) != 1 {
-			t.Fatalf("expected 1 relationship, got %d", len(all))
+		if len(all) != 2 {
+			t.Fatalf("expected 2 relationships, got %d", len(all))
 		}
-		if all[0].Relationship != "ror_funder" {
-			t.Fatalf("relationship = %q, want ror_funder", all[0].Relationship)
+		relationships := []string{all[0].Relationship, all[1].Relationship}
+		if all[0].Relationship != "is-funded-by" && all[1].Relationship != "is-funded-by" {
+			t.Fatalf("missing is-funded-by, got %v", relationships)
+		}
+		if all[0].Relationship != "funds" && all[1].Relationship != "funds" {
+			t.Fatalf("missing funds, got %v", relationships)
 		}
 	})
 }
