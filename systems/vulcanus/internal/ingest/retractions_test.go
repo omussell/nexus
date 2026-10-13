@@ -18,7 +18,7 @@ func TestRunRetractionMatches_BuildsViews(t *testing.T) {
 	if _, err := db.ExecContext(ctx, `CREATE TABLE nauvis (record JSON, doi TEXT, funder_names JSON, affiliation_names JSON)`); err != nil {
 		t.Fatalf("create nauvis: %v", err)
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO nauvis VALUES ('{"DOI":"10.1/paper"}', '10.1/paper', '[]', '[]')`); err != nil {
+	if _, err := db.ExecContext(ctx, `INSERT INTO nauvis VALUES ('{"DOI":"10.1/paper","type":"journal-article"}', '10.1/paper', '[]', '[]')`); err != nil {
 		t.Fatalf("insert nauvis: %v", err)
 	}
 	if _, err := db.ExecContext(ctx, `CREATE TABLE retractionwatch (record JSON, original_paper_doi TEXT, retraction_doi TEXT)`); err != nil {

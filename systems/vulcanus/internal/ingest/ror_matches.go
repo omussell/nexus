@@ -245,7 +245,8 @@ func queryNauvisRecords(ctx context.Context, db *sql.DB) ([]nauvisRecord, error)
 			CASE WHEN affiliation_names IS NULL THEN ''
 				ELSE CAST(affiliation_names AS VARCHAR)
 			END
-		FROM nauvis`
+		FROM nauvis
+		WHERE json_extract_string(record, '$.type') = 'journal-article'`
 
 	rows, err := db.QueryContext(ctx, q)
 	if err != nil {

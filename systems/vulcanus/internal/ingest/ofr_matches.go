@@ -194,7 +194,8 @@ func queryOFRRecords(ctx context.Context, db *sql.DB) ([]ofrRecord, error) {
 			CASE WHEN funder_names IS NULL THEN ''
 				ELSE CAST(funder_names AS VARCHAR)
 			END
-		FROM nauvis`
+		FROM nauvis
+		WHERE json_extract_string(record, '$.type') = 'journal-article'`
 
 	rows, err := db.QueryContext(ctx, q)
 	if err != nil {

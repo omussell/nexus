@@ -67,7 +67,8 @@ func buildRetractionsView(ctx context.Context, tx *sql.Tx) error {
 			r.retraction_doi AS retraction_notice_doi
 		FROM nauvis AS n
 		JOIN retractionwatch AS r
-   		  ON n.doi = r.original_paper_doi`
+		    ON n.doi = r.original_paper_doi
+		WHERE json_extract_string(n.record, '$.type') = 'journal-article'`
 	if _, err := tx.ExecContext(ctx, stmt); err != nil {
 		return fmt.Errorf("create view %s: %w", retractionsViewName, err)
 	}

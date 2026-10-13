@@ -42,6 +42,12 @@ func TestRunOFRMatchesCreatesTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("insert nauvis: %v", err)
 	}
+	// Add the type field so the WHERE filter matches.
+	if _, err := db.ExecContext(ctx, `
+		UPDATE nauvis SET record = json_merge_patch(record, '{"type":"journal-article"}')
+	`); err != nil {
+		t.Fatalf("set nauvis type: %v", err)
+	}
 
 	// Create openfunderregistry table with funder data.
 	if _, err := db.ExecContext(ctx, `
@@ -141,6 +147,12 @@ func TestRunOFRMatchesEmptyFunderNames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("insert nauvis: %v", err)
 	}
+	// Annotate rows as journal-article so the WHERE filter matches.
+	if _, err := db.ExecContext(ctx, `
+		UPDATE nauvis SET record = json_merge_patch(record, '{"type":"journal-article"}')
+	`); err != nil {
+		t.Fatalf("set nauvis type: %v", err)
+	}
 
 	if _, err := db.ExecContext(ctx, `
 		CREATE TABLE openfunderregistry (
@@ -183,6 +195,12 @@ func TestRunOFRMatchesFuzzyMatch(t *testing.T) {
 	`)
 	if err != nil {
 		t.Fatalf("insert nauvis: %v", err)
+	}
+	// Annotate rows as journal-article so the WHERE filter matches.
+	if _, err := db.ExecContext(ctx, `
+		UPDATE nauvis SET record = json_merge_patch(record, '{"type":"journal-article"}')
+	`); err != nil {
+		t.Fatalf("set nauvis type: %v", err)
 	}
 
 	if _, err := db.ExecContext(ctx, `
@@ -249,6 +267,12 @@ func TestRunOFRMatchesIgnoresReplaced(t *testing.T) {
 	`)
 	if err != nil {
 		t.Fatalf("insert nauvis: %v", err)
+	}
+	// Annotate rows as journal-article so the WHERE filter matches.
+	if _, err := db.ExecContext(ctx, `
+		UPDATE nauvis SET record = json_merge_patch(record, '{"type":"journal-article"}')
+	`); err != nil {
+		t.Fatalf("set nauvis type: %v", err)
 	}
 
 	if _, err := db.ExecContext(ctx, `
