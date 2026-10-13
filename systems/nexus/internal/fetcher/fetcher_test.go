@@ -182,19 +182,20 @@ func TestRunGeneratesRelationships(t *testing.T) {
 			t.Fatalf("fetcher.Run: %v", err)
 		}
 
-		// Should have exactly 3 relationships (1 per nauvis item).
+		// Should have exactly 4 relationships (2 per retraction-matched nauvis item).
 		all, err := nexusStore.ListAll(ctx)
 		if err != nil {
 			t.Fatalf("ListAll: %v", err)
 		}
-		if len(all) != 3 {
-			t.Fatalf("expected 3 relationships, got %d", len(all))
+		if len(all) != 4 {
+			t.Fatalf("expected 4 relationships, got %d", len(all))
 		}
 
 		// Nauvis item 1 → ROR dataset (ror_funder).
 		foundRorFunder := false
 		foundRorAffil := false
-		foundRetr := false
+		foundIsRetractedBy := false
+		foundRetracts := false
 		for _, r := range all {
 			if r.Source == "nauvis1croidxxxxxxxxxxxxxxxxxxxxxx" && r.Relationship == "ror_funder" {
 				foundRorFunder = true
@@ -208,10 +209,16 @@ func TestRunGeneratesRelationships(t *testing.T) {
 					t.Fatalf("ror_affiliation target = %q, want fulgora_ror_croidxxxxxxxxxxxxxxxxxxxx", r.Target)
 				}
 			}
-			if r.Source == "nauvis3croidxxxxxxxxxxxxxxxxxxxxxx" && r.Relationship == "is-funded-by" {
-				foundRetr = true
+			if r.Source == "nauvis3croidxxxxxxxxxxxxxxxxxxxxxx" && r.Relationship == "is-retracted-by" {
+				foundIsRetractedBy = true
 				if r.Target != "fulgora_retr_croidxxxxxxxxxxxxxxxxxxxx" {
-					t.Fatalf("is-funded-by target = %q, want fulgora_retr_croidxxxxxxxxxxxxxxxxxxxx", r.Target)
+					t.Fatalf("is-retracted-by target = %q, want fulgora_retr_croidxxxxxxxxxxxxxxxxxxxx", r.Target)
+				}
+			}
+			if r.Source == "fulgora_retr_croidxxxxxxxxxxxxxxxxxxxx" && r.Relationship == "retracts" {
+				foundRetracts = true
+				if r.Target != "nauvis3croidxxxxxxxxxxxxxxxxxxxxxx" {
+					t.Fatalf("retracts target = %q, want nauvis3croidxxxxxxxxxxxxxxxxxxxxxx", r.Target)
 				}
 			}
 		}
@@ -221,8 +228,11 @@ func TestRunGeneratesRelationships(t *testing.T) {
 		if !foundRorAffil {
 			t.Fatal("missing ror_affiliation relationship for nauvis item 2")
 		}
-		if !foundRetr {
-			t.Fatal("missing is-funded-by relationship for nauvis item 3")
+		if !foundIsRetractedBy {
+			t.Fatal("missing is-retracted-by relationship for nauvis item 3")
+		}
+		if !foundRetracts {
+			t.Fatal("missing retracts relationship for nauvis item 3")
 		}
 	})
 
