@@ -14,8 +14,8 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// paperMatches tracks which relationship kinds apply to a single nauvis paper.
-type paperMatches struct {
+// NauvisItemMatches tracks which relationship kinds apply to a single nauvis item.
+type NauvisItemMatches struct {
 	rorFunder  bool
 	rorAffil   bool
 	retraction bool
@@ -27,9 +27,9 @@ type paperMatches struct {
 // fulgora dataset croid, relationship kind) triplet.
 //
 // The three relationship kinds are:
-//   - "ror_funder"     — nauvis paper linked to the ROR dataset via funder matching
-//   - "ror_affiliation" — nauvis paper linked to the ROR dataset via affiliation matching
-//   - "retraction"     — nauvis paper linked to the Retraction Watch dataset via DOI match
+//   - "ror_funder"     — nauvis item linked to the ROR dataset via funder matching
+//   - "ror_affiliation" — nauvis item linked to the ROR dataset via affiliation matching
+//   - "retraction"     — nauvis item linked to the Retraction Watch dataset via DOI match
 //
 // lg may be nil to use the default logger.
 func Run(ctx context.Context, vulcanusDBPath, fulgoraDBPath string, nexusStore *store.Store, lg *slog.Logger) error {
@@ -67,25 +67,25 @@ func Run(ctx context.Context, vulcanusDBPath, fulgoraDBPath string, nexusStore *
 	retrCroid := fulgoraCroids["retraction_watch"]
 
 	// Collect matching triplets: nauvis DOI → relationship kinds.
-	paperMatchesMap := make(map[string]*paperMatches)
+	nauvisItemMatchesMap := make(map[string]*NauvisItemMatches)
 
 	// ROR funder matches.
 	if rorCroid != "" {
-		if err := collectRorFunderMatches(ctx, vulcanusDB, nauvisCroids, paperMatchesMap); err != nil {
+		if err := collectRorFunderMatches(ctx, vulcanusDB, nauvisCroids, nauvisItemMatchesMap); err != nil {
 			return fmt.Errorf("collect ror funder matches: %w", err)
 		}
 	}
 
 	// ROR affiliation matches.
 	if rorCroid != "" {
-		if err := collectRorAffilMatches(ctx, vulcanusDB, nauvisCroids, paperMatchesMap); err != nil {
+		if err := collectRorAffilMatches(ctx, vulcanusDB, nauvisCroids, nauvisItemMatchesMap); err != nil {
 			return fmt.Errorf("collect ror affiliation matches: %w", err)
 		}
 	}
 
 	// Retraction matches.
 	if retrCroid != "" {
-		if err := collectRetractionMatches(ctx, vulcanusDB, nauvisCroids, paperMatchesMap); err != nil {
+		if err := collectRetractionMatches(ctx, vulcanusDB, nauvisCroids, nauvisItemMatchesMap); err != nil {
 			return fmt.Errorf("collect retraction matches: %w", err)
 		}
 	}
@@ -94,7 +94,7 @@ func Run(ctx context.Context, vulcanusDBPath, fulgoraDBPath string, nexusStore *
 	totalInserted := 0
 	totalSkipped := 0
 
-	for doi, m := range paperMatchesMap {
+	for doi, m := range nauvisItemMatchesMap {
 		croid, ok := nauvisCroids[doi]
 		if !ok {
 			continue
@@ -131,7 +131,7 @@ func Run(ctx context.Context, vulcanusDBPath, fulgoraDBPath string, nexusStore *
 	lg.Info("producer: done",
 		"inserted", totalInserted,
 		"skipped", totalSkipped,
-		"papers", len(paperMatchesMap))
+		"nauvis_items", len(nauvisItemMatchesMap))
 
 	return nil
 }
@@ -181,9 +181,9 @@ func queryFulgoraDatasetCroids(ctx context.Context, db *sql.DB) (map[string]stri
 	return m, rows.Err()
 }
 
-// collectRorFunderMatches finds all paper DOIs that have ror_funder matches and
-// records them in paperMatchesMap.
-func collectRorFunderMatches(ctx context.Context, db *sql.DB, nauvisCroids map[string]string, out map[string]*paperMatches) error {
+// collectRorFunderMatches finds all nauvis item DOIs that have ror_funder matches and
+// records them in out.
+func collectRorFunderMatches(ctx context.Context, db *sql.DB, nauvisCroids map[string]string, out map[string]*NauvisItemMatches) error {
 	rows, err := db.QueryContext(ctx, `SELECT DISTINCT paper_doi FROM ror_funder_matches`)
 	if err != nil {
 		return fmt.Errorf("query ror_funder_matches: %w", err)
@@ -197,7 +197,7 @@ func collectRorFunderMatches(ctx context.Context, db *sql.DB, nauvisCroids map[s
 		}
 		if _, ok := nauvisCroids[doi]; ok {
 			if out[doi] == nil {
-				out[doi] = &paperMatches{}
+				out[doi] = &NauvisItemMatches{}
 			}
 			out[doi].rorFunder = true
 		}
@@ -205,9 +205,9 @@ func collectRorFunderMatches(ctx context.Context, db *sql.DB, nauvisCroids map[s
 	return rows.Err()
 }
 
-// collectRorAffilMatches finds all paper DOIs that have ror_affiliation matches
-// and records them in paperMatchesMap.
-func collectRorAffilMatches(ctx context.Context, db *sql.DB, nauvisCroids map[string]string, out map[string]*paperMatches) error {
+// collectRorAffilMatches finds all nauvis item DOIs that have ror_affiliation matches
+// and records them in out.
+func collectRorAffilMatches(ctx context.Context, db *sql.DB, nauvisCroids map[string]string, out map[string]*NauvisItemMatches) error {
 	rows, err := db.QueryContext(ctx, `SELECT DISTINCT paper_doi FROM ror_affiliation_matches`)
 	if err != nil {
 		return fmt.Errorf("query ror_affiliation_matches: %w", err)
@@ -221,7 +221,7 @@ func collectRorAffilMatches(ctx context.Context, db *sql.DB, nauvisCroids map[st
 		}
 		if _, ok := nauvisCroids[doi]; ok {
 			if out[doi] == nil {
-				out[doi] = &paperMatches{}
+				out[doi] = &NauvisItemMatches{}
 			}
 			out[doi].rorAffil = true
 		}
@@ -229,9 +229,9 @@ func collectRorAffilMatches(ctx context.Context, db *sql.DB, nauvisCroids map[st
 	return rows.Err()
 }
 
-// collectRetractionMatches finds all paper DOIs that have retraction matches
-// and records them in paperMatchesMap.
-func collectRetractionMatches(ctx context.Context, db *sql.DB, nauvisCroids map[string]string, out map[string]*paperMatches) error {
+// collectRetractionMatches finds all nauvis item DOIs that have retraction matches
+// and records them in out.
+func collectRetractionMatches(ctx context.Context, db *sql.DB, nauvisCroids map[string]string, out map[string]*NauvisItemMatches) error {
 	rows, err := db.QueryContext(ctx, `SELECT DISTINCT original_paper_doi FROM retractionwatch`)
 	if err != nil {
 		return fmt.Errorf("query retractionwatch: %w", err)
@@ -245,7 +245,7 @@ func collectRetractionMatches(ctx context.Context, db *sql.DB, nauvisCroids map[
 		}
 		if _, ok := nauvisCroids[doi]; ok {
 			if out[doi] == nil {
-				out[doi] = &paperMatches{}
+				out[doi] = &NauvisItemMatches{}
 			}
 			out[doi].retraction = true
 		}

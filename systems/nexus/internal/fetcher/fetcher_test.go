@@ -182,7 +182,7 @@ func TestRunGeneratesRelationships(t *testing.T) {
 			t.Fatalf("fetcher.Run: %v", err)
 		}
 
-		// Should have exactly 3 relationships (1 per paper).
+		// Should have exactly 3 relationships (1 per nauvis item).
 		all, err := nexusStore.ListAll(ctx)
 		if err != nil {
 			t.Fatalf("ListAll: %v", err)
@@ -191,7 +191,7 @@ func TestRunGeneratesRelationships(t *testing.T) {
 			t.Fatalf("expected 3 relationships, got %d", len(all))
 		}
 
-		// Paper 1 → ROR dataset (ror_funder).
+		// Nauvis item 1 → ROR dataset (ror_funder).
 		foundRorFunder := false
 		foundRorAffil := false
 		foundRetr := false
@@ -216,13 +216,13 @@ func TestRunGeneratesRelationships(t *testing.T) {
 			}
 		}
 		if !foundRorFunder {
-			t.Fatal("missing ror_funder relationship for paper 1")
+			t.Fatal("missing ror_funder relationship for nauvis item 1")
 		}
 		if !foundRorAffil {
-			t.Fatal("missing ror_affiliation relationship for paper 2")
+			t.Fatal("missing ror_affiliation relationship for nauvis item 2")
 		}
 		if !foundRetr {
-			t.Fatal("missing retraction relationship for paper 3")
+			t.Fatal("missing retraction relationship for nauvis item 3")
 		}
 	})
 
