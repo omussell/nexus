@@ -29,7 +29,7 @@ type NauvisItemMatches struct {
 // The three relationship kinds are:
 //   - "ror_funder"     — nauvis item linked to the ROR dataset via funder matching
 //   - "ror_affiliation" — nauvis item linked to the ROR dataset via affiliation matching
-//   - "retraction"     — nauvis item linked to the Retraction Watch dataset via DOI match
+//   - "is-funded-by"   — nauvis item funded by the Fulgora retraction dataset
 //
 // lg may be nil to use the default logger.
 func Run(ctx context.Context, vulcanusDBPath, fulgoraDBPath string, nexusStore *store.Store, lg *slog.Logger) error {
@@ -119,9 +119,9 @@ func Run(ctx context.Context, vulcanusDBPath, fulgoraDBPath string, nexusStore *
 		}
 
 		if m.retraction {
-			ins, skip, err := insertIfNew(ctx, nexusStore, croid, retrCroid, "retraction")
+			ins, skip, err := insertIfNew(ctx, nexusStore, croid, retrCroid, "is-funded-by")
 			if err != nil {
-				return fmt.Errorf("insert retraction %s: %w", croid, err)
+				return fmt.Errorf("insert is-funded-by %s: %w", croid, err)
 			}
 			totalInserted += ins
 			totalSkipped += skip

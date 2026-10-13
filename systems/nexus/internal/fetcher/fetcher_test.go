@@ -208,10 +208,10 @@ func TestRunGeneratesRelationships(t *testing.T) {
 					t.Fatalf("ror_affiliation target = %q, want fulgora_ror_croidxxxxxxxxxxxxxxxxxxxx", r.Target)
 				}
 			}
-			if r.Source == "nauvis3croidxxxxxxxxxxxxxxxxxxxxxx" && r.Relationship == "retraction" {
+			if r.Source == "nauvis3croidxxxxxxxxxxxxxxxxxxxxxx" && r.Relationship == "is-funded-by" {
 				foundRetr = true
 				if r.Target != "fulgora_retr_croidxxxxxxxxxxxxxxxxxxxx" {
-					t.Fatalf("retraction target = %q, want fulgora_retr_croidxxxxxxxxxxxxxxxxxxxx", r.Target)
+					t.Fatalf("is-funded-by target = %q, want fulgora_retr_croidxxxxxxxxxxxxxxxxxxxx", r.Target)
 				}
 			}
 		}
@@ -222,7 +222,7 @@ func TestRunGeneratesRelationships(t *testing.T) {
 			t.Fatal("missing ror_affiliation relationship for nauvis item 2")
 		}
 		if !foundRetr {
-			t.Fatal("missing retraction relationship for nauvis item 3")
+			t.Fatal("missing is-funded-by relationship for nauvis item 3")
 		}
 	})
 
