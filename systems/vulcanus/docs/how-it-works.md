@@ -35,6 +35,15 @@ from the `nauvis` records, matches them against the ROR database in DuckDB using
 a parallel worker pool, and writes results to `ror_funder_matches` and
 `ror_affiliation_matches` tables.
 
+The OFR matching (`-match-ofr`) extracts funder names from the `nauvis`
+records, matches them against the openfunderregistry database in DuckDB using
+a parallel worker pool, and writes results to an `ofr_matches` table.
+It uses the same LIKE pre-filter followed by fuzzy-score filtering (96 %
+threshold) pattern that ROR matching uses, but operates on funder-name →
+openfunderregistry-name pairs rather than funder-name → ROR-organization.
+Replaced openfunderregistry records (where `replaced` is non-empty) are excluded
+from matching.
+
 This is not transformation: Vulcanus never parses or normalises the payload. It
 only preserves it, one record at a time, in a single column of JSON text. Every
 record a provider saw is ingested; nothing is filtered away.
@@ -124,7 +133,7 @@ if it does not exist. `resetTable(ctx, tx, name)` calls `ensureTable` and then
 Both use `quoted(name)` to safely embed table names in SQL — wrapping in double
 quotes and escaping embedded quotes.
 
-### 3. Matching — `internal/ingest/retractions.go` and `internal/ingest/ror_matches.go`
+### 3. Matching — `internal/ingest/retractions.go`, `internal/ingest/ror_matches.go`, and `internal/ingest/ofr_matches.go`
 
 #### Retraction matching (`RunRetractionMatches`)
 
@@ -154,13 +163,30 @@ When `-match-ror` is set, Vulcanus:
    from the `record` JSON column using DuckDB's `json_extract_string()` function.
 2. Collects unique funder and affiliation names across all papers.
 3. Matches each unique name against the ROR database using a parallel worker pool
-   (up to 8 workers). Each worker runs `MatchFunder()` or `MatchAffiliation()`
+   (up to 8 workers). Each worker runs `MatchRORFunder()` or `MatchAffiliation()`
    against the DuckDB ROR table.
 4. Writes results to `ror_funder_matches` and `ror_affiliation_matches` tables
    with columns: `paper_doi`, `name`, `ror_id`, `ror_name`, `confidence`.
 
 The matching tables are reset (dropped and recreated) before each run so the
 results are idempotent.
+
+#### OFR matching (`RunOFRMatches`)
+
+When `-match-ofr` is set, Vulcanus:
+
+1. Queries all nauvis records, extracting DOI and funder names from the
+   `funder_names` JSON column.
+2. Collects unique funder names across all papers.
+3. Matches each unique name against the openfunderregistry database using a
+   parallel worker pool (up to 8 workers). Each worker runs `MatchOFR()`
+   against the DuckDB openfunderregistry table.
+4. Writes results to an `ofr_matches` table with columns:
+   `paper_doi`, `funder_name`, `funder_uri`, `funder_match`, `score`.
+
+The matching table is reset (dropped and recreated) before each run so the
+results are idempotent. The step is a no-op if either the `nauvis` or
+`openfunderregistry` table is absent.
 
 ### 4. Entry point — `main.go`
 
@@ -176,6 +202,7 @@ results are idempotent.
 -parquet        Read Parquet files instead of JSON (default false)
 -match-ror      Run ROR matching after ingestion (default false)
 -match-retractions Run retraction matching after ingestion (default false)
+-match-ofr      Run openfunderregistry matching after ingestion (default false)
 ```
 
 Flow:
@@ -186,7 +213,8 @@ Flow:
 5. If `-only` includes fulgora: open the Fulgora store, ingest files into DuckDB.
 6. If `-match-retractions`: rebuild the `retractions` view.
 7. If `-match-ror`: run ROR matching against nauvis records.
-8. Exit.
+8. If `-match-ofr`: run openfunderregistry matching against nauvis records.
+9. Exit.
 
 ## The database
 
@@ -224,6 +252,12 @@ The ROR matching tables (`-match-ror`) hold structured match results:
 | `ror_funder_matches` | `paper_doi`, `name`, `ror_id`, `ror_name`, `confidence` | TEXT, TEXT, TEXT, TEXT, DOUBLE | Paper-to-funder ROR matches |
 | `ror_affiliation_matches` | `paper_doi`, `name`, `ror_id`, `ror_name`, `confidence` | TEXT, TEXT, TEXT, TEXT, DOUBLE | Paper-to-affiliation ROR matches |
 
+The OFR matching tables (`-match-ofr`) hold structured openfunderregistry-name matches:
+
+| table | columns | type | notes |
+|-------|---------|------|-------|
+| `ofr_matches` | `paper_doi`, `funder_name`, `funder_uri`, `funder_match`, `score` | TEXT, TEXT, TEXT, TEXT, DOUBLE | Paper-to-funder (openfunderregistry) matches |
+
 Nauvis and Fulgora are kept **separate**: Nauvis always lands in the single
 `nauvis` table, while each Fulgora source gets its own table named after the
 source. A row in any table is a full JSON object from that provider's output —
@@ -238,7 +272,7 @@ accumulating duplicates.
 ## Running Vulcanus
 
 ```bash
-go run . [-only all|nauvis|fulgora|match] [-nauvis-dir path] [-fulgora-dir path] [-duckdb vulcanus.duckdb] [-parquet] [-match-retractions] [-match-ror]
+go run . [-only all|nauvis|fulgora|match] [-nauvis-dir path] [-fulgora-dir path] [-duckdb vulcanus.duckdb] [-parquet] [-match-retractions] [-match-ror] [-match-ofr]
 ```
 
 | flag | default | meaning |
@@ -252,15 +286,17 @@ go run . [-only all|nauvis|fulgora|match] [-nauvis-dir path] [-fulgora-dir path]
 | `-parquet` | `false` | Read Parquet files instead of JSON |
 | `-match-retractions` | `false` | Run retraction matching after ingestion |
 | `-match-ror` | `false` | Run ROR matching after ingestion |
+| `-match-ofr` | `false` | Run openfunderregistry matching after ingestion |
 
 ### Example
 
 ```bash
-$ go run . -nauvis-dir /data/nauvis -fulgora-dir /data/fulgora -duckdb vulcanus.duckdb -parquet -match-retractions -match-ror
+$ go run . -nauvis-dir /data/nauvis -fulgora-dir /data/fulgora -duckdb vulcanus.duckdb -parquet -match-retractions -match-ror -match-ofr
 vulcanus: ingested 1234567 nauvis records into vulcanus.duckdb
 vulcanus: ingested 45678 fulgora records into vulcanus.duckdb
 vulcanus: retraction matching complete
 vulcanus: ROR matching complete
+vulcanus: OFR matching: done, 1234 funder names matched
 ```
 
 The resulting `vulcanus.duckdb` holds source tables, matching views, and match
@@ -271,7 +307,7 @@ $ duckdb vulcanus.duckdb
 duckdb> .tables
 nauvis            retractionwatch  ror             openfunderregistry
 retractions       
-ror_funder_matches ror_affiliation_matches
+ror_funder_matches ror_affiliation_matches ofr_matches
 ```
 
 The key contract is faithfulness: Vulcanus treats the bytes coming from each
@@ -326,6 +362,6 @@ phase.
   Fulgora sources are enrichment data, each in its own table. Keeping them
   separate preserves that distinction and lets either be ingested independently.
 
-- **Matching is optional and additive.** ROR and retraction matching are opt-in
+- **Matching is optional and additive.** ROR, retraction, and OFR matching are opt-in
   via flags. Without them, Vulcanus only populates the source tables. With them,
   it adds views and match tables on top of the source data.

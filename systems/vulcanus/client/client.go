@@ -356,21 +356,21 @@ func (c *Client) QueryRetractions(ctx context.Context, offset, limit int) ([]Ret
 // RORMatch holds one row from the ror_funder_matches or ror_affiliation_matches table.
 type RORMatch struct {
 	PaperDOI   string
-	Name       string   // original funder/affiliation name string
+	Name       string   // original ROR funder/affiliation name string
 	RORID      string
 	RORName    string
 	Confidence float64
 }
 
-// CountFunderMatches returns the number of rows in ror_funder_matches.
-func (c *Client) CountFunderMatches(ctx context.Context) (int, error) {
+// CountRORFunderMatches returns the number of rows in ror_funder_matches.
+func (c *Client) CountRORFunderMatches(ctx context.Context) (int, error) {
 	var n int
 	err := c.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM ror_funder_matches").Scan(&n)
 	return n, err
 }
 
-// FunderMatchesByDOI returns all funder matches for a given paper DOI.
-func (c *Client) FunderMatchesByDOI(ctx context.Context, doi string) ([]RORMatch, error) {
+// RORFunderMatchesByDOI returns all ROR funder matches for a given paper DOI.
+func (c *Client) RORFunderMatchesByDOI(ctx context.Context, doi string) ([]RORMatch, error) {
 	return c.queryMatches(ctx, "ror_funder_matches", doi)
 }
 
@@ -386,8 +386,8 @@ func (c *Client) AffiliationMatchesByDOI(ctx context.Context, doi string) ([]ROR
 	return c.queryMatches(ctx, "ror_affiliation_matches", doi)
 }
 
-// QueryFunderMatches returns up to limit funder match rows starting at offset.
-func (c *Client) QueryFunderMatches(ctx context.Context, offset, limit int) ([]RORMatch, error) {
+// QueryRORFunderMatches returns up to limit ROR funder match rows starting at offset.
+func (c *Client) QueryRORFunderMatches(ctx context.Context, offset, limit int) ([]RORMatch, error) {
 	return c.queryAllMatches(ctx, "ror_funder_matches", offset, limit)
 }
 

@@ -261,10 +261,10 @@ func TestPartialRatioWithDifferentLengths(t *testing.T) {
 	}
 }
 
-func TestMatchFunderNoResults(t *testing.T) {
+func TestMatchRORFunderNoResults(t *testing.T) {
 	// Test with nil DuckDBClient to ensure graceful handling
 	client := &DuckDBClient{}
-	result := client.MatchFunder("Test")
+	result := client.MatchRORFunder("Test")
 	if result != nil {
 		t.Error("Expected nil result for invalid client")
 	}
@@ -362,7 +362,7 @@ func TestToRegion(t *testing.T) {
 	}
 }
 
-func TestMatchFunderExactMatch(t *testing.T) {
+func TestMatchRORFunderExactMatch(t *testing.T) {
 	_ = &DuckDBClient{client: &Client{}} // ensure client type is referenced
 	
 	// This tests the core matching logic with an exact match scenario
@@ -894,10 +894,10 @@ func TestScoreCandidateWithNoNames(t *testing.T) {
 	}
 }
 
-func TestMatchFunderWithEmptyInput(t *testing.T) {
+func TestMatchRORFunderWithEmptyInput(t *testing.T) {
 	// Test matching with empty input
 	client := &DuckDBClient{}
-	result := client.MatchFunder("")
+	result := client.MatchRORFunder("")
 	if result != nil {
 		t.Error("Expected nil result for empty input")
 	}
@@ -912,10 +912,10 @@ func TestMatchAffiliationWithEmptyInput(t *testing.T) {
 	}
 }
 
-func TestMatchFunderWithNoCandidates(t *testing.T) {
+func TestMatchRORFunderWithNoCandidates(t *testing.T) {
 	// Test matching with no candidates found
 	client := &DuckDBClient{}
-	result := client.MatchFunder("zzzzzzzzzz")
+	result := client.MatchRORFunder("zzzzzzzzzz")
 	if result != nil {
 		t.Error("Expected nil result when no candidates found")
 	}

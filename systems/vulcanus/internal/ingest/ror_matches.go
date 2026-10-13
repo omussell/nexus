@@ -30,21 +30,21 @@ func RunRORMatches(ctx context.Context, dbPath string) error {
 		return nil
 	}
 
-	// Query all nauvis records with DOI and funder/affiliation names.
+	// Query all nauvis records with DOI and ROR funder/affiliation names.
 	records, err := queryNauvisRecords(ctx, readDB)
 	if err != nil {
 		return fmt.Errorf("query nauvis records: %w", err)
 	}
 
-	// Collect all unique funder and affiliation names for deduplicated matching.
-	seenFunder := make(map[string]bool)
+	// Collect all unique ROR funder and affiliation names for deduplicated matching.
+	seenRORFunder := make(map[string]bool)
 	seenAffil := make(map[string]bool)
-	var funderNames, affilNames []string
+	var rorFunderNames, affilNames []string
 	for _, rec := range records {
 		for _, n := range rec.FunderNames {
-			if !seenFunder[n] {
-				seenFunder[n] = true
-				funderNames = append(funderNames, n)
+			if !seenRORFunder[n] {
+				seenRORFunder[n] = true
+				rorFunderNames = append(rorFunderNames, n)
 			}
 		}
 		for _, n := range rec.AffiliationNames {
@@ -60,17 +60,17 @@ func RunRORMatches(ctx context.Context, dbPath string) error {
 	if numWorkers > 8 {
 		numWorkers = 8
 	}
-	totalJobs := len(funderNames) + len(affilNames)
-	fmt.Printf("vulcanus: ROR matching: %d unique funder names, %d unique affiliation names to match (%d workers)\n", len(funderNames), len(affilNames), numWorkers)
+	totalJobs := len(rorFunderNames) + len(affilNames)
+	fmt.Printf("vulcanus: ROR matching: %d unique ROR funder names, %d unique affiliation names to match (%d workers)\n", len(rorFunderNames), len(affilNames), numWorkers)
 
 	// Channel of jobs: each job is (type, name).
 	type matchJob struct {
-		typ  string // "funder" or "affiliation"
+		typ  string // "ror_funder" or "affiliation"
 		name string
 	}
 	jobs := make(chan matchJob, totalJobs)
-	for _, name := range funderNames {
-		jobs <- matchJob{"funder", name}
+	for _, name := range rorFunderNames {
+		jobs <- matchJob{"ror_funder", name}
 	}
 	for _, name := range affilNames {
 		jobs <- matchJob{"affiliation", name}
@@ -79,7 +79,7 @@ func RunRORMatches(ctx context.Context, dbPath string) error {
 
 	// Shared result maps protected by a mutex.
 	var mu sync.Mutex
-	funderMatches := make(map[string][]map[string]interface{})
+	rorFunderMatches := make(map[string][]map[string]interface{})
 	affilMatches := make(map[string][]map[string]interface{})
 
 	var processed int64
@@ -110,15 +110,15 @@ func RunRORMatches(ctx context.Context, dbPath string) error {
 
 			for job := range jobs {
 				var matches []map[string]interface{}
-				if job.typ == "funder" {
-					matches = c.MatchFunder(job.name)
+				if job.typ == "ror_funder" {
+					matches = c.MatchRORFunder(job.name)
 				} else {
 					matches = c.MatchAffiliation(job.name)
 				}
 				if len(matches) > 0 {
 					mu.Lock()
-					if job.typ == "funder" {
-						funderMatches[job.name] = matches
+					if job.typ == "ror_funder" {
+						rorFunderMatches[job.name] = matches
 					} else {
 						affilMatches[job.name] = matches
 					}
@@ -156,10 +156,10 @@ func RunRORMatches(ctx context.Context, dbPath string) error {
 	wg.Wait()
 	close(stop)
 
-	fmt.Printf("vulcanus: ROR matching: done, %d funder matches, %d affiliation matches (unique names matched)\n",
-		len(funderMatches), len(affilMatches))
+	fmt.Printf("vulcanus: ROR matching: done, %d ROR funder matches, %d affiliation matches (unique names matched)\n",
+		len(rorFunderMatches), len(affilMatches))
 
-	var funderCount, affilCount int
+	var rorFunderCount, affilCount int
 
 	// Now open a write connection and insert results in a transaction.
 	writeDB, err := openDuckDB(dbPath)
@@ -181,13 +181,13 @@ func RunRORMatches(ctx context.Context, dbPath string) error {
 		return err
 	}
 
-	insertFunder := `INSERT INTO ror_funder_matches (paper_doi, name, ror_id, ror_name, confidence) VALUES (?, ?, ?, ?, ?)`
+	rorInsertFunder := `INSERT INTO ror_funder_matches (paper_doi, name, ror_id, ror_name, confidence) VALUES (?, ?, ?, ?, ?)`
 	insertAffil := `INSERT INTO ror_affiliation_matches (paper_doi, name, ror_id, ror_name, confidence) VALUES (?, ?, ?, ?, ?)`
-	funderStmt, err := tx.PrepareContext(ctx, insertFunder)
+	rorFunderStmt, err := tx.PrepareContext(ctx, rorInsertFunder)
 	if err != nil {
-		return fmt.Errorf("prepare funder insert: %w", err)
+		return fmt.Errorf("prepare ROR funder insert: %w", err)
 	}
-	defer funderStmt.Close()
+	defer rorFunderStmt.Close()
 	affilStmt, err := tx.PrepareContext(ctx, insertAffil)
 	if err != nil {
 		return fmt.Errorf("prepare affiliation insert: %w", err)
@@ -200,11 +200,11 @@ func RunRORMatches(ctx context.Context, dbPath string) error {
 			fmt.Printf("vulcanus: ROR matching: emitting matches for %d/%d records\n", i, len(records))
 		}
 		for _, name := range rec.FunderNames {
-			for _, m := range funderMatches[name] {
-				if _, err := funderStmt.ExecContext(ctx, rec.DOI, name, m["id"], m["name"], m["confidence"]); err != nil {
-					return fmt.Errorf("insert funder match: %w", err)
+			for _, m := range rorFunderMatches[name] {
+				if _, err := rorFunderStmt.ExecContext(ctx, rec.DOI, name, m["id"], m["name"], m["confidence"]); err != nil {
+					return fmt.Errorf("insert ROR funder match: %w", err)
 				}
-				funderCount++
+				rorFunderCount++
 			}
 		}
 		for _, name := range rec.AffiliationNames {
@@ -221,7 +221,7 @@ func RunRORMatches(ctx context.Context, dbPath string) error {
 		return fmt.Errorf("commit transaction: %w", err)
 	}
 
-	fmt.Printf("vulcanus: ROR matching: %d funder matches, %d affiliation matches\n", funderCount, affilCount)
+	fmt.Printf("vulcanus: ROR matching: %d ROR funder matches, %d affiliation matches\n", rorFunderCount, affilCount)
 	return nil
 }
 

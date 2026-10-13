@@ -134,12 +134,12 @@ func (c *DuckDBClient) Close() error {
 	return c.client.Close()
 }
 
-// MatchFunder runs funder-name-to-ROR matching against the DuckDB index.
+// MatchRORFunder runs ROR funder-name matching against the DuckDB index.
 //
-// Like the Python funder strategy, it derives the funder's region(s) from the
+// Like the Python ROR funder strategy, it derives the funder's region(s) from the
 // input, uses them to pre-filter eligible candidates, and re-checks the chosen
 // candidate's region before reporting a match.
-func (c *DuckDBClient) MatchFunder(inputData string) []map[string]interface{} {
+func (c *DuckDBClient) MatchRORFunder(inputData string) []map[string]interface{} {
 	fund := New(inputData)
 	fundRegions := findRegions(inputData)
 
@@ -187,7 +187,7 @@ func (c *DuckDBClient) MatchFunder(inputData string) []map[string]interface{} {
 
 // MatchAffiliation runs affiliation matching against the DuckDB index.
 //
-// Unlike the funder strategy, the Python affiliation strategy does not
+// Unlike the ROR funder strategy, the Python affiliation strategy does not
 // pre-filter candidates by country; it only rejects the chosen candidate when
 // its region does not match the regions derived from the input.
 func (c *DuckDBClient) MatchAffiliation(inputData string) []map[string]interface{} {

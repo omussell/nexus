@@ -32,6 +32,7 @@ func main() {
 		flag.String("duckdb", "vulcanus.duckdb", "path to the DuckDB database to write")
 	matchROR := flag.Bool("match-ror", false, "run ROR matching against nauvis records after ingestion")
 	matchRetractions := flag.Bool("match-retractions", false, "run retraction matching against nauvis records after ingestion")
+	matchOFR := flag.Bool("match-ofr", false, "run openfunderregistry matching against nauvis records after ingestion")
 	useParquet := flag.Bool("parquet", false, "read parquet files instead of JSON")
 	flag.Parse()
 
@@ -83,6 +84,14 @@ func main() {
 			log.Fatalf("vulcanus: retraction matching: %v", err)
 		}
 		fmt.Printf("vulcanus: retraction matching complete\n")
+	}
+
+	// Optionally run openfunderregistry matching if requested.
+	if *matchOFR {
+		if err := ingest.RunOFRMatches(ctx, *outDB); err != nil {
+			log.Fatalf("vulcanus: OFR matching: %v", err)
+		}
+		fmt.Printf("vulcanus: OFR matching complete\n")
 	}
 }
 

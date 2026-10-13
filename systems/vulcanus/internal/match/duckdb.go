@@ -133,3 +133,128 @@ func (c *Client) Query(keyword string, max int) []Org {
 func (c *Client) Close() error {
 	return c.db.Close()
 }
+
+// OFRClient wraps DuckDB-based access to the openfunderregistry table,
+// used to resolve nauvis funder names to their canonical openfunderregistry
+// entries.
+type OFRClient struct {
+	db *sql.DB
+}
+
+// NewOFRClient opens an existing DuckDB database file for querying the
+// openfunderregistry table.
+func NewOFRClient(dbPath string) (*OFRClient, error) {
+	conn, err := duckdb.NewConnector(dbPath, nil)
+	if err != nil {
+		return nil, fmt.Errorf("open DuckDB at %s: %w", dbPath, err)
+	}
+	db := sql.OpenDB(conn)
+	return &OFRClient{db: db}, nil
+}
+
+// NewOFRClientFromDB creates a client from an existing *sql.DB.
+func NewOFRClientFromDB(db *sql.DB) *OFRClient {
+	return &OFRClient{db: db}
+}
+
+// OFRCandidate holds one openfunderregistry entry found for a given search.
+type OFRCandidate struct {
+	URI  string
+	Name string
+}
+
+// QueryOFR searches the openfunderregistry table for funder names that
+// contain the given keyword (case-insensitive). Returns the best matches up
+// to max. The replaced column is excluded — only active openfunderregistry
+// records are returned.
+func (c *OFRClient) QueryOFR(keyword string, max int) []OFRCandidate {
+	if keyword == "" || c.db == nil {
+		return nil
+	}
+
+	q := `
+		SELECT funder_uri, funder_name
+		FROM openfunderregistry
+		WHERE LOWER(funder_name) LIKE LOWER(?)
+		  AND replaced = ''
+		LIMIT ?
+	`
+
+	rows, err := c.db.Query(q, "%"+keyword+"%", max)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var candidates []OFRCandidate
+	for rows.Next() {
+		var uri, name string
+		if err := rows.Scan(&uri, &name); err != nil {
+			continue
+		}
+		if name == "" {
+			continue
+		}
+		candidates = append(candidates, OFRCandidate{URI: uri, Name: name})
+	}
+	return candidates
+}
+
+// Count returns the number of rows in the openfunderregistry table.
+func (c *OFRClient) Count() int {
+	if c.db == nil {
+		return 0
+	}
+	var n int
+	if err := c.db.QueryRow("SELECT COUNT(*) FROM openfunderregistry WHERE replaced = ''").Scan(&n); err != nil {
+		return 0
+	}
+	return n
+}
+
+// MatchOFR resolves a funder name against the openfunderregistry table.
+// It performs a LIKE pre-filter, computes fuzzy similarity scores, filters
+// by threshold, and returns the best match (or nil if nothing exceeds the
+// threshold). The result map contains keys "uri", "name", and "score".
+func (c *OFRClient) MatchOFR(input string) []map[string]interface{} {
+	if input == "" || c.db == nil {
+		return nil
+	}
+
+	inputNorm := New(input).Normalized()
+	candidates := c.QueryOFR(input, 200)
+	if len(candidates) == 0 {
+		return nil
+	}
+
+	bestIdx := -1
+	bestScore := 0.0
+	for i, cand := range candidates {
+		candNorm := New(cand.Name).Normalized()
+		score := PartialRatio(inputNorm, candNorm)
+		if score > bestScore {
+			bestScore = score
+			bestIdx = i
+		}
+	}
+	if bestIdx < 0 || bestScore < 96.0 {
+		return nil
+	}
+
+	return []map[string]interface{}{
+		{
+			"uri":    candidates[bestIdx].URI,
+			"name":   candidates[bestIdx].Name,
+			"score":  bestScore,
+			"input":  input,
+		},
+	}
+}
+
+// Close releases the underlying database connection.
+func (c *OFRClient) Close() error {
+	if c.db == nil {
+		return nil
+	}
+	return c.db.Close()
+}

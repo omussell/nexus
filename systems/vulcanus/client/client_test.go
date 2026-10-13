@@ -417,21 +417,21 @@ func TestMatches(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Funder matches
-	fCount, err := c.CountFunderMatches(ctx)
+	// ROR funder matches
+	fCount, err := c.CountRORFunderMatches(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if fCount != 1 {
-		t.Errorf("CountFunderMatches = %d, want 1", fCount)
+		t.Errorf("CountRORFunderMatches = %d, want 1", fCount)
 	}
 
-	fMatches, err := c.FunderMatchesByDOI(ctx, "10.1.0.1/test1")
+	fMatches, err := c.RORFunderMatchesByDOI(ctx, "10.1.0.1/test1")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(fMatches) != 1 {
-		t.Errorf("FunderMatchesByDOI = %d, want 1", len(fMatches))
+		t.Errorf("RORFunderMatchesByDOI = %d, want 1", len(fMatches))
 	}
 	if fMatches[0].RORID != "01abc" || fMatches[0].Confidence != 100.0 {
 		t.Errorf("FunderMatch = %+v, want RORID=01abc Confidence=100.0", fMatches[0])
