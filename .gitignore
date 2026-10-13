@@ -48,5 +48,8 @@ systems/nauvis/nauvis
 systems/nauvis/out
 systems/nauvis/parquet/
 
+# nexus
+systems/nexus/nexus
+
 # vulcanus
 systems/vulcanus/vulcanus
