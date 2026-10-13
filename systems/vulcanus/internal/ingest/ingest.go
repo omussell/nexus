@@ -266,6 +266,51 @@ func ingestParquetRetractionWatch(ctx context.Context, tx *sql.Tx, path string, 
 	return count, nil
 }
 
+// ingestParquetOpenFunderRegistry loads an openfunderregistry parquet file into
+// the openfunderregistry table with denormalized columns.
+func ingestParquetOpenFunderRegistry(ctx context.Context, tx *sql.Tx, path string, lg *slog.Logger) (int, error) {
+	if _, err := os.Stat(path); err != nil {
+		return 0, fmt.Errorf("parquet file %s: %w", path, err)
+	}
+
+	var count int
+	err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM read_parquet(?)`, path).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count parquet %s: %w", path, err)
+	}
+
+	// Open funder registry parquet has columns: funder_uri, funder_name, replaced.
+	query := `
+		INSERT INTO openfunderregistry (record, funder_uri, funder_name, replaced)
+		SELECT
+			to_json(T),
+			COALESCE(T.funder_uri, json_extract_string(T, '$.uri'), ''),
+			COALESCE(T.funder_name, json_extract_string(T, '$.primary_name_display'), ''),
+			COALESCE(T.replaced, json_extract_string(T, '$.replaced'), '')
+		FROM read_parquet(?) AS T
+	`
+	_, err = tx.ExecContext(ctx, query, path)
+	if err != nil {
+		// Fall back to record-based extraction
+		query = `
+			INSERT INTO openfunderregistry (record, funder_uri, funder_name, replaced)
+			SELECT
+				to_json(T),
+				COALESCE(json_extract_string(T, '$.uri'), ''),
+				COALESCE(json_extract_string(T, '$.primary_name_display'), ''),
+				COALESCE(json_extract_string(T, '$.replaced'), '')
+			FROM read_parquet(?) AS T
+		`
+		_, err = tx.ExecContext(ctx, query, path)
+		if err != nil {
+			return 0, fmt.Errorf("insert parquet openfunderregistry %s: %w", path, err)
+		}
+	}
+
+	lg.Info("ingested parquet openfunderregistry", "file", path, "rows", count)
+	return count, nil
+}
+
 // ingestFile writes one row per NDJSON line from path into the given insert,
 // storing the complete contents of every element.
 func ingestFile(ctx context.Context, insert *sql.Stmt, path string) (int, error) {
@@ -392,6 +437,21 @@ func ensureRetractionWatchTable(ctx context.Context, tx *sql.Tx) error {
 	return nil
 }
 
+// ensureOpenFunderRegistryTable ensures the openfunderregistry table exists with denormalized columns.
+func ensureOpenFunderRegistryTable(ctx context.Context, tx *sql.Tx) error {
+	if _, err := tx.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS openfunderregistry (
+			record JSON,
+			funder_uri TEXT,
+			funder_name TEXT,
+			replaced TEXT
+		)
+	`); err != nil {
+		return fmt.Errorf("create openfunderregistry table: %w", err)
+	}
+	return nil
+}
+
 // resetTable ensures the named table exists and empties it, so re-running a
 // provider replaces its previous snapshot instead of accumulating duplicates.
 func resetTable(ctx context.Context, tx *sql.Tx, name string) error {
@@ -425,10 +485,22 @@ func resetRorTable(ctx context.Context, tx *sql.Tx) error {
 // resetRetractionWatchTable ensures the retractionwatch table exists with
 // denormalized columns and empties it.
 func resetRetractionWatchTable(ctx context.Context, tx *sql.Tx) error {
-	if _, err := tx.ExecContext(ctx, `DROP TABLE IF EXISTS retractionwatch`); err != nil {
-		return fmt.Errorf("drop retractionwatch: %w", err)
+	if err := ensureRetractionWatchTable(ctx, tx); err != nil {
+		return err
 	}
-	return ensureRetractionWatchTable(ctx, tx)
+	if _, err := tx.ExecContext(ctx, `DELETE FROM `+quoted("retractionwatch")); err != nil {
+		return fmt.Errorf("clear table retractionwatch: %w", err)
+	}
+	return nil
+}
+
+// resetOpenFunderRegistryTable ensures the openfunderregistry table exists with
+// denormalized columns and empties it.
+func resetOpenFunderRegistryTable(ctx context.Context, tx *sql.Tx) error {
+	if _, err := tx.ExecContext(ctx, `DROP TABLE IF EXISTS openfunderregistry`); err != nil {
+		return fmt.Errorf("drop openfunderregistry: %w", err)
+	}
+	return ensureOpenFunderRegistryTable(ctx, tx)
 }
 
 // quoted wraps name in double quotes, escaping any embedded double quotes, so
@@ -667,6 +739,37 @@ func runFulgora(ctx context.Context, store *fulgora.Store, outDir, outDB string,
 				insertStmt.Close()
 				if err != nil {
 					return 0, fmt.Errorf("ingest retractionwatch: %w", err)
+				}
+				total += n
+			}
+
+		case "openfunderregistry":
+			if err := resetOpenFunderRegistryTable(ctx, tx); err != nil {
+				return 0, fmt.Errorf("reset openfunderregistry table: %w", err)
+			}
+
+			if useParquet {
+				n, err := ingestParquetOpenFunderRegistry(ctx, tx, src.ParquetPath(), lg)
+				if err != nil {
+					return 0, fmt.Errorf("ingest openfunderregistry parquet: %w", err)
+				}
+				total += n
+			} else {
+				insertStmt, err := tx.PrepareContext(ctx, `
+					INSERT INTO openfunderregistry (record, funder_uri, funder_name, replaced)
+					VALUES (?,
+						json_extract_string(?, '$.uri'),
+						json_extract_string(?, '$.primary_name_display'),
+						json_extract_string(?, '$.replaced')
+					)
+				`)
+				if err != nil {
+					return 0, fmt.Errorf("prepare openfunderregistry insert: %w", err)
+				}
+				n, err := ingestFileDenormalized(ctx, insertStmt, src.OutputPath(), 4)
+				insertStmt.Close()
+				if err != nil {
+					return 0, fmt.Errorf("ingest openfunderregistry: %w", err)
 				}
 				total += n
 			}

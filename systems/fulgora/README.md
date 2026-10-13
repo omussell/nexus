@@ -5,19 +5,21 @@ downloads datasets from external sources, standardizes them, stores them in a
 reproducible layout, and tracks their versions so other systems always know
 what the newest available version is.
 
-Currently two sources are implemented; each lives in its own package so new
+Currently three sources are implemented; each lives in its own package so new
 contributors can add a source without touching the others:
 
-| source          | upstream                                                        | version label        |
-|-----------------|-----------------------------------------------------------------|----------------------|
-| `ror`           | [ROR data dump](https://zenodo.org/communities/ror-data) (Zenodo) | `vX.X-...` -> `X.X` |
-| `retractionwatch` | [Retraction Watch CSV](https://gitlab.com/crossref/retraction-watch-data) | commit date of the CSV |
+| source              | upstream                                                        | version label        |
+|---------------------|-----------------------------------------------------------------|----------------------|
+| `openfunderregistry`| [Crossref funderNames](https://doi.crossref.org/funderNames?mode=list) (CSV) | current date |
+| `ror`               | [ROR data dump](https://zenodo.org/communities/ror-data) (Zenodo) | `vX.X-...` -> `X.X` |
+| `retractionwatch`   | [Retraction Watch CSV](https://gitlab.com/crossref/retraction-watch-data) | commit date of the CSV |
 
 ## Architecture
 
 ```
 cmd: main.go            ->  fetch / status / serve
 internal/source         ->  the Source interface + shared download helper
+internal/source/openfunderregistry -> Open Funder Registry (Crossref CSV)
 internal/source/ror     ->  ROR (Zenodo) source
 internal/source/retractionwatch -> Retraction Watch (GitLab) source
 internal/sources        ->  the registry: add a source here

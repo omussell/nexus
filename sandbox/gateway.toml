@@ -1,0 +1,6 @@
+# /opt/homebrew/var/openshell/gateway.toml
+[openshell]
+version = 1
+
+[openshell.gateway]
+compute_drivers = ["podman"]

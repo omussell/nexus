@@ -214,6 +214,9 @@ that sits on the same Nauvis↔retractionwatch `JOIN`:
 | | `retractionwatch_record` | JSON | the full retractionwatch record |
 | | `matched_doi` | VARCHAR | the DOI that linked the two (Nauvis's `DOI`) |
 
+Each Fulgora source gets its own table. Denormalized columns are added to the
+`ror`, `retractionwatch`, and `openfunderregistry` tables for efficient querying.
+
 The ROR matching tables (`-match-ror`) hold structured match results:
 
 | table | columns | type | notes |
@@ -266,7 +269,7 @@ tables. List them with the DuckDB CLI:
 ```
 $ duckdb vulcanus.duckdb
 duckdb> .tables
-nauvis            retractionwatch  ror
+nauvis            retractionwatch  ror             openfunderregistry
 retractions       
 ror_funder_matches ror_affiliation_matches
 ```

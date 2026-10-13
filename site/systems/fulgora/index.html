@@ -1,0 +1,956 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="images/xml.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>systems/fulgora</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="purple" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#fulgora" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="systems/fulgora" class="md-header__button md-logo" aria-label="systems/fulgora" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 10a2 2 0 0 1 2 2 2 2 0 0 1-.47 1.29L16.7 22h-2.13L12 14.93 9.43 22H7.3l3.17-8.71A2 2 0 0 1 10 12a2 2 0 0 1 2-2m0-2a4 4 0 0 0-4 4c0 .5.1 1 .28 1.46l-.88 2.4A6.03 6.03 0 0 1 6 12a6 6 0 0 1 6-6 6 6 0 0 1 6 6c0 1.47-.53 2.81-1.4 3.86l-.88-2.4C15.9 13 16 12.5 16 12a4 4 0 0 0-4-4m0-4a8 8 0 0 0-8 8c0 2.36 1 4.5 2.64 5.94l-.72 2A10 10 0 0 1 2 12 10 10 0 0 1 12 2a10 10 0 0 1 10 10c0 3.23-1.54 6.11-3.92 7.94l-.72-2C19 16.5 20 14.36 20 12a8 8 0 0 0-8-8"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            systems/fulgora
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              FULGORA
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="systems/fulgora" class="md-nav__button md-logo" aria-label="systems/fulgora" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 10a2 2 0 0 1 2 2 2 2 0 0 1-.47 1.29L16.7 22h-2.13L12 14.93 9.43 22H7.3l3.17-8.71A2 2 0 0 1 10 12a2 2 0 0 1 2-2m0-2a4 4 0 0 0-4 4c0 .5.1 1 .28 1.46l-.88 2.4A6.03 6.03 0 0 1 6 12a6 6 0 0 1 6-6 6 6 0 0 1 6 6c0 1.47-.53 2.81-1.4 3.86l-.88-2.4C15.9 13 16 12.5 16 12a4 4 0 0 0-4-4m0-4a8 8 0 0 0-8 8c0 2.36 1 4.5 2.64 5.94l-.72 2A10 10 0 0 1 2 12 10 10 0 0 1 12 2a10 10 0 0 1 10 10c0 3.23-1.54 6.11-3.92 7.94l-.72-2C19 16.5 20 14.36 20 12a8 8 0 0 0-8-8"/></svg>
+
+    </a>
+    systems/fulgora
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FULGORA
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="." class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FULGORA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-functionalities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Functionalities
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it works
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How it works">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#registered-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Registered sources
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-fetch-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The fetch workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#storage-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Storage layout
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The registry
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Usage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example-session" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example session
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#http-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HTTP API
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-a-new-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding a new source
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#development" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Development
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#package-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Package layout
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-functionalities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Functionalities
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it works
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How it works">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#registered-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Registered sources
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-fetch-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The fetch workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#storage-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Storage layout
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The registry
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Usage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example-session" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example session
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#http-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HTTP API
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-a-new-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding a new source
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#development" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Development
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#package-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Package layout
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="fulgora">FULGORA</h1>
+<p>The Fulgora system is responsible for collecting and storing data from various
+external sources (such as ROR and Retraction Watch) to enrich and improve the
+primary Crossref data.</p>
+<h2 id="overview">Overview</h2>
+<p>Fulgora focuses on downloading datasets from multiple organizations, breaking
+them down into usable formats, and storing them in a standardized way. It
+manages data versioning to ensure that downstream systems always have access to
+the latest information.</p>
+<p>Fulgora is a single Go binary with three subcommands:</p>
+<ul>
+<li><code>fetch</code> — check each source for a new dataset version, download it,
+  standardize it, mint a CROID, convert to Parquet, and record it in a local
+  SQLite registry.</li>
+<li><code>status</code> — print the latest collected version per source.</li>
+<li><code>serve</code> — start an HTTP service that other systems query to discover which
+  dataset versions are available and where they live on disk.</li>
+</ul>
+<p>It is built to be run on a schedule: <code>fetch</code> is idempotent, so a version that
+is already recorded in the database is skipped rather than downloaded again.</p>
+<h2 id="key-functionalities">Key Functionalities</h2>
+<ul>
+<li><strong>Data Collection:</strong> Downloads datasets from external sources like ROR and
+  Retraction Watch.</li>
+<li><strong>Data Standardization:</strong> Breaks down complex datasets (e.g. unpacking an
+  archive) into standardized formats under a stable, versioned directory
+  layout.</li>
+<li><strong>Version Management:</strong> Tracks dataset versions in a SQLite registry so
+  <code>fetch</code> can be re-run idempotently and downstream systems can identify the
+  latest available data.</li>
+<li><strong>CROID Minting:</strong> Each newly collected dataset is assigned a unique CROID
+  (Content-Resolved Object ID) via the CROID service, enabling stable references
+  to dataset versions regardless of upstream changes.</li>
+<li><strong>Parquet Export:</strong> After minting a CROID, Fulgora converts the standardized
+  dataset into Parquet format for efficient downstream analytics. Each dataset
+  produces a <code>{croid}.parquet</code> file.</li>
+<li><strong>Data Enrichment:</strong> Provides additional information used to enhance and
+  improve the primary Crossref data collected by other systems.</li>
+</ul>
+<h2 id="how-it-works">How it works</h2>
+<h3 id="registered-sources">Registered sources</h3>
+<p>Two sources are currently registered, each in its own package under
+<code>internal/source/&lt;name&gt;</code> so a new contributor can add a source without touching
+the others:</p>
+<table>
+<thead>
+<tr>
+<th>source</th>
+<th>upstream</th>
+<th>version label</th>
+<th>standardized output</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ror</code></td>
+<td><a href="https://zenodo.org/communities/ror-data">ROR data dump</a> (Zenodo)</td>
+<td><code>vX.X-...</code> -&gt; <code>X.X</code></td>
+<td>zip unpacked into <code>output/&lt;version&gt;/</code></td>
+</tr>
+<tr>
+<td><code>retractionwatch</code></td>
+<td><a href="https://gitlab.com/crossref/retraction-watch-data">Retraction Watch CSV</a> (GitLab)</td>
+<td>commit date of the CSV</td>
+<td><code>output/retractionwatch-&lt;date&gt;.csv</code></td>
+</tr>
+</tbody>
+</table>
+<p>Each source implements the <code>Source</code> interface defined in
+<code>internal/source/source.go</code>:</p>
+<ul>
+<li><code>Name()</code> — the source identifier (used as the directory name and the database key).</li>
+<li><code>CheckLatest(ctx)</code> — queries the upstream API and reports the newest version
+  and download URL, <strong>without downloading the file</strong>.</li>
+<li><code>Process(ctx, version, rawPath, outRoot)</code> — takes the raw downloaded file and
+  produces the standardized output, returning the final path to record.</li>
+</ul>
+<p>A shared <code>Download</code> helper (same package) fetches a URL into a destination path,
+writing to a temporary file first and renaming it into place, so an interrupted
+download never leaves a partial file behind.</p>
+<p><strong>ROR</strong> queries the Zenodo community API
+(<code>GET /api/communities/ror-data/records?sort=newest</code>), takes the newest
+record's newest file, and derives the version from the filename
+(<code>v1.34-2023-10-12-ror-data.zip</code> → <code>1.34</code>). Processing unpacks the zip into a
+versioned directory, refusing any zip entry that would escape the target
+directory (zip-slip protection).</p>
+<p><strong>Retraction Watch</strong> has no explicit version number: the CSV is rewritten in
+place on the <code>main</code> branch of the GitLab project. Checking asks the GitLab API
+for the commit that last touched <code>retraction_watch.csv</code> and uses its commit
+date (<code>YYYY-MM-DD</code>) as the version label. Processing copies the CSV into a
+versioned output file.</p>
+<h3 id="the-fetch-workflow">The fetch workflow</h3>
+<p>For each requested source, <code>internal/collect/collect.go</code> runs:</p>
+<ol>
+<li><strong>Check</strong> — <code>CheckLatest</code> returns the newest version and download URL.</li>
+<li><strong>Skip if known</strong> — if that <code>(source, version)</code> pair is already in the
+   registry, return the recorded paths immediately (no download). This is what
+   makes <code>fetch</code> safe to run on a schedule.</li>
+<li><strong>Download</strong> — fetch the raw file into
+   <code>&lt;root&gt;/&lt;source&gt;/initial_input/&lt;source&gt;-&lt;version&gt;_&lt;timestamp&gt;&lt;ext&gt;</code>
+   (the timestamp stamp is UTC, e.g. <code>2025-01-01T00-00-05Z</code>); on failure the
+   partial file is removed.</li>
+<li><strong>Process</strong> — the source's <code>Process</code> produces the standardized output under
+   <code>&lt;root&gt;/&lt;source&gt;/output/</code>.</li>
+<li><strong>Record</strong> — insert a <code>datasets</code> row and upsert the <code>latest</code> pointer for the
+   source (both done by <code>internal/store</code>).</li>
+<li><strong>Mint CROID</strong> — if <code>--croid-url</code> is configured, a CROID is minted for the
+   dataset via the CROID service, keyed by <code>dataset:&lt;source&gt;:&lt;version&gt;</code>.
+   The CROID is stored in the <code>croid</code> column and logged as part of the result.</li>
+<li><strong>Export Parquet</strong> — if <code>--parquet-dir</code> is configured, the standardized
+   output is converted to Parquet format and written as
+   <code>&lt;parquetDir&gt;/{croid}.parquet</code> using an atomic write (<code>.tmp</code> → rename).</li>
+</ol>
+<p>Parquet mapping for each source:</p>
+<table>
+<thead>
+<tr>
+<th>source</th>
+<th>Parquet struct</th>
+<th>key fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ror</code></td>
+<td><code>ROROrganization</code></td>
+<td><code>ror_id</code>, <code>name</code>, <code>type</code>, <code>country_code</code>, <code>country</code>, <code>aliases</code>, <code>acronym</code>, <code>labels</code>, <code>links</code>, <code>external_ids</code>, <code>establishment_date</code></td>
+</tr>
+<tr>
+<td><code>retractionwatch</code></td>
+<td><code>RetractionWatchRecord</code></td>
+<td><code>paper_title</code>, <code>author</code>, <code>journal</code>, <code>original_paper_doi</code>, <code>retraction_doi</code>, <code>retraction_type</code>, <code>retraction_reason</code>, <code>retraction_date</code></td>
+</tr>
+<tr>
+<td>other</td>
+<td><code>Record</code></td>
+<td><code>data</code> (raw JSON)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="storage-layout">Storage layout</h3>
+<p>Raw downloads are kept verbatim under <code>initial_input/</code>, and the standardized
+result under <code>output/</code>, per source:</p>
+<pre><code>&lt;root&gt;/&lt;source&gt;/initial_input/&lt;source&gt;-&lt;version&gt;_&lt;timestamp&gt;&lt;ext&gt;   (raw file)
+&lt;root&gt;/&lt;source&gt;/output/&lt;...&gt;                                          (standardized)
+&lt;parquetDir&gt;/{croid}.parquet                                          (Parquet export, if configured)
+</code></pre>
+<p>The <code>--root</code> flag (or <code>FULGORA_ROOT</code>) controls where the source tree lives.
+The <code>--parquet-dir</code> flag (or <code>FULGORA_PARQUET_DIR</code>) controls where Parquet
+files are written.</p>
+<h3 id="the-registry">The registry</h3>
+<p>All records live in a SQLite database (default file <code>fulgora.sqlite3</code>, pure Go
+driver <code>modernc.org/sqlite</code>, WAL mode, single writer connection). Three tables
+(defined in <code>internal/migrate/schema.sql</code>, applied idempotently on startup):</p>
+<ul>
+<li><code>datasets</code> — one row per collected version of a source: <code>source</code>, <code>version</code>,
+  <code>collected_at</code>, <code>initial_input</code> path, <code>output</code> path, and <code>croid</code> (the
+  Content-Resolved Object ID minted by the CROID service, empty if not
+  configured). <code>UNIQUE (source, version)</code> guarantees each version is recorded
+  once.</li>
+<li><code>latest</code> — one row per source, pointing (via <code>dataset_id</code>) at the most recent
+  <code>datasets</code> row.</li>
+<li><code>versions</code> — tracks version information for the dataset (schema-stored).</li>
+</ul>
+<p>Persistence queries are written in SQL under <code>db/queries/</code> and compiled by
+<code>sqlc</code> into <code>internal/db/</code> (package <code>db</code>, generated — do not edit).
+The <code>internal/store</code> package wraps those queries into the public
+<code>Record</code> / <code>Get</code> / <code>Latest</code> / <code>ListLatest</code> / <code>ListBySource</code> / <code>UpdateCroid</code>
+methods.</p>
+<h2 id="usage">Usage</h2>
+<pre><code>fulgora fetch   [source ...]   check for &amp; download new dataset versions
+fulgora status  [source ...]   print the latest collected version per source
+fulgora serve                 start the HTTP discovery service (default :8090)
+</code></pre>
+<p>If no source is named, all registered sources are used.</p>
+<p>Flags (each also available as an environment variable):</p>
+<table>
+<thead>
+<tr>
+<th>flag</th>
+<th>env var</th>
+<th>default</th>
+<th>meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-db</code></td>
+<td><code>FULGORA_DB</code></td>
+<td><code>fulgora.sqlite3</code></td>
+<td>path to the SQLite database</td>
+</tr>
+<tr>
+<td><code>-root</code></td>
+<td><code>FULGORA_ROOT</code></td>
+<td><code>.</code></td>
+<td>root dir for per-source data</td>
+</tr>
+<tr>
+<td><code>-croid-url</code></td>
+<td><code>FULGORA_CROID_URL</code></td>
+<td>``</td>
+<td>CROID service URL (e.g. <code>http://localhost:9090</code>; empty disables CROID minting)</td>
+</tr>
+<tr>
+<td><code>-parquet-dir</code></td>
+<td><code>FULGORA_PARQUET_DIR</code></td>
+<td>``</td>
+<td>directory to write Parquet files (empty disables); writes <code>{croid}.parquet</code> after minting</td>
+</tr>
+<tr>
+<td><code>-addr</code></td>
+<td><code>FULGORA_ADDR</code></td>
+<td><code>:8090</code></td>
+<td>listen address for <code>serve</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="example-session">Example session</h3>
+<pre><code class="language-console">$ fulgora fetch ror
+[ror] collected 1.63 -&gt; fulgora/ror/output/1.63 (croid: croid_croid_croid_croid-parquet_croid)
+$ fulgora fetch ror --parquet-dir ./parquet
+[ror] collected 1.63 -&gt; fulgora/ror/output/1.63 (croid: croid_croid_croid_croid-parquet_croid)
+# Creates ./parquet/croid_croid_croid_croid-parquet_croid.parquet
+$ fulgora status
+retractionwatch      2026-08-15   (collected 2026-08-15T09:12:31Z)
+ror                  1.63   (collected 2026-08-15T09:12:29Z)
+</code></pre>
+<h2 id="http-api">HTTP API</h2>
+<p>Started with <code>fulgora serve</code> (default <code>:8090</code>), backed by the SQLite registry.
+All responses are JSON.</p>
+<ul>
+<li><code>GET /</code> — service banner listing the endpoints.</li>
+<li><code>GET /healthz</code> — liveness probe (pings the database).</li>
+<li><code>GET /latest</code> — every source's latest version.</li>
+<li><code>GET /latest/{source}</code> — one source's latest version (404 if unknown).</li>
+<li><code>GET /latest/{source}/history</code> — every version of a source, newest first.</li>
+</ul>
+<p>Each dataset is reported as:</p>
+<pre><code class="language-json">{
+  &quot;source&quot;: &quot;ror&quot;,
+  &quot;version&quot;: &quot;1.63&quot;,
+  &quot;collected_at&quot;: &quot;2026-08-15T09:12:29Z&quot;,
+  &quot;initial_input&quot;: &quot;fulgora/ror/initial_input/ror-1.63_2026-08-15T09-12-29Z.zip&quot;,
+  &quot;output&quot;: &quot;fulgora/ror/output/1.63&quot;,
+  &quot;croid&quot;: &quot;croid_croid_croid_croid-parquet_croid&quot;
+}
+</code></pre>
+<h2 id="adding-a-new-source">Adding a new source</h2>
+<ol>
+<li>Create <code>internal/source/&lt;name&gt;/&lt;name&gt;.go</code> implementing the
+   <code>source.Source</code> interface (<code>Name</code>, <code>CheckLatest</code>, <code>Process</code>).</li>
+<li>Register it in the map in <code>internal/sources/sources.go</code>.</li>
+<li><code>go build ./... &amp;&amp; go test ./...</code> — that's it. <code>fetch</code>, <code>status</code>, and
+   <code>serve</code> pick the source up automatically.</li>
+</ol>
+<h2 id="development">Development</h2>
+<ul>
+<li>Go toolchain (module <code>github.com/nexus/fulgora</code>), <code>modernc.org/sqlite</code>.</li>
+<li>After changing <code>db/queries/*.sql</code>, regenerate the Go code with
+  <code>sqlc generate</code> (config in <code>sqlc.yaml</code>).</li>
+<li><code>go vet ./...</code>, <code>go build ./...</code>, <code>go test ./...</code>.</li>
+</ul>
+<h2 id="package-layout">Package layout</h2>
+<pre><code>main.go                        -&gt;  fetch / status / serve subcommands
+internal/source/source.go      -&gt;  the Source interface + shared download helper
+internal/source/ror            -&gt;  ROR (Zenodo) source
+internal/source/retractionwatch-&gt;  Retraction Watch (GitLab) source
+internal/sources               -&gt;  the registry: map of name -&gt; constructor
+internal/collect               -&gt;  the fetch workflow (check, skip, download, process, record, mint CROID, export Parquet)
+internal/store                 -&gt;  the query/persistence layer
+internal/db                    -&gt;  sqlc-generated code (DO NOT EDIT)
+internal/migrate               -&gt;  schema.sql + Apply()
+internal/server                -&gt;  HTTP service for discovery
+db/queries                     -&gt;  the SQL that sqlc reads
+sqlc.yaml                      -&gt;  sqlc config
+</code></pre>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": [], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

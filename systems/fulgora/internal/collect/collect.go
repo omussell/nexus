@@ -259,6 +259,8 @@ func convertParquet(source string, outputPath string) ([]byte, error) {
 	}
 
 	switch source {
+	case "openfunderregistry":
+		return convertFunderRegistry(data)
 	case "ror":
 		return convertROR(data)
 	case "retractionwatch":
@@ -431,6 +433,39 @@ func convertRetractionWatch(data []byte) ([]byte, error) {
 	return marshalRows(rows)
 }
 
+// FunderRegistryRow captures fields from a Crossref funderNames CSV entry.
+type FunderRegistryRow struct {
+	URI                string `parquet:"funder_uri,optional"`
+	PrimaryNameDisplay string `parquet:"funder_name,optional"`
+	Replaced           string `parquet:"replaced,optional"`
+}
+
+// convertFunderRegistry converts the funder registry NDJSON output to parquet.
+func convertFunderRegistry(data []byte) ([]byte, error) {
+	var rows []FunderRegistryRow
+	lines := bytes.Split(data, []byte{'\n'})
+	for _, line := range lines {
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
+		var obj map[string]json.RawMessage
+		if err := json.Unmarshal(line, &obj); err != nil {
+			continue
+		}
+		r := FunderRegistryRow{
+			URI:                strField(obj, "uri"),
+			PrimaryNameDisplay: strField(obj, "primary_name_display"),
+			Replaced:           strField(obj, "replaced"),
+		}
+		rows = append(rows, r)
+	}
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	return marshalRows(rows)
+}
+
 func convertGeneric(data []byte) ([]byte, error) {
 	var rows []Record
 
@@ -471,6 +506,12 @@ func marshalRows(rows interface{}) ([]byte, error) {
 	w := parquet.NewWriter(buf)
 	// parquet-go needs a pointer to the slice to infer the schema.
 	switch v := rows.(type) {
+	case []FunderRegistryRow:
+		for i := range v {
+			if err := w.Write(&v[i]); err != nil {
+				return nil, err
+			}
+		}
 	case []RetractionWatchRecord:
 		for i := range v {
 			if err := w.Write(&v[i]); err != nil {

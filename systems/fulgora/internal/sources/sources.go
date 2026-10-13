@@ -8,13 +8,15 @@ import (
 	"sort"
 
 	"github.com/nexus/fulgora/internal/source"
+	"github.com/nexus/fulgora/internal/source/openfunderregistry"
 	"github.com/nexus/fulgora/internal/source/retractionwatch"
 	"github.com/nexus/fulgora/internal/source/ror"
 )
 
 var registry = map[string]func() source.Source{
-	"ror":             func() source.Source { return ror.New() },
-	"retractionwatch": func() source.Source { return retractionwatch.New() },
+	"openfunderregistry": func() source.Source { return openfunderregistry.New() },
+	"ror":                func() source.Source { return ror.New() },
+	"retractionwatch":    func() source.Source { return retractionwatch.New() },
 }
 
 // All returns the names of every registered source, sorted alphabetically.

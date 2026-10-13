@@ -20,6 +20,9 @@ func migrateSchema(ctx context.Context, tx *sql.Tx) error {
 	if err := migrateRetractionWatch(ctx, tx); err != nil {
 		return fmt.Errorf("migrate retractionwatch: %w", err)
 	}
+	if err := migrateOpenFunderRegistry(ctx, tx); err != nil {
+		return fmt.Errorf("migrate openfunderregistry: %w", err)
+	}
 	return nil
 }
 
@@ -164,6 +167,34 @@ func migrateRetractionWatch(ctx context.Context, tx *sql.Tx) error {
 		WHERE original_paper_doi IS NULL
 	`); err != nil {
 		return fmt.Errorf("backfill retractionwatch: %w", err)
+	}
+	return nil
+}
+
+func migrateOpenFunderRegistry(ctx context.Context, tx *sql.Tx) error {
+	if !tableExists(ctx, tx, "openfunderregistry") {
+		return nil
+	}
+
+	if err := addColumn(ctx, tx, "openfunderregistry", "funder_uri TEXT"); err != nil {
+		return err
+	}
+	if err := addColumn(ctx, tx, "openfunderregistry", "funder_name TEXT"); err != nil {
+		return err
+	}
+	if err := addColumn(ctx, tx, "openfunderregistry", "replaced TEXT"); err != nil {
+		return err
+	}
+
+	// Back-fill from existing record column.
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE openfunderregistry
+		SET funder_uri = COALESCE(funder_uri, json_extract_string(record, '$.uri')),
+			funder_name = COALESCE(funder_name, json_extract_string(record, '$.primary_name_display')),
+			replaced = COALESCE(replaced, json_extract_string(record, '$.replaced'))
+		WHERE funder_uri IS NULL OR funder_name IS NULL
+	`); err != nil {
+		return fmt.Errorf("backfill openfunderregistry: %w", err)
 	}
 	return nil
 }
