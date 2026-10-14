@@ -16,6 +16,7 @@ package ror
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -26,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/parquet-go/parquet-go"
 	"github.com/nexus/fulgora/internal/output"
 	"github.com/nexus/fulgora/internal/source"
 )
@@ -215,6 +217,136 @@ func zipOpenEntry(zipPath string, keep func(string) bool) (io.ReadCloser, error)
 	}
 	r.Close()
 	return nil, fmt.Errorf("ror: no matching entry in %s", zipPath)
+}
+
+// ROROrganization captures the most important fields from a ROR organization record.
+type ROROrganization struct {
+	ID                string            `parquet:"ror_id,optional"`
+	Name              string            `parquet:"name,optional"`
+	Type              string            `parquet:"type,optional"`
+	CountryCode       string            `parquet:"country_code,optional"`
+	Country           string            `parquet:"country,optional"`
+	Aliases           []string          `parquet:"aliases"`
+	Acronym           string            `parquet:"acronym,optional"`
+	Labels            []string          `parquet:"labels"`
+	Links             []string          `parquet:"links"`
+	ExternalIDs       map[string]string `parquet:"external_ids,optional"`
+	EstablishmentDate string            `parquet:"establishment_date,optional"`
+}
+
+// ConvertParquet converts the ROR NDJSON output to Parquet bytes.
+func (s *Source) ConvertParquet(data []byte) ([]byte, error) {
+	// Parse NDJSON (one JSON object per line).
+	lines := bytes.Split(data, []byte{'\n'})
+	var rawArray []json.RawMessage
+	for _, line := range lines {
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
+		rawArray = append(rawArray, json.RawMessage(line))
+	}
+	if len(rawArray) == 0 {
+		return nil, nil
+	}
+
+	var rows []ROROrganization
+	for _, raw := range rawArray {
+		var obj map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &obj); err != nil {
+			continue
+		}
+
+		r := ROROrganization{
+			ID:   strField(obj, "id"),
+			Name: strField(obj, "name"),
+			Type: strField(obj, "type"),
+		}
+
+		r.CountryCode = strField(obj, "country.code")
+		r.Country = strField(obj, "country.name")
+		r.Aliases = strArray(obj, "aliases")
+
+		if v := strField(obj, "acronym"); v != "" {
+			r.Acronym = v
+		}
+
+		r.Labels = strArray(obj, "labels")
+		r.Links = strArray(obj, "links")
+
+		if v := strField(obj, "establishment_date"); v != "" {
+			r.EstablishmentDate = v
+		}
+
+		externalIDs := strMap(obj, "external_ids")
+		if len(externalIDs) > 0 {
+			r.ExternalIDs = externalIDs
+		}
+
+		rows = append(rows, r)
+	}
+
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	return marshalRows(rows)
+}
+
+// strField, strArray, strMap are shared helpers used by ConvertParquet and tests.
+
+func strField(obj map[string]json.RawMessage, key string) string {
+	val, ok := obj[key]
+	if !ok {
+		return ""
+	}
+	var s string
+	if err := json.Unmarshal(val, &s); err != nil {
+		return ""
+	}
+	return s
+}
+
+func strArray(obj map[string]json.RawMessage, key string) []string {
+	val, ok := obj[key]
+	if !ok {
+		return nil
+	}
+	var arr []string
+	if err := json.Unmarshal(val, &arr); err != nil {
+		return nil
+	}
+	return arr
+}
+
+func strMap(obj map[string]json.RawMessage, key string) map[string]string {
+	val, ok := obj[key]
+	if !ok {
+		return nil
+	}
+	var m map[string]string
+	if err := json.Unmarshal(val, &m); err != nil {
+		return nil
+	}
+	return m
+}
+
+func marshalRows(rows interface{}) ([]byte, error) {
+	buf := &bytes.Buffer{}
+	w := parquet.NewWriter(buf)
+	switch v := rows.(type) {
+	case []ROROrganization:
+		for i := range v {
+			if err := w.Write(&v[i]); err != nil {
+				return nil, err
+			}
+		}
+	default:
+		return nil, fmt.Errorf("marshalRows: unknown row type %T", rows)
+	}
+	if err := w.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func safeJoin(outDir, name string) (string, error) {

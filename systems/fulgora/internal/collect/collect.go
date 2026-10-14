@@ -1,13 +1,50 @@
 // Package collect runs the fetch workflow for sources: check for new
 // versions, skip if already collected, download the raw file, process it,
 // record in the database, mint CROIDs, and optionally write Parquet files.
+//
+// # Collection Pipeline
+//
+// Run (or RunFiltered) launches one goroutine per source name. Each goroutine
+// calls Collect, which follows these steps:
+//
+//  1. CheckLatest — ask the source what its newest version is. If the call
+//     fails (network issue, API down), fall back to the latest version on disk
+//     so the skip path is used and no download is attempted.
+//
+//  2. Skip dedup — if the exact (source, version) is already in the database,
+//     return immediately without downloading.
+//
+//  3. Download — fetch the raw file to rawRoot/<source>/initial_input/.
+//     Written atomically (temp + rename) so a partial file is never left behind.
+//
+//  4. Process — call src.Process(version, rawPath, outRoot). The source
+//     parses the raw file and writes a clean NDJSON output. The path is
+//     recorded in the database.
+//
+//  5. Record — insert the dataset row and upsert the latest pointer in
+//     SQLite.
+//
+//  6. Parquet — if parquetDir is non-empty, read the NDJSON output and call
+//     src.ConvertParquet(data). The source defines its own schema via a row
+//     struct with parquet tags. The resulting Parquet file is written to both
+//     the consolidated output directory and (if croidClient is configured)
+//     a CROID-named file.
+//
+//  7. CROID — if croidClient is non-nil, mint a CROID for the dataset and
+//     write a CROID-named Parquet file.
+//
+// # Adding a New Source
+//
+// New sources need no changes to this file. See internal/source/source.go for
+// the full guide, but the short version is: implement the Source interface in
+// a package under internal/source/<name>/ and register it in internal/sources.
+// The Collect function calls src.Process and src.ConvertParquet generically —
+// the Parquet schema lives entirely inside the source package.
 package collect
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -17,7 +54,6 @@ import (
 	"time"
 
 	"github.com/nexus/croid/client"
-	"github.com/parquet-go/parquet-go"
 	"github.com/nexus/fulgora/internal/source"
 	"github.com/nexus/fulgora/internal/sources"
 	"github.com/nexus/fulgora/internal/store"
@@ -173,8 +209,13 @@ func Collect(ctx context.Context, src source.Source, s *store.Store, rawRoot, pa
 
 	// Write consolidated Parquet file alongside the JSON output.
 	if parquetDir != "" {
-		if _, err := writeConsolidatedParquet(src.Name(), outPath, rawRoot); err != nil {
-			fmt.Fprintf(os.Stderr, "collect: %s: write consolidated parquet %s: %v\n", src.Name(), outPath, err)
+		pb, err := convertForSource(src, outPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "collect: %s: convert parquet %s: %v\n", src.Name(), outPath, err)
+		} else if pb != nil {
+			if _, err := writeParquetBytes(pb, rawRoot, strings.TrimSuffix(filepath.Base(outPath), filepath.Ext(outPath))+".parquet"); err != nil {
+				fmt.Fprintf(os.Stderr, "collect: %s: write consolidated parquet %s: %v\n", src.Name(), outPath, err)
+			}
 		}
 	}
 
@@ -191,8 +232,13 @@ func Collect(ctx context.Context, src source.Source, s *store.Store, rawRoot, pa
 
 		// Write CROID-named Parquet file if directory is configured.
 		if parquetDir != "" {
-			if _, err := writeParquet(src.Name(), croid, outPath, parquetDir); err != nil {
-				fmt.Fprintf(os.Stderr, "collect: %s: write parquet %s: %v\n", src.Name(), croid, err)
+			pb, err := convertForSource(src, outPath)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "collect: %s: convert parquet %s: %v\n", src.Name(), outPath, err)
+			} else if pb != nil {
+				if _, err := writeParquetBytes(pb, parquetDir, croid+".parquet"); err != nil {
+					fmt.Fprintf(os.Stderr, "collect: %s: write parquet %s: %v\n", src.Name(), croid, err)
+				}
 			}
 		}
 	}
@@ -208,340 +254,38 @@ func Collect(ctx context.Context, src source.Source, s *store.Store, rawRoot, pa
 	}, nil
 }
 
-// writeParquet converts the output file to Parquet and writes it to the
-// parquetDir as {croid}.parquet.
-func writeParquet(source, croid, outputPath, parquetDir string) (string, error) {
-	pb, err := convertParquet(source, outputPath)
-	if err != nil {
-		return "", err
-	}
-	pPath := filepath.Join(parquetDir, croid+".parquet")
-	if err := os.MkdirAll(parquetDir, 0o755); err != nil {
-		return "", err
-	}
-	tmp := pPath + ".tmp"
-	if err := os.WriteFile(tmp, pb, 0o644); err != nil {
-		return "", err
-	}
-	if err := os.Rename(tmp, pPath); err != nil {
-		os.Remove(tmp)
-		return "", err
-	}
-	return pPath, nil
-}
-
-// writeConsolidatedParquet converts the output file to Parquet and writes it
-// alongside the JSON output file as {outputPath}.parquet.
-func writeConsolidatedParquet(source, outputPath, dataRoot string) (string, error) {
-	pb, err := convertParquet(source, outputPath)
-	if err != nil {
-		return "", err
-	}
-	pPath := filepath.Join(dataRoot, strings.TrimSuffix(outputPath, ".json")) + ".parquet"
-	if err := os.MkdirAll(filepath.Dir(pPath), 0o755); err != nil {
-		return "", err
-	}
-	tmp := pPath + ".tmp"
-	if err := os.WriteFile(tmp, pb, 0o644); err != nil {
-		return "", err
-	}
-	if err := os.Rename(tmp, pPath); err != nil {
-		os.Remove(tmp)
-		return "", err
-	}
-	return pPath, nil
-}
-
-func convertParquet(source string, outputPath string) ([]byte, error) {
+// convertForSource reads the output file at outputPath and converts it to
+// Parquet bytes using the source's own ConvertParquet implementation.
+func convertForSource(src source.Source, outputPath string) ([]byte, error) {
 	data, err := os.ReadFile(outputPath)
 	if err != nil {
 		return nil, fmt.Errorf("parquet: read %s: %w", outputPath, err)
 	}
-
-	switch source {
-	case "openfunderregistry":
-		return convertFunderRegistry(data)
-	case "ror":
-		return convertROR(data)
-	case "retractionwatch":
-		return convertRetractionWatch(data)
-	default:
-		return convertGeneric(data)
-	}
+	return src.ConvertParquet(data)
 }
 
-// ROROrganization captures the most important fields from a ROR organization record.
-type ROROrganization struct {
-	ID                string            `parquet:"ror_id,optional"`
-	Name              string            `parquet:"name,optional"`
-	Type              string            `parquet:"type,optional"`
-	CountryCode       string            `parquet:"country_code,optional"`
-	Country           string            `parquet:"country,optional"`
-	Aliases           []string          `parquet:"aliases"`
-	Acronym           string            `parquet:"acronym,optional"`
-	Labels            []string          `parquet:"labels"`
-	Links             []string          `parquet:"links"`
-	ExternalIDs       map[string]string `parquet:"external_ids,optional"`
-	EstablishmentDate string            `parquet:"establishment_date,optional"`
+// writeParquetBytes atomically writes parquetBytes to destPath (created under
+// destDir), using a temp-and-rename pattern so a failed write never leaves
+// a partial file behind.
+func writeParquetBytes(parquetData []byte, destDir, destName string) (string, error) {
+	if err := os.MkdirAll(destDir, 0o755); err != nil {
+		return "", err
+	}
+	pPath := filepath.Join(destDir, destName)
+	tmp := pPath + ".tmp"
+	if err := os.WriteFile(tmp, parquetData, 0o644); err != nil {
+		return "", err
+	}
+	if err := os.Rename(tmp, pPath); err != nil {
+		os.Remove(tmp)
+		return "", err
+	}
+	return pPath, nil
 }
 
-// RetractionWatchRecord captures fields from a retraction watch entry.
-type RetractionWatchRecord struct {
-	ArticleType            string `parquet:"article_type,optional"`
-	Author                 string `parquet:"author,optional"`
-	Country                string `parquet:"country,optional"`
-	Institution            string `parquet:"institution,optional"`
-	Journal                string `parquet:"journal,optional"`
-	Notes                  string `parquet:"notes,optional"`
-	OriginalPaperDOI       string `parquet:"original_paper_doi,optional"`
-	OriginalPaperDate      string `parquet:"original_paper_date,optional"`
-	PaperTitle             string `parquet:"paper_title,optional"`
-	PublishedRetractionDOI string `parquet:"published_retraction_doi,optional"`
-	RetractionDate         string `parquet:"retraction_date,optional"`
-	RetractionDOI          string `parquet:"retraction_doi,optional"`
-	RetractionReason       string `parquet:"retraction_reason,optional"`
-	RetractionType         string `parquet:"retraction_type,optional"`
-}
-
-// convertROR converts ROR JSON data to parquet. Returns nil if no data.
-func convertROR(data []byte) ([]byte, error) {
-	// Parse NDJSON (one JSON object per line), matching what output.JSONFile writes.
-	lines := bytes.Split(data, []byte{'\n'})
-	var rawArray []json.RawMessage
-	for _, line := range lines {
-		line = bytes.TrimSpace(line)
-		if len(line) == 0 {
-			continue
-		}
-		rawArray = append(rawArray, json.RawMessage(line))
-	}
-	if len(rawArray) == 0 {
-		return nil, nil
-	}
-
-	var rows []ROROrganization
-	for _, raw := range rawArray {
-		var obj map[string]json.RawMessage
-		if err := json.Unmarshal(raw, &obj); err != nil {
-			continue
-		}
-
-		r := ROROrganization{
-			ID:   strField(obj, "id"),
-			Name: strField(obj, "name"),
-			Type: strField(obj, "type"),
-		}
-
-		r.CountryCode = strField(obj, "country.code")
-		r.Country = strField(obj, "country.name")
-		r.Aliases = strArray(obj, "aliases")
-
-		if v := strField(obj, "acronym"); v != "" {
-			r.Acronym = v
-		}
-
-		r.Labels = strArray(obj, "labels")
-		r.Links = strArray(obj, "links")
-
-		if v := strField(obj, "establishment_date"); v != "" {
-			r.EstablishmentDate = v
-		}
-
-		externalIDs := strMap(obj, "external_ids")
-		if len(externalIDs) > 0 {
-			r.ExternalIDs = externalIDs
-		}
-
-		rows = append(rows, r)
-	}
-
-	if len(rows) == 0 {
-		return nil, nil
-	}
-	return marshalRows(rows)
-}
-
-func convertRetractionWatch(data []byte) ([]byte, error) {
-	// Try JSON array first
-	var rawArray []json.RawMessage
-	if err := json.Unmarshal(data, &rawArray); err == nil {
-		fmt.Printf("DEBUG: parsed as JSON array with %d items\n", len(rawArray))
-		var rows []RetractionWatchRecord
-		for _, raw := range rawArray {
-			var obj map[string]json.RawMessage
-			if err := json.Unmarshal(raw, &obj); err != nil {
-				continue
-			}
-			r := RetractionWatchRecord{
-				ArticleType:            strField(obj, "ArticleType"),
-				Author:                 strField(obj, "Author"),
-				Country:                strField(obj, "Country"),
-				Institution:            strField(obj, "Institution"),
-				Journal:                strField(obj, "Journal"),
-				Notes:                  strField(obj, "Notes"),
-				OriginalPaperDOI:       strField(obj, "OriginalPaperDOI"),
-				OriginalPaperDate:      strField(obj, "OriginalPaperDate"),
-				PaperTitle:             strField(obj, "PaperTitle"),
-				PublishedRetractionDOI: strField(obj, "PublishedRetractionDOI"),
-				RetractionDate:         strField(obj, "RetractionDate"),
-				RetractionDOI:          strField(obj, "RetractionDOI"),
-				RetractionReason:       strField(obj, "RetractionReason"),
-				RetractionType:         strField(obj, "RetractionType"),
-			}
-			rows = append(rows, r)
-		}
-		if len(rows) == 0 {
-			return nil, nil
-		}
-		return marshalRows(rows)
-	}
-
-	// Fallback: NDJSON (one object per line)
-	var rows []RetractionWatchRecord
-	lines := bytes.Split(data, []byte{'\n'})
-	for _, line := range lines {
-		line = bytes.TrimSpace(line)
-		if len(line) == 0 {
-			continue
-		}
-		var obj map[string]json.RawMessage
-		if err := json.Unmarshal(line, &obj); err != nil {
-			continue
-		}
-		r := RetractionWatchRecord{
-			ArticleType:            strField(obj, "ArticleType"),
-			Author:                 strField(obj, "Author"),
-			Country:                strField(obj, "Country"),
-			Institution:            strField(obj, "Institution"),
-			Journal:                strField(obj, "Journal"),
-			Notes:                  strField(obj, "Notes"),
-			OriginalPaperDOI:       strField(obj, "OriginalPaperDOI"),
-			OriginalPaperDate:      strField(obj, "OriginalPaperDate"),
-			PaperTitle:             strField(obj, "PaperTitle"),
-			PublishedRetractionDOI: strField(obj, "PublishedRetractionDOI"),
-			RetractionDate:         strField(obj, "RetractionDate"),
-			RetractionDOI:          strField(obj, "RetractionDOI"),
-			RetractionReason:       strField(obj, "RetractionReason"),
-			RetractionType:         strField(obj, "RetractionType"),
-		}
-		rows = append(rows, r)
-	}
-
-	if len(rows) == 0 {
-		return nil, nil
-	}
-	return marshalRows(rows)
-}
-
-// FunderRegistryRow captures fields from a Crossref funderNames CSV entry.
-type FunderRegistryRow struct {
-	URI                string `parquet:"funder_uri,optional"`
-	PrimaryNameDisplay string `parquet:"funder_name,optional"`
-	Replaced           string `parquet:"replaced,optional"`
-}
-
-// convertFunderRegistry converts the funder registry NDJSON output to parquet.
-func convertFunderRegistry(data []byte) ([]byte, error) {
-	var rows []FunderRegistryRow
-	lines := bytes.Split(data, []byte{'\n'})
-	for _, line := range lines {
-		line = bytes.TrimSpace(line)
-		if len(line) == 0 {
-			continue
-		}
-		var obj map[string]json.RawMessage
-		if err := json.Unmarshal(line, &obj); err != nil {
-			continue
-		}
-		r := FunderRegistryRow{
-			URI:                strField(obj, "uri"),
-			PrimaryNameDisplay: strField(obj, "primary_name_display"),
-			Replaced:           strField(obj, "replaced"),
-		}
-		rows = append(rows, r)
-	}
-	if len(rows) == 0 {
-		return nil, nil
-	}
-	return marshalRows(rows)
-}
-
-func convertGeneric(data []byte) ([]byte, error) {
-	var rows []Record
-
-	var jsonRows []map[string]interface{}
-	if err := json.Unmarshal(data, &jsonRows); err != nil {
-		// Fallback: treat as NDJSON
-		lines := bytes.Split(data, []byte{'\n'})
-		for _, line := range lines {
-			line = bytes.TrimSpace(line)
-			if len(line) == 0 {
-				continue
-			}
-			var obj map[string]interface{}
-			if err := json.Unmarshal(line, &obj); err != nil {
-				continue
-			}
-			rows = append(rows, Record{Data: string(line)})
-		}
-	} else {
-		for _, obj := range jsonRows {
-			raw, _ := json.Marshal(obj)
-			rows = append(rows, Record{Data: string(raw)})
-		}
-	}
-
-	if len(rows) == 0 {
-		return nil, nil
-	}
-	return marshalRows(rows)
-}
-
-type Record struct {
-	Data string `parquet:"data,optional"`
-}
-
-func marshalRows(rows interface{}) ([]byte, error) {
-	buf := &bytes.Buffer{}
-	w := parquet.NewWriter(buf)
-	// parquet-go needs a pointer to the slice to infer the schema.
-	switch v := rows.(type) {
-	case []FunderRegistryRow:
-		for i := range v {
-			if err := w.Write(&v[i]); err != nil {
-				return nil, err
-			}
-		}
-	case []RetractionWatchRecord:
-		for i := range v {
-			if err := w.Write(&v[i]); err != nil {
-				return nil, err
-			}
-		}
-	case []ROROrganization:
-		for i := range v {
-			if err := w.Write(&v[i]); err != nil {
-				return nil, err
-			}
-		}
-	case []Record:
-		for i := range v {
-			if err := w.Write(&v[i]); err != nil {
-				return nil, err
-			}
-		}
-	default:
-		return nil, fmt.Errorf("marshalRows: unknown row type %T", rows)
-	}
-	if err := w.Close(); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-// stamp is a sortable filesystem-safe timestamp for the initial_input filename
-// (e.g. "2025-01-01T00-00-00Z"), matching the examples in the system README.
 func stamp(t time.Time) string {
+	// stamp is a sortable filesystem-safe timestamp for the initial_input filename
+	// (e.g. "2025-01-01T00-00-00Z"), matching the examples in the system README.
 	return t.Format("2006-01-02T15-04-05Z")
 }
 
@@ -551,42 +295,4 @@ func extOf(name, fallback string) string {
 		return e
 	}
 	return fallback
-}
-
-// --- helpers ---
-
-func strField(obj map[string]json.RawMessage, key string) string {
-	val, ok := obj[key]
-	if !ok {
-		return ""
-	}
-	var s string
-	if err := json.Unmarshal(val, &s); err != nil {
-		return ""
-	}
-	return s
-}
-
-func strArray(obj map[string]json.RawMessage, key string) []string {
-	val, ok := obj[key]
-	if !ok {
-		return nil
-	}
-	var arr []string
-	if err := json.Unmarshal(val, &arr); err != nil {
-		return nil
-	}
-	return arr
-}
-
-func strMap(obj map[string]json.RawMessage, key string) map[string]string {
-	val, ok := obj[key]
-	if !ok {
-		return nil
-	}
-	var m map[string]string
-	if err := json.Unmarshal(val, &m); err != nil {
-		return nil
-	}
-	return m
 }

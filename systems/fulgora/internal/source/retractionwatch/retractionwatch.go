@@ -12,6 +12,7 @@
 package retractionwatch
 
 import (
+	"bytes"
 	"context"
 	"encoding/csv"
 	"encoding/json"
@@ -23,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/parquet-go/parquet-go"
 	"github.com/nexus/fulgora/internal/output"
 	"github.com/nexus/fulgora/internal/source"
 )
@@ -183,6 +185,124 @@ func parseCSV(path string) ([]string, [][]string, error) {
 		cols[i] = strings.Trim(cols[i], " \t\r\n")
 	}
 	return cols, records[1:], nil
+}
+
+// RetractionWatchRecord captures fields from a retraction watch entry.
+type RetractionWatchRecord struct {
+	ArticleType            string `parquet:"article_type,optional"`
+	Author                 string `parquet:"author,optional"`
+	Country                string `parquet:"country,optional"`
+	Institution            string `parquet:"institution,optional"`
+	Journal                string `parquet:"journal,optional"`
+	Notes                  string `parquet:"notes,optional"`
+	OriginalPaperDOI       string `parquet:"original_paper_doi,optional"`
+	OriginalPaperDate      string `parquet:"original_paper_date,optional"`
+	PaperTitle             string `parquet:"paper_title,optional"`
+	PublishedRetractionDOI string `parquet:"published_retraction_doi,optional"`
+	RetractionDate         string `parquet:"retraction_date,optional"`
+	RetractionDOI          string `parquet:"retraction_doi,optional"`
+	RetractionReason       string `parquet:"retraction_reason,optional"`
+	RetractionType         string `parquet:"retraction_type,optional"`
+}
+
+// ConvertParquet converts the RetractionWatch NDJSON or JSON-array output to Parquet bytes.
+func (s *Source) ConvertParquet(data []byte) ([]byte, error) {
+	// Try JSON array first.
+	var rawArray []json.RawMessage
+	if err := json.Unmarshal(data, &rawArray); err == nil {
+		var rows []RetractionWatchRecord
+		for _, raw := range rawArray {
+			var obj map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &obj); err != nil {
+				continue
+			}
+			r := RetractionWatchRecord{
+				ArticleType:            strField(obj, "ArticleType"),
+				Author:                 strField(obj, "Author"),
+				Country:                strField(obj, "Country"),
+				Institution:            strField(obj, "Institution"),
+				Journal:                strField(obj, "Journal"),
+				Notes:                  strField(obj, "Notes"),
+				OriginalPaperDOI:       strField(obj, "OriginalPaperDOI"),
+				OriginalPaperDate:      strField(obj, "OriginalPaperDate"),
+				PaperTitle:             strField(obj, "PaperTitle"),
+				PublishedRetractionDOI: strField(obj, "PublishedRetractionDOI"),
+				RetractionDate:         strField(obj, "RetractionDate"),
+				RetractionDOI:          strField(obj, "RetractionDOI"),
+				RetractionReason:       strField(obj, "RetractionReason"),
+				RetractionType:         strField(obj, "RetractionType"),
+			}
+			rows = append(rows, r)
+		}
+		if len(rows) == 0 {
+			return nil, nil
+		}
+		return marshalRows(rows)
+	}
+
+	// Fallback: NDJSON (one object per line).
+	var rows []RetractionWatchRecord
+	lines := bytes.Split(data, []byte{'\n'})
+	for _, line := range lines {
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
+		var obj map[string]json.RawMessage
+		if err := json.Unmarshal(line, &obj); err != nil {
+			continue
+		}
+		r := RetractionWatchRecord{
+			ArticleType:            strField(obj, "ArticleType"),
+			Author:                 strField(obj, "Author"),
+			Country:                strField(obj, "Country"),
+			Institution:            strField(obj, "Institution"),
+			Journal:                strField(obj, "Journal"),
+			Notes:                  strField(obj, "Notes"),
+			OriginalPaperDOI:       strField(obj, "OriginalPaperDOI"),
+			OriginalPaperDate:      strField(obj, "OriginalPaperDate"),
+			PaperTitle:             strField(obj, "PaperTitle"),
+			PublishedRetractionDOI: strField(obj, "PublishedRetractionDOI"),
+			RetractionDate:         strField(obj, "RetractionDate"),
+			RetractionDOI:          strField(obj, "RetractionDOI"),
+			RetractionReason:       strField(obj, "RetractionReason"),
+			RetractionType:         strField(obj, "RetractionType"),
+		}
+		rows = append(rows, r)
+	}
+
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	return marshalRows(rows)
+}
+
+// strField and marshalRows are shared helpers.
+
+func strField(obj map[string]json.RawMessage, key string) string {
+	val, ok := obj[key]
+	if !ok {
+		return ""
+	}
+	var s string
+	if err := json.Unmarshal(val, &s); err != nil {
+		return ""
+	}
+	return s
+}
+
+func marshalRows(rows []RetractionWatchRecord) ([]byte, error) {
+	buf := &bytes.Buffer{}
+	w := parquet.NewWriter(buf)
+	for i := range rows {
+		if err := w.Write(&rows[i]); err != nil {
+			return nil, err
+		}
+	}
+	if err := w.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 // commitDate parses a GitLab committed_date and reduces it to a YYYY-MM-DD

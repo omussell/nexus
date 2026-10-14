@@ -41,6 +41,9 @@ func (f *fakeSource) Process(ctx context.Context, version, rawPath, outRoot stri
 	f.lastOut = out
 	return out, nil
 }
+func (f *fakeSource) ConvertParquet(data []byte) ([]byte, error) {
+	return data, nil
+}
 
 func openStore(t *testing.T) *store.Store {
 	t.Helper()

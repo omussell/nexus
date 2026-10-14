@@ -162,6 +162,30 @@ func TestCheckLatestMalformedJSON(t *testing.T) {
 	}
 }
 
+func TestConvertParquetROR(t *testing.T) {
+	s := New()
+	ndjson := `{"id":"https://ror.org/0001","name":"Alpha University","type":"education","country":{"code":"US","name":"United States"},"aliases":["Alpha U"],"acronym":"AU","labels":[{"label":"Research"}],"links":["https://ror.org/0001"],"external_ids":{"Crossref":{"id":"10.13039/00000001"}},"establishment_date":"1900-01-01"}` + "\n" + `{"id":"https://ror.org/0002","name":"Beta Institute"}`
+
+	pb, err := s.ConvertParquet([]byte(ndjson))
+	if err != nil {
+		t.Fatalf("ConvertParquet: %v", err)
+	}
+	if len(pb) == 0 {
+		t.Fatal("expected non-empty Parquet bytes")
+	}
+}
+
+func TestConvertParquetROREmpty(t *testing.T) {
+	s := New()
+	pb, err := s.ConvertParquet([]byte(""))
+	if err != nil {
+		t.Fatalf("ConvertParquet: %v", err)
+	}
+	if pb != nil {
+		t.Fatal("expected nil for empty input")
+	}
+}
+
 // writeZip creates a zip at path with the given name->content entries.
 func writeZip(path string, files map[string]string) error {
 	f, err := os.Create(path)

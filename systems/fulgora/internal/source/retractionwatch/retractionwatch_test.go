@@ -186,3 +186,40 @@ func TestProcessRejectsBadVersion(t *testing.T) {
 		t.Fatal("expected an error for empty version")
 	}
 }
+
+func TestConvertParquetRetractionWatchJSONArray(t *testing.T) {
+	s := New()
+	jsonArr := `[{"ArticleType":"retraction","Author":"Doe","Country":"US","Institution":"Uni","Journal":"J1","Notes":"test","OriginalPaperDOI":"10.1/1","OriginalPaperDate":"2020-01-01","PaperTitle":"A","PublishedRetractionDOI":"10.1/2","RetractionDate":"2021-01-01","RetractionDOI":"10.1/3","RetractionReason":"error","RetractionType":"retraction"}]`
+
+	pb, err := s.ConvertParquet([]byte(jsonArr))
+	if err != nil {
+		t.Fatalf("ConvertParquet: %v", err)
+	}
+	if len(pb) == 0 {
+		t.Fatal("expected non-empty Parquet bytes")
+	}
+}
+
+func TestConvertParquetRetractionWatchNDJSON(t *testing.T) {
+	s := New()
+	ndjson := `{"ArticleType":"retraction","Author":"Doe","Country":"US","Institution":"Uni","Journal":"J1","Notes":"test","OriginalPaperDOI":"10.1/1","OriginalPaperDate":"2020-01-01","PaperTitle":"A","PublishedRetractionDOI":"10.1/2","RetractionDate":"2021-01-01","RetractionDOI":"10.1/3","RetractionReason":"error","RetractionType":"retraction"}` + "\n"
+
+	pb, err := s.ConvertParquet([]byte(ndjson))
+	if err != nil {
+		t.Fatalf("ConvertParquet: %v", err)
+	}
+	if len(pb) == 0 {
+		t.Fatal("expected non-empty Parquet bytes")
+	}
+}
+
+func TestConvertParquetRetractionWatchEmpty(t *testing.T) {
+	s := New()
+	pb, err := s.ConvertParquet([]byte(""))
+	if err != nil {
+		t.Fatalf("ConvertParquet: %v", err)
+	}
+	if pb != nil {
+		t.Fatal("expected nil for empty input")
+	}
+}

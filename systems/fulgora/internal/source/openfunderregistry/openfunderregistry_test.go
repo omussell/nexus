@@ -200,3 +200,27 @@ func TestVersionFromFilename(t *testing.T) {
 		}
 	}
 }
+
+func TestConvertParquetFunderRegistry(t *testing.T) {
+	s := New()
+	ndjson := `{"uri":"http://dx.doi.org/10.13039/100004343","primary_name_display":"3M","replaced":""}` + "\n" + `{"uri":"http://dx.doi.org/10.13039/100006323","primary_name_display":"AACCI Foundation","replaced":"R"}`
+
+	pb, err := s.ConvertParquet([]byte(ndjson))
+	if err != nil {
+		t.Fatalf("ConvertParquet: %v", err)
+	}
+	if len(pb) == 0 {
+		t.Fatal("expected non-empty Parquet bytes")
+	}
+}
+
+func TestConvertParquetFunderRegistryEmpty(t *testing.T) {
+	s := New()
+	pb, err := s.ConvertParquet([]byte(""))
+	if err != nil {
+		t.Fatalf("ConvertParquet: %v", err)
+	}
+	if pb != nil {
+		t.Fatal("expected nil for empty input")
+	}
+}

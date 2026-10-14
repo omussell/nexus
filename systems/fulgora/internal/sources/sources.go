@@ -1,6 +1,21 @@
-// Package sources wires up every Fulgora dataset source. To add a new
-// source: implement the source.Source interface in its own package under
-// internal/source/<name> and add a single construction there to the map below.
+// Package sources wires up every Fulgora dataset source. The registry is a
+// map of source name to a factory function that returns a Source.
+//
+// # Adding a New Source
+//
+//  1. Implement the source.Source interface in its own package under
+//     internal/source/<name> (see internal/source/source.go for the full
+//     guide and code skeleton).
+//
+//  2. Register the source by adding one entry to the registry map below:
+//
+//     "mysource": func() source.Source { return mysource.New() },
+//
+//     Then add the import path. The factory function is called once per
+//     collection run so any per-call state should be created inside Process.
+//
+// Sources are independent: each one runs in its own goroutine (see the
+// collect package) and must not share mutable state with other sources.
 package sources
 
 import (
@@ -30,6 +45,8 @@ func All() []string {
 }
 
 // Get returns the source registered under name, or an error if none exists.
+// The returned Source is freshly constructed and safe to use concurrently
+// with sources returned by other calls to Get.
 func Get(name string) (source.Source, error) {
 	factory, ok := registry[name]
 	if !ok {

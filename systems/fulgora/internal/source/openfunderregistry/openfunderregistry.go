@@ -11,6 +11,7 @@
 package openfunderregistry
 
 import (
+	"bytes"
 	"context"
 	"encoding/csv"
 	"encoding/json"
@@ -21,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/parquet-go/parquet-go"
 	"github.com/nexus/fulgora/internal/output"
 	"github.com/nexus/fulgora/internal/source"
 )
@@ -115,6 +117,67 @@ func parseCSV(path string) ([]string, [][]string, error) {
 		cols[i] = strings.TrimSpace(cols[i])
 	}
 	return cols, records[1:], nil
+}
+
+// FunderRegistryRow captures fields from a Crossref funderNames CSV entry.
+type FunderRegistryRow struct {
+	URI                string `parquet:"funder_uri,optional"`
+	PrimaryNameDisplay string `parquet:"funder_name,optional"`
+	Replaced           string `parquet:"replaced,optional"`
+}
+
+// ConvertParquet converts the OpenFunderRegistry NDJSON output to Parquet bytes.
+func (s *Source) ConvertParquet(data []byte) ([]byte, error) {
+	var rows []FunderRegistryRow
+	lines := bytes.Split(data, []byte{'\n'})
+	for _, line := range lines {
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
+		var obj map[string]json.RawMessage
+		if err := json.Unmarshal(line, &obj); err != nil {
+			continue
+		}
+		r := FunderRegistryRow{
+			URI:                strField(obj, "uri"),
+			PrimaryNameDisplay: strField(obj, "primary_name_display"),
+			Replaced:           strField(obj, "replaced"),
+		}
+		rows = append(rows, r)
+	}
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	return marshalRows(rows)
+}
+
+// strField and marshalRows are shared helpers.
+
+func strField(obj map[string]json.RawMessage, key string) string {
+	val, ok := obj[key]
+	if !ok {
+		return ""
+	}
+	var s string
+	if err := json.Unmarshal(val, &s); err != nil {
+		return ""
+	}
+	return s
+}
+
+func marshalRows(rows []FunderRegistryRow) ([]byte, error) {
+	buf := &bytes.Buffer{}
+	w := parquet.NewWriter(buf)
+	for i := range rows {
+		if err := w.Write(&rows[i]); err != nil {
+			return nil, err
+		}
+	}
+	if err := w.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 // recordPath is the filename for the raw CSV download (used by tests).
