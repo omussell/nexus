@@ -22,6 +22,7 @@ type Querier interface {
 	ListAll(ctx context.Context) ([]ListAllRow, error)
 	ListByRelationshipTypeID(ctx context.Context, relationshipTypeID int64) ([]ListByRelationshipTypeIDRow, error)
 	ListBySourceCroidID(ctx context.Context, sourceCroidID int64) ([]ListBySourceCroidIDRow, error)
+	ListByTargetCroidID(ctx context.Context, targetCroidID int64) ([]ListByTargetCroidIDRow, error)
 	// Returns id if the relationship already exists, 0 otherwise.
 	RelationshipExists(ctx context.Context, arg RelationshipExistsParams) (int64, error)
 	// Attempt to insert; duplicate croids are silently ignored (unique constraint).

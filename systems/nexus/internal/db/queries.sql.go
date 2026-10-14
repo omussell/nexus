@@ -309,6 +309,60 @@ func (q *Queries) ListBySourceCroidID(ctx context.Context, sourceCroidID int64) 
 	return items, nil
 }
 
+const listByTargetCroidID = `-- name: ListByTargetCroidID :many
+SELECT r.id, r.source_croid_id, r.target_croid_id, r.relationship_type_id, r.created_at,
+       e.evidence, sc.croid as source_croid, tc.croid as target_croid
+FROM relationships r
+LEFT JOIN relationship_evidence e ON e.relationship_id = r.id
+LEFT JOIN cro_ids sc ON sc.id = r.source_croid_id
+LEFT JOIN cro_ids tc ON tc.id = r.target_croid_id
+WHERE r.target_croid_id = ?
+ORDER BY r.id
+`
+
+type ListByTargetCroidIDRow struct {
+	ID                 int64
+	SourceCroidID      int64
+	TargetCroidID      int64
+	RelationshipTypeID int64
+	CreatedAt          string
+	Evidence           sql.NullString
+	SourceCroid        sql.NullString
+	TargetCroid        sql.NullString
+}
+
+func (q *Queries) ListByTargetCroidID(ctx context.Context, targetCroidID int64) ([]ListByTargetCroidIDRow, error) {
+	rows, err := q.db.QueryContext(ctx, listByTargetCroidID, targetCroidID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListByTargetCroidIDRow
+	for rows.Next() {
+		var i ListByTargetCroidIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SourceCroidID,
+			&i.TargetCroidID,
+			&i.RelationshipTypeID,
+			&i.CreatedAt,
+			&i.Evidence,
+			&i.SourceCroid,
+			&i.TargetCroid,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const relationshipExists = `-- name: RelationshipExists :one
 SELECT id FROM relationships
 WHERE source_croid_id = ? AND target_croid_id = ? AND relationship_type_id = ?

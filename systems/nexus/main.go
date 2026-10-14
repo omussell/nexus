@@ -8,14 +8,19 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	_ "modernc.org/sqlite"
 
 	"github.com/nexus/nexus/internal/db"
 	"github.com/nexus/nexus/internal/fetcher"
 	"github.com/nexus/nexus/internal/migrate"
+	"github.com/nexus/nexus/internal/server"
 	"github.com/nexus/nexus/internal/store"
 )
 
@@ -39,6 +44,8 @@ func run(args []string) error {
 		return runInit(ctx, args[1:])
 	case "fetch":
 		return runFetch(ctx, args[1:])
+	case "serve":
+		return runServe(ctx, args[1:])
 	case "help", "--help", "-h":
 		return usage()
 	default:
@@ -52,6 +59,7 @@ func usage() error {
 commands:
   init      initialize the database
   fetch     load relationships from vulcanus (nauvis, ROR, retractionwatch, openfunderregistry) and fulgora
+  serve     start the HTTP server (GET /croid/{croid})
 `)
 	return nil
 }
@@ -129,6 +137,54 @@ func runFetch(ctx context.Context, args []string) error {
 
 	fmt.Println("done")
 	return nil
+}
+
+func runServe(ctx context.Context, args []string) error {
+	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
+	addr := fs.String("addr", envOr("NEXUS_ADDR", ":8080"), "listen address (host:port)")
+	dbPath := fs.String("db", envOr("NEXUS_DB", defaultDB), "path to the Nexus SQLite database")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	// Support graceful shutdown via SIGINT/SIGTERM.
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	st, closeFn, err := openDB(ctx, *dbPath)
+	if err != nil {
+		return fmt.Errorf("open db: %w", err)
+	}
+	defer closeFn()
+
+	srv := server.New(st, log.Printf)
+
+	log.Printf("nexus: listening on %s", *addr)
+	hs := &http.Server{
+		Addr:              *addr,
+		Handler:           srv.Handler(),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		if err := hs.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			errCh <- err
+		}
+		close(errCh)
+	}()
+
+	// Wait for interrupt or server error.
+	select {
+	case <-ctx.Done():
+		log.Printf("nexus: shutting down")
+	case err := <-errCh:
+		return err
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return hs.Shutdown(shutdownCtx)
 }
 
 func envOr(key, fallback string) string {

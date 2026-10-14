@@ -63,3 +63,13 @@ SELECT id, croid, system, created_at FROM cro_ids WHERE id = ?;
 
 -- name: GetCroidByCroid :one
 SELECT id, croid, system, created_at FROM cro_ids WHERE croid = ?;
+
+-- name: ListByTargetCroidID :many
+SELECT r.id, r.source_croid_id, r.target_croid_id, r.relationship_type_id, r.created_at,
+       e.evidence, sc.croid as source_croid, tc.croid as target_croid
+FROM relationships r
+LEFT JOIN relationship_evidence e ON e.relationship_id = r.id
+LEFT JOIN cro_ids sc ON sc.id = r.source_croid_id
+LEFT JOIN cro_ids tc ON tc.id = r.target_croid_id
+WHERE r.target_croid_id = ?
+ORDER BY r.id;

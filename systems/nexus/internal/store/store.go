@@ -182,8 +182,9 @@ func (s *Store) upsertCroidTx(ctx context.Context, q *db.Queries, croid, system 
 }
 
 // ListBySource returns all relationships for a given source CROID.
+// It does NOT upsert — returns sql.ErrNoRows if the CROID doesn't exist.
 func (s *Store) ListBySource(ctx context.Context, source string) ([]Relationship, error) {
-	sourceID, err := s.upsertAndResolveCroid(ctx, source)
+	sourceID, err := s.q.GetCroidID(ctx, source)
 	if err != nil {
 		return nil, err
 	}
@@ -297,4 +298,60 @@ func (s *Store) GetByTarget(ctx context.Context, target string) (Relationship, e
 		}
 	}
 	return Relationship{}, sql.ErrNoRows
+}
+
+// CroidMeta holds the public metadata for a CROID.
+type CroidMeta struct {
+	Croid     string
+	System    string
+	CreatedAt string
+}
+
+// GetCroidMeta returns the CROID record metadata. Returns sql.ErrNoRows if
+// the CROID does not exist.
+func (s *Store) GetCroidMeta(ctx context.Context, croid string) (CroidMeta, error) {
+	row, err := s.q.GetCroidByCroid(ctx, croid)
+	if err != nil {
+		return CroidMeta{}, err
+	}
+	system := ""
+	if row.System.Valid {
+		system = row.System.String
+	}
+	return CroidMeta{
+		Croid:     row.Croid,
+		System:    system,
+		CreatedAt: row.CreatedAt,
+	}, nil
+}
+
+// ListByTarget returns all relationships where the given CROID is the target.
+func (s *Store) ListByTarget(ctx context.Context, target string) ([]Relationship, error) {
+	targetID, err := s.q.GetCroidID(ctx, target)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := s.q.ListByTargetCroidID(ctx, targetID)
+	if err != nil {
+		return nil, err
+	}
+	return rowsToListTarget(rows, s.relByID)
+}
+
+// rowsToListTarget adapts ListByTargetCroidIDRow.
+func rowsToListTarget(rows []db.ListByTargetCroidIDRow, relByID map[int64]string) ([]Relationship, error) {
+	out := make([]Relationship, 0, len(rows))
+	for _, r := range rows {
+		t, _ := time.Parse(time.RFC3339, r.CreatedAt)
+		out = append(out, Relationship{
+			ID:           r.ID,
+			Source:       r.SourceCroid.String,
+			Target:       r.TargetCroid.String,
+			Relationship: relByID[r.RelationshipTypeID],
+			CreatedAt:    t,
+			Evidence:     r.Evidence.String,
+		})
+	}
+	return out, nil
 }
