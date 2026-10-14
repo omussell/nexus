@@ -19,6 +19,7 @@ type NauvisItemMatches struct {
 	rorFunder  bool
 	rorAffil   bool
 	retraction bool
+	ofrFunder  bool
 }
 
 // Run reads matching data from the DuckDB at vulcanusDBPath and the Fulgora
@@ -26,8 +27,8 @@ type NauvisItemMatches struct {
 // records in nexusStore. It writes one relationship per unique (nauvis croid,
 // fulgora dataset croid, relationship kind) triplet.
 //
-// The three relationship kinds are:
-//   - "is-funded-by"   — nauvis item funded by the ROR dataset via funder matching
+// The four relationship kinds are:
+//   - "is-funded-by"   — nauvis item funded by ROR or openfunderregistry dataset via funder matching
 //   - "ror_affiliation" — nauvis item linked to the ROR dataset via affiliation matching
 //   - "is-retracted-by" — nauvis item retracted by the Fulgora retraction dataset
 //
@@ -64,7 +65,8 @@ func Run(ctx context.Context, vulcanusDBPath, fulgoraDBPath string, nexusStore *
 	}
 
 	rorCroid := fulgoraCroids["ror"]
-	retrCroid := fulgoraCroids["retraction_watch"]
+	retrCroid := fulgoraCroids["retractionwatch"]
+	ofrCroid := fulgoraCroids["openfunderregistry"]
 
 	// Collect matching triplets: nauvis DOI → relationship kinds.
 	nauvisItemMatchesMap := make(map[string]*NauvisItemMatches)
@@ -87,6 +89,13 @@ func Run(ctx context.Context, vulcanusDBPath, fulgoraDBPath string, nexusStore *
 	if retrCroid != "" {
 		if err := collectRetractionMatches(ctx, vulcanusDB, nauvisCroids, nauvisItemMatchesMap); err != nil {
 			return fmt.Errorf("collect retraction matches: %w", err)
+		}
+	}
+
+	// Open funder registry matches.
+	if ofrCroid != "" {
+		if err := collectOFRMatches(ctx, vulcanusDB, nauvisCroids, nauvisItemMatchesMap); err != nil {
+			return fmt.Errorf("collect OFR matches: %w", err)
 		}
 	}
 
@@ -136,6 +145,22 @@ func Run(ctx context.Context, vulcanusDBPath, fulgoraDBPath string, nexusStore *
 			ins, skip, err = insertIfNew(ctx, nexusStore, retrCroid, croid, "retracts")
 			if err != nil {
 				return fmt.Errorf("insert retracts %s: %w", croid, err)
+			}
+			totalInserted += ins
+			totalSkipped += skip
+		}
+
+		if m.ofrFunder {
+			ins, skip, err := insertIfNew(ctx, nexusStore, croid, ofrCroid, "is-funded-by")
+			if err != nil {
+				return fmt.Errorf("insert is-funded-by %s: %w", croid, err)
+			}
+			totalInserted += ins
+			totalSkipped += skip
+
+			ins, skip, err = insertIfNew(ctx, nexusStore, ofrCroid, croid, "funds")
+			if err != nil {
+				return fmt.Errorf("insert funds %s: %w", croid, err)
 			}
 			totalInserted += ins
 			totalSkipped += skip
@@ -267,26 +292,45 @@ func collectRetractionMatches(ctx context.Context, db *sql.DB, nauvisCroids map[
 	return rows.Err()
 }
 
-// insertIfNew inserts a relationship if (source, target, relationship) does not
-// already exist. Returns the number inserted (0 or 1) and the number skipped.
-func insertIfNew(ctx context.Context, s *store.Store, source, target, rel string) (int, int, error) {
-	existing, err := s.ListBySource(ctx, source)
+// collectOFRMatches finds all nauvis item DOIs that have openfunderregistry matches
+// and records them in out.
+func collectOFRMatches(ctx context.Context, db *sql.DB, nauvisCroids map[string]string, out map[string]*NauvisItemMatches) error {
+	rows, err := db.QueryContext(ctx, `SELECT DISTINCT nauvis_item_doi FROM ofr_matches`)
 	if err != nil {
-		return 0, 0, err
+		return fmt.Errorf("query ofr_matches: %w", err)
 	}
-	for _, r := range existing {
-		if r.Target == target && r.Relationship == rel {
-			return 0, 1, nil
+	defer rows.Close()
+
+	for rows.Next() {
+		var doi string
+		if err := rows.Scan(&doi); err != nil {
+			return fmt.Errorf("scan ofr row: %w", err)
+		}
+		if _, ok := nauvisCroids[doi]; ok {
+			if out[doi] == nil {
+				out[doi] = &NauvisItemMatches{}
+			}
+			out[doi].ofrFunder = true
 		}
 	}
-	if _, err := s.Insert(ctx, store.Relationship{
+	return rows.Err()
+}
+
+// insertIfNew delegates to store.Insert which handles dedup internally
+// using the composite unique constraint. Returns (inserted, skipped, error).
+func insertIfNew(ctx context.Context, s *store.Store, source, target, rel string) (int, int, error) {
+	_, inserted, err := s.Insert(ctx, store.Relationship{
 		Source:       source,
 		Target:       target,
 		Relationship: rel,
-	}); err != nil {
+	})
+	if err != nil {
 		return 0, 0, err
 	}
-	return 1, 0, nil
+	if inserted {
+		return 1, 0, nil
+	}
+	return 0, 1, nil
 }
 
 func openDuckDB(path string) (*sql.DB, error) {

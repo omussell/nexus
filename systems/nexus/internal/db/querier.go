@@ -6,15 +6,26 @@ package db
 
 import (
 	"context"
-	"database/sql"
 )
 
 type Querier interface {
-	GetRelationshipByTarget(ctx context.Context, target string) (Relationship, error)
-	InsertRelationship(ctx context.Context, arg InsertRelationshipParams) (sql.Result, error)
-	ListAll(ctx context.Context) ([]Relationship, error)
-	ListByRelationship(ctx context.Context, relationship string) ([]Relationship, error)
-	ListBySource(ctx context.Context, source string) ([]Relationship, error)
+	GetCroidByCroid(ctx context.Context, croid string) (CroID, error)
+	GetCroidByID(ctx context.Context, id int64) (CroID, error)
+	GetCroidID(ctx context.Context, croid string) (int64, error)
+	GetRelationshipTypeID(ctx context.Context, relationship string) (int64, error)
+	GetRelationshipTypeIDs(ctx context.Context) ([]GetRelationshipTypeIDsRow, error)
+	InsertEvidence(ctx context.Context, arg InsertEvidenceParams) error
+	// Callers should check existence first with RelationshipExists.
+	// This uses INSERT OR IGNORE so a duplicate is silently skipped.
+	InsertRelationship(ctx context.Context, arg InsertRelationshipParams) error
+	InsertRelationshipType(ctx context.Context, arg InsertRelationshipTypeParams) error
+	ListAll(ctx context.Context) ([]ListAllRow, error)
+	ListByRelationshipTypeID(ctx context.Context, relationshipTypeID int64) ([]ListByRelationshipTypeIDRow, error)
+	ListBySourceCroidID(ctx context.Context, sourceCroidID int64) ([]ListBySourceCroidIDRow, error)
+	// Returns id if the relationship already exists, 0 otherwise.
+	RelationshipExists(ctx context.Context, arg RelationshipExistsParams) (int64, error)
+	// Attempt to insert; duplicate croids are silently ignored (unique constraint).
+	UpsertCroidInsert(ctx context.Context, arg UpsertCroidInsertParams) error
 }
 
 var _ Querier = (*Queries)(nil)

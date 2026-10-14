@@ -10,72 +10,183 @@ import (
 	"database/sql"
 )
 
-const getRelationshipByTarget = `-- name: GetRelationshipByTarget :one
-SELECT id, source, target, relationship, evidence, created_at
-FROM relationships
-WHERE target = ?
-LIMIT 1
+const getCroidByCroid = `-- name: GetCroidByCroid :one
+SELECT id, croid, system, created_at FROM cro_ids WHERE croid = ?
 `
 
-func (q *Queries) GetRelationshipByTarget(ctx context.Context, target string) (Relationship, error) {
-	row := q.db.QueryRowContext(ctx, getRelationshipByTarget, target)
-	var i Relationship
+func (q *Queries) GetCroidByCroid(ctx context.Context, croid string) (CroID, error) {
+	row := q.db.QueryRowContext(ctx, getCroidByCroid, croid)
+	var i CroID
 	err := row.Scan(
 		&i.ID,
-		&i.Source,
-		&i.Target,
-		&i.Relationship,
-		&i.Evidence,
+		&i.Croid,
+		&i.System,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
-const insertRelationship = `-- name: InsertRelationship :execresult
-INSERT INTO relationships (source, target, relationship, evidence, created_at)
-VALUES (?, ?, ?, ?, ?)
+const getCroidByID = `-- name: GetCroidByID :one
+SELECT id, croid, system, created_at FROM cro_ids WHERE id = ?
+`
+
+func (q *Queries) GetCroidByID(ctx context.Context, id int64) (CroID, error) {
+	row := q.db.QueryRowContext(ctx, getCroidByID, id)
+	var i CroID
+	err := row.Scan(
+		&i.ID,
+		&i.Croid,
+		&i.System,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getCroidID = `-- name: GetCroidID :one
+SELECT id FROM cro_ids WHERE croid = ?
+`
+
+func (q *Queries) GetCroidID(ctx context.Context, croid string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getCroidID, croid)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const getRelationshipTypeID = `-- name: GetRelationshipTypeID :one
+SELECT id FROM relationship_types WHERE relationship = ?
+`
+
+func (q *Queries) GetRelationshipTypeID(ctx context.Context, relationship string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getRelationshipTypeID, relationship)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const getRelationshipTypeIDs = `-- name: GetRelationshipTypeIDs :many
+SELECT id, relationship FROM relationship_types ORDER BY id
+`
+
+type GetRelationshipTypeIDsRow struct {
+	ID           int64
+	Relationship string
+}
+
+func (q *Queries) GetRelationshipTypeIDs(ctx context.Context) ([]GetRelationshipTypeIDsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getRelationshipTypeIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetRelationshipTypeIDsRow
+	for rows.Next() {
+		var i GetRelationshipTypeIDsRow
+		if err := rows.Scan(&i.ID, &i.Relationship); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const insertEvidence = `-- name: InsertEvidence :exec
+INSERT OR IGNORE INTO relationship_evidence (relationship_id, evidence) VALUES (?, ?)
+`
+
+type InsertEvidenceParams struct {
+	RelationshipID int64
+	Evidence       sql.NullString
+}
+
+func (q *Queries) InsertEvidence(ctx context.Context, arg InsertEvidenceParams) error {
+	_, err := q.db.ExecContext(ctx, insertEvidence, arg.RelationshipID, arg.Evidence)
+	return err
+}
+
+const insertRelationship = `-- name: InsertRelationship :exec
+INSERT OR IGNORE INTO relationships (source_croid_id, target_croid_id, relationship_type_id, created_at)
+VALUES (?, ?, ?, ?)
 `
 
 type InsertRelationshipParams struct {
-	Source       string
-	Target       string
+	SourceCroidID      int64
+	TargetCroidID      int64
+	RelationshipTypeID int64
+	CreatedAt          string
+}
+
+// Callers should check existence first with RelationshipExists.
+// This uses INSERT OR IGNORE so a duplicate is silently skipped.
+func (q *Queries) InsertRelationship(ctx context.Context, arg InsertRelationshipParams) error {
+	_, err := q.db.ExecContext(ctx, insertRelationship,
+		arg.SourceCroidID,
+		arg.TargetCroidID,
+		arg.RelationshipTypeID,
+		arg.CreatedAt,
+	)
+	return err
+}
+
+const insertRelationshipType = `-- name: InsertRelationshipType :exec
+INSERT OR IGNORE INTO relationship_types (relationship, created_at) VALUES (?, ?)
+`
+
+type InsertRelationshipTypeParams struct {
 	Relationship string
-	Evidence     sql.NullString
 	CreatedAt    string
 }
 
-func (q *Queries) InsertRelationship(ctx context.Context, arg InsertRelationshipParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, insertRelationship,
-		arg.Source,
-		arg.Target,
-		arg.Relationship,
-		arg.Evidence,
-		arg.CreatedAt,
-	)
+func (q *Queries) InsertRelationshipType(ctx context.Context, arg InsertRelationshipTypeParams) error {
+	_, err := q.db.ExecContext(ctx, insertRelationshipType, arg.Relationship, arg.CreatedAt)
+	return err
 }
 
 const listAll = `-- name: ListAll :many
-SELECT id, source, target, relationship, evidence, created_at
-FROM relationships
-ORDER BY id
+SELECT r.id, r.source_croid_id, r.target_croid_id, r.relationship_type_id, r.created_at,
+       e.evidence, sc.croid as source_croid, tc.croid as target_croid
+FROM relationships r
+LEFT JOIN relationship_evidence e ON e.relationship_id = r.id
+LEFT JOIN cro_ids sc ON sc.id = r.source_croid_id
+LEFT JOIN cro_ids tc ON tc.id = r.target_croid_id
+ORDER BY r.id
 `
 
-func (q *Queries) ListAll(ctx context.Context) ([]Relationship, error) {
+type ListAllRow struct {
+	ID                 int64
+	SourceCroidID      int64
+	TargetCroidID      int64
+	RelationshipTypeID int64
+	CreatedAt          string
+	Evidence           sql.NullString
+	SourceCroid        sql.NullString
+	TargetCroid        sql.NullString
+}
+
+func (q *Queries) ListAll(ctx context.Context) ([]ListAllRow, error) {
 	rows, err := q.db.QueryContext(ctx, listAll)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Relationship
+	var items []ListAllRow
 	for rows.Next() {
-		var i Relationship
+		var i ListAllRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.Source,
-			&i.Target,
-			&i.Relationship,
-			&i.Evidence,
+			&i.SourceCroidID,
+			&i.TargetCroidID,
+			&i.RelationshipTypeID,
 			&i.CreatedAt,
+			&i.Evidence,
+			&i.SourceCroid,
+			&i.TargetCroid,
 		); err != nil {
 			return nil, err
 		}
@@ -90,29 +201,46 @@ func (q *Queries) ListAll(ctx context.Context) ([]Relationship, error) {
 	return items, nil
 }
 
-const listByRelationship = `-- name: ListByRelationship :many
-SELECT id, source, target, relationship, evidence, created_at
-FROM relationships
-WHERE relationship = ?
-ORDER BY id
+const listByRelationshipTypeID = `-- name: ListByRelationshipTypeID :many
+SELECT r.id, r.source_croid_id, r.target_croid_id, r.relationship_type_id, r.created_at,
+       e.evidence, sc.croid as source_croid, tc.croid as target_croid
+FROM relationships r
+LEFT JOIN relationship_evidence e ON e.relationship_id = r.id
+LEFT JOIN cro_ids sc ON sc.id = r.source_croid_id
+LEFT JOIN cro_ids tc ON tc.id = r.target_croid_id
+WHERE r.relationship_type_id = ?
+ORDER BY r.id
 `
 
-func (q *Queries) ListByRelationship(ctx context.Context, relationship string) ([]Relationship, error) {
-	rows, err := q.db.QueryContext(ctx, listByRelationship, relationship)
+type ListByRelationshipTypeIDRow struct {
+	ID                 int64
+	SourceCroidID      int64
+	TargetCroidID      int64
+	RelationshipTypeID int64
+	CreatedAt          string
+	Evidence           sql.NullString
+	SourceCroid        sql.NullString
+	TargetCroid        sql.NullString
+}
+
+func (q *Queries) ListByRelationshipTypeID(ctx context.Context, relationshipTypeID int64) ([]ListByRelationshipTypeIDRow, error) {
+	rows, err := q.db.QueryContext(ctx, listByRelationshipTypeID, relationshipTypeID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Relationship
+	var items []ListByRelationshipTypeIDRow
 	for rows.Next() {
-		var i Relationship
+		var i ListByRelationshipTypeIDRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.Source,
-			&i.Target,
-			&i.Relationship,
-			&i.Evidence,
+			&i.SourceCroidID,
+			&i.TargetCroidID,
+			&i.RelationshipTypeID,
 			&i.CreatedAt,
+			&i.Evidence,
+			&i.SourceCroid,
+			&i.TargetCroid,
 		); err != nil {
 			return nil, err
 		}
@@ -127,29 +255,46 @@ func (q *Queries) ListByRelationship(ctx context.Context, relationship string) (
 	return items, nil
 }
 
-const listBySource = `-- name: ListBySource :many
-SELECT id, source, target, relationship, evidence, created_at
-FROM relationships
-WHERE source = ?
-ORDER BY id
+const listBySourceCroidID = `-- name: ListBySourceCroidID :many
+SELECT r.id, r.source_croid_id, r.target_croid_id, r.relationship_type_id, r.created_at,
+       e.evidence, sc.croid as source_croid, tc.croid as target_croid
+FROM relationships r
+LEFT JOIN relationship_evidence e ON e.relationship_id = r.id
+LEFT JOIN cro_ids sc ON sc.id = r.source_croid_id
+LEFT JOIN cro_ids tc ON tc.id = r.target_croid_id
+WHERE r.source_croid_id = ?
+ORDER BY r.id
 `
 
-func (q *Queries) ListBySource(ctx context.Context, source string) ([]Relationship, error) {
-	rows, err := q.db.QueryContext(ctx, listBySource, source)
+type ListBySourceCroidIDRow struct {
+	ID                 int64
+	SourceCroidID      int64
+	TargetCroidID      int64
+	RelationshipTypeID int64
+	CreatedAt          string
+	Evidence           sql.NullString
+	SourceCroid        sql.NullString
+	TargetCroid        sql.NullString
+}
+
+func (q *Queries) ListBySourceCroidID(ctx context.Context, sourceCroidID int64) ([]ListBySourceCroidIDRow, error) {
+	rows, err := q.db.QueryContext(ctx, listBySourceCroidID, sourceCroidID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Relationship
+	var items []ListBySourceCroidIDRow
 	for rows.Next() {
-		var i Relationship
+		var i ListBySourceCroidIDRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.Source,
-			&i.Target,
-			&i.Relationship,
-			&i.Evidence,
+			&i.SourceCroidID,
+			&i.TargetCroidID,
+			&i.RelationshipTypeID,
 			&i.CreatedAt,
+			&i.Evidence,
+			&i.SourceCroid,
+			&i.TargetCroid,
 		); err != nil {
 			return nil, err
 		}
@@ -162,4 +307,40 @@ func (q *Queries) ListBySource(ctx context.Context, source string) ([]Relationsh
 		return nil, err
 	}
 	return items, nil
+}
+
+const relationshipExists = `-- name: RelationshipExists :one
+SELECT id FROM relationships
+WHERE source_croid_id = ? AND target_croid_id = ? AND relationship_type_id = ?
+LIMIT 1
+`
+
+type RelationshipExistsParams struct {
+	SourceCroidID      int64
+	TargetCroidID      int64
+	RelationshipTypeID int64
+}
+
+// Returns id if the relationship already exists, 0 otherwise.
+func (q *Queries) RelationshipExists(ctx context.Context, arg RelationshipExistsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, relationshipExists, arg.SourceCroidID, arg.TargetCroidID, arg.RelationshipTypeID)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const upsertCroidInsert = `-- name: UpsertCroidInsert :exec
+INSERT OR IGNORE INTO cro_ids (croid, system, created_at) VALUES (?, ?, ?)
+`
+
+type UpsertCroidInsertParams struct {
+	Croid     string
+	System    sql.NullString
+	CreatedAt string
+}
+
+// Attempt to insert; duplicate croids are silently ignored (unique constraint).
+func (q *Queries) UpsertCroidInsert(ctx context.Context, arg UpsertCroidInsertParams) error {
+	_, err := q.db.ExecContext(ctx, upsertCroidInsert, arg.Croid, arg.System, arg.CreatedAt)
+	return err
 }

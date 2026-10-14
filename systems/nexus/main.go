@@ -51,7 +51,7 @@ func usage() error {
 
 commands:
   init      initialize the database
-  fetch     load relationships from vulcanus and fulgora
+  fetch     load relationships from vulcanus (nauvis, ROR, retractionwatch, openfunderregistry) and fulgora
 `)
 	return nil
 }
@@ -80,7 +80,12 @@ func openDB(ctx context.Context, dbPath string) (*store.Store, func() error, err
 		closeFn()
 		return nil, nil, err
 	}
-	return store.New(conn, db.New(conn)), closeFn, nil
+	st, err := store.New(conn, db.New(conn))
+	if err != nil {
+		closeFn()
+		return nil, nil, err
+	}
+	return st, closeFn, nil
 }
 
 func runInit(ctx context.Context, args []string) error {

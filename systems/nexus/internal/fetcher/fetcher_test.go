@@ -43,7 +43,11 @@ func openNexusStore(t *testing.T, path string) *store.Store {
 	if err := migrate.Apply(context.Background(), conn); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	return store.New(conn, db.New(conn))
+	s, err := store.New(conn, db.New(conn))
+	if err != nil {
+		t.Fatalf("store new: %v", err)
+	}
+	return s
 }
 
 func setupDuckDB(t *testing.T, db *sql.DB) {
@@ -143,7 +147,7 @@ func setupFulgoraDB(t *testing.T, db *sql.DB, rorCroid, retrCroid string) {
 	_, err = db.Exec(`
 		INSERT INTO datasets (source, version, collected_at, initial_input, output, croid) VALUES
 			('ror', '1.63', '2024-01-01T00:00:00Z', 'input/ror', 'output/ror', ?),
-			('retraction_watch', '2026-08-15', '2024-01-01T00:00:00Z', 'input/retr', 'output/retr', ?);
+			('retractionwatch', '2026-08-15', '2024-01-01T00:00:00Z', 'input/retr', 'output/retr', ?);
 	`, rorCroid, retrCroid)
 	if err != nil {
 		t.Fatalf("insert fulgora datasets: %v", err)
@@ -152,7 +156,7 @@ func setupFulgoraDB(t *testing.T, db *sql.DB, rorCroid, retrCroid string) {
 	_, err = db.Exec(`
 		INSERT INTO latest (source, version, dataset_id) VALUES
 			('ror', '1.63', 1),
-			('retraction_watch', '2026-08-15', 2);
+			('retractionwatch', '2026-08-15', 2);
 	`)
 	if err != nil {
 		t.Fatalf("insert fulgora latest: %v", err)
@@ -404,6 +408,99 @@ func TestRunGeneratesRelationships(t *testing.T) {
 		}
 		if all[0].Relationship != "funds" && all[1].Relationship != "funds" {
 			t.Fatalf("missing funds, got %v", relationships)
+		}
+	})
+
+	t.Run("OFR funder matching produces ofr_funded_by relationship", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		vulcanusPath := filepath.Join(tmpDir, "vulcanus.duckdb")
+		fulgoraPath := filepath.Join(tmpDir, "fulgora.db")
+		nexusPath := filepath.Join(tmpDir, "nexus.db")
+
+		vulcanusDB := openDuckDB(t, vulcanusPath)
+		_, err := vulcanusDB.Exec(`
+			CREATE TABLE nauvis (record JSON, croid TEXT, doi TEXT);
+			CREATE TABLE ofr_matches (nauvis_item_doi TEXT, funder_name TEXT, funder_uri TEXT, funder_match TEXT, score DOUBLE);
+		`)
+		if err != nil {
+			t.Fatalf("create tables: %v", err)
+		}
+		_, err = vulcanusDB.Exec(`
+			INSERT INTO nauvis (croid, doi, record) VALUES ('nauvis1croidxxxxxxxxxxxxxxxxxxxxxx', '10.1/test', '{}');
+			INSERT INTO ofr_matches (nauvis_item_doi, funder_name, funder_uri, funder_match, score) VALUES ('10.1/test', 'NSF', 'https://dx.doi.org/10.13039/00000001', 'NSF', 95.0);
+		`)
+		if err != nil {
+			t.Fatalf("insert: %v", err)
+		}
+
+		fulgoraDB := openSQLiteDB(t, fulgoraPath)
+		_, err = fulgoraDB.Exec(`
+			CREATE TABLE datasets (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				source TEXT NOT NULL,
+				version TEXT NOT NULL,
+				collected_at TEXT NOT NULL,
+				initial_input TEXT NOT NULL,
+				output TEXT NOT NULL,
+				croid TEXT,
+				UNIQUE (source, version)
+			);
+			CREATE TABLE latest (
+				source TEXT PRIMARY KEY,
+				version TEXT NOT NULL,
+				dataset_id INTEGER NOT NULL REFERENCES datasets (id)
+			);
+		`)
+		if err != nil {
+			t.Fatalf("create fulgora tables: %v", err)
+		}
+		_, err = fulgoraDB.Exec(`
+			INSERT INTO datasets (source, version, collected_at, initial_input, output, croid) VALUES
+				('openfunderregistry', '2026-10-13', '2024-01-01T00:00:00Z', 'input/ofr', 'output/ofr', 'fulgora_ofr_croidxxxxxxxxxxxxxxxxxxxx');
+			INSERT INTO latest (source, version, dataset_id) VALUES ('openfunderregistry', '2026-10-13', 1);
+		`)
+		if err != nil {
+			t.Fatalf("insert fulgora: %v", err)
+		}
+
+		nexusStore := openNexusStore(t, nexusPath)
+
+		ctx := context.Background()
+		if err := fetcher.Run(ctx, vulcanusPath, fulgoraPath, nexusStore, nil); err != nil {
+			t.Fatalf("fetcher.Run: %v", err)
+		}
+
+		all, err := nexusStore.ListAll(ctx)
+		if err != nil {
+			t.Fatalf("ListAll: %v", err)
+		}
+		if len(all) != 2 {
+			t.Fatalf("expected 2 relationships (is-funded-by + funds), got %d", len(all))
+		}
+
+		// Verify both relationships exist.
+		rels := map[string]bool{all[0].Relationship: true, all[1].Relationship: true}
+		if !rels["is-funded-by"] || !rels["funds"] {
+			t.Fatalf("expected is-funded-by and funds relationships, got %v", rels)
+		}
+
+		// Verify is-funded-by direction.
+		foundForward := false
+		foundReverse := false
+		for _, r := range all {
+			if r.Relationship == "is-funded-by" && r.Source == "nauvis1croidxxxxxxxxxxxxxxxxxxxxxx" && r.Target == "fulgora_ofr_croidxxxxxxxxxxxxxxxxxxxx" {
+				foundForward = true
+			}
+			if r.Relationship == "funds" && r.Source == "fulgora_ofr_croidxxxxxxxxxxxxxxxxxxxx" && r.Target == "nauvis1croidxxxxxxxxxxxxxxxxxxxxxx" {
+				foundReverse = true
+			}
+		}
+		if !foundForward {
+			t.Fatal("missing is-funded-by relationship for nauvis item 1")
+		}
+		if !foundReverse {
+			t.Fatal("missing funds relationship for OFR dataset")
 		}
 	})
 }

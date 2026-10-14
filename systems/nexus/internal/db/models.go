@@ -8,11 +8,28 @@ import (
 	"database/sql"
 )
 
+type CroID struct {
+	ID        int64
+	Croid     string
+	System    sql.NullString
+	CreatedAt string
+}
+
 type Relationship struct {
+	ID                 int64
+	SourceCroidID      int64
+	TargetCroidID      int64
+	RelationshipTypeID int64
+	CreatedAt          string
+}
+
+type RelationshipEvidence struct {
+	RelationshipID int64
+	Evidence       sql.NullString
+}
+
+type RelationshipType struct {
 	ID           int64
-	Source       string
-	Target       string
 	Relationship string
-	Evidence     sql.NullString
 	CreatedAt    string
 }
