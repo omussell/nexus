@@ -1,5 +1,7 @@
-// Command aquello copies nauvis data from a vulcanus DuckDB database into a
-// local SQLite store and serves it via HTTP.
+// Package main is the entry point for aquilo.
+//
+// Aquilo serves nauvis records from a vulcanus DuckDB database and
+// relationship triples from nexus SQLite over HTTP.
 package main
 
 import (
@@ -12,7 +14,6 @@ import (
 
 	"github.com/nexus/aquilo/internal/server"
 	"github.com/nexus/aquilo/internal/store"
-	"github.com/nexus/aquilo/internal/sync"
 )
 
 func main() {
@@ -24,8 +25,6 @@ func main() {
 	command := os.Args[1]
 
 	switch command {
-	case "sync":
-		runSync(os.Args[2:])
 	case "serve":
 		runServe(os.Args[2:])
 	case "status":
@@ -37,36 +36,10 @@ func main() {
 	}
 }
 
-func runSync(args []string) {
-	fs := flag.NewFlagSet("sync", flag.ExitOnError)
-	duckdbPath := fs.String("duckdb", "vulcanus.duckdb", "path to vulcanus DuckDB database")
-	dbPath := fs.String("db", "aquilo.db", "path to local SQLite database")
-	batchSize := fs.Int("batch", 1000, "records per batch insert")
-	if err := fs.Parse(args); err != nil {
-		log.Fatalf("aquilo sync: parse flags: %v", err)
-	}
-
-	ctx := context.Background()
-
-	result, err := sync.Run(ctx, sync.Config{
-		DuckDBPath: *duckdbPath,
-		DBPath:     *dbPath,
-		BatchSize:  *batchSize,
-	})
-	if err != nil {
-		log.Fatalf("aquilo sync: %v", err)
-	}
-
-	fmt.Printf("aquilo: sync complete: %d/%d records synced, %d errors\n",
-		result.Synced, result.Total, result.Errors)
-	if result.LastCroid != "" {
-		fmt.Printf("aquilo: last CROID: %s\n", result.LastCroid)
-	}
-}
-
 func runServe(args []string) {
 	fs := flag.NewFlagSet("serve", flag.ExitOnError)
-	dbPath := fs.String("db", "aquilo.db", "path to local SQLite database")
+	duckdbPath := fs.String("duckdb", "vulcanus.duckdb", "path to vulcanus DuckDB database")
+	nexusDB := fs.String("nexusdb", "nexus.db", "path to nexus SQLite database")
 	listen := fs.String("listen", "localhost:8080", "HTTP listen address")
 	if err := fs.Parse(args); err != nil {
 		log.Fatalf("aquilo serve: parse flags: %v", err)
@@ -74,20 +47,27 @@ func runServe(args []string) {
 
 	ctx := context.Background()
 
-	// Resolve relative path from CWD.
-	if !filepath.IsAbs(*dbPath) {
+	// Resolve relative paths from CWD.
+	if !filepath.IsAbs(*duckdbPath) {
 		wd, err := os.Getwd()
 		if err != nil {
 			log.Fatalf("aquilo: getcwd: %v", err)
 		}
-		*dbPath = filepath.Join(wd, *dbPath)
+		*duckdbPath = filepath.Join(wd, *duckdbPath)
+	}
+	if !filepath.IsAbs(*nexusDB) {
+		wd, err := os.Getwd()
+		if err != nil {
+			log.Fatalf("aquilo: getcwd: %v", err)
+		}
+		*nexusDB = filepath.Join(wd, *nexusDB)
 	}
 
-	s, conn, err := store.Open(ctx, *dbPath)
+	s, err := store.NewStore(*duckdbPath, *nexusDB)
 	if err != nil {
-		log.Fatalf("aquilo: open db: %v", err)
+		log.Fatalf("aquilo: %v", err)
 	}
-	defer conn.Close()
+	defer s.Close()
 
 	srv := server.New(*listen, s)
 	if err := srv.WaitSignal(ctx); err != nil {
@@ -97,58 +77,68 @@ func runServe(args []string) {
 
 func runStatus(args []string) {
 	fs := flag.NewFlagSet("status", flag.ExitOnError)
-	dbPath := fs.String("db", "aquilo.db", "path to local SQLite database")
+	duckdbPath := fs.String("duckdb", "vulcanus.duckdb", "path to vulcanus DuckDB database")
+	nexusDB := fs.String("nexusdb", "nexus.db", "path to nexus SQLite database")
 	if err := fs.Parse(args); err != nil {
 		log.Fatalf("aquilo status: parse flags: %v", err)
 	}
 
 	ctx := context.Background()
 
-	// Resolve relative path from CWD.
-	if !filepath.IsAbs(*dbPath) {
+	// Resolve relative paths from CWD.
+	if !filepath.IsAbs(*duckdbPath) {
 		wd, err := os.Getwd()
 		if err != nil {
 			log.Fatalf("aquilo: getcwd: %v", err)
 		}
-		*dbPath = filepath.Join(wd, *dbPath)
+		*duckdbPath = filepath.Join(wd, *duckdbPath)
+	}
+	if !filepath.IsAbs(*nexusDB) {
+		wd, err := os.Getwd()
+		if err != nil {
+			log.Fatalf("aquilo: getcwd: %v", err)
+		}
+		*nexusDB = filepath.Join(wd, *nexusDB)
 	}
 
-	s, conn, err := store.Open(ctx, *dbPath)
+	s, err := store.NewStore(*duckdbPath, *nexusDB)
 	if err != nil {
-		log.Fatalf("aquilo: open db: %v", err)
+		log.Fatalf("aquilo: %v", err)
 	}
-	defer conn.Close()
+	defer s.Close()
 
-	count, err := s.CountItems(ctx)
+	nauvisCount, err := s.NauvisCount(ctx)
 	if err != nil {
-		log.Fatalf("aquilo: count items: %v", err)
+		log.Fatalf("aquilo: count nauvis: %v", err)
 	}
 
-	fmt.Printf("aquilo: %d items stored in %s\n", count, *dbPath)
+	relCount, err := s.RelationshipCount(ctx)
+	if err != nil {
+		log.Fatalf("aquilo: count relationships: %v", err)
+	}
+
+	fmt.Printf("aquilo: %d nauvis records, %d relationships in %s\n",
+		nauvisCount, relCount, *duckdbPath)
 }
 
 func printUsage() {
 	fmt.Fprintf(os.Stderr, `
-aquilo - copy nauvis data from vulcanus and serve it
+aquilo - serve nauvis data and relationships from vulcanus/nexus
 
 Usage:
   aquilo <command> [arguments]
 
 Commands:
-  sync     Copy nauvis records from DuckDB to SQLite
-  serve    Start HTTP server to serve stored items
-  status   Show sync status (item count)
-
-Sync flags:
-  -duckdb path   Path to vulcanus.duckdb (default "vulcanus.duckdb")
-  -db path       Path to SQLite DB (default "aquilo.db")
-  -batch n       Records per batch (default 1000)
+  serve    Start HTTP server (GET /croid/{croid}, GET /relationships/{croid})
+  status   Show record counts
 
 Serve flags:
-  -db path       Path to SQLite DB (default "aquilo.db")
+  -duckdb path   Path to vulcanus DuckDB (default "vulcanus.duckdb")
+  -nexusdb path  Path to nexus SQLite (default "nexus.db")
   -listen addr   HTTP listen address (default "localhost:8080")
 
 Status flags:
-  -db path       Path to SQLite DB (default "aquilo.db")
+  -duckdb path   Path to vulcanus DuckDB (default "vulcanus.duckdb")
+  -nexusdb path  Path to nexus SQLite (default "nexus.db")
 `)
 }

@@ -18,6 +18,9 @@
         "baseURL": "http://192.168.0.30:8000/v1"
       },
       "models": {
+        "nemotron3.5:bolt-74b-a9b": {
+          "name": "testing - Nemotron3.5 Bolt 74b-a9b" 
+	},
         "nemotron3.5:30b-a3b": {
           "name": "Tooling and Exploration - Nemotron3.5 Lightning 30b-a3b" 
 	},
