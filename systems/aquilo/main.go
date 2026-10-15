@@ -129,7 +129,7 @@ Usage:
   aquilo <command> [arguments]
 
 Commands:
-  serve    Start HTTP server (GET /croid/{croid}, GET /relationships/{croid})
+  serve    Start HTTP server (GET /croid/{croid}?full=true, GET /relationships/{croid})
   status   Show record counts
 
 Serve flags:

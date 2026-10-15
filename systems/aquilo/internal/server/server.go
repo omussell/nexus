@@ -20,9 +20,10 @@ import (
 //
 // Endpoints:
 //
-//	GET /croid/{croid}             -> nauvis record (200) or 404
-//	GET /relationships/{croid}     -> relationship triples (200) or 404
-//	GET /healthz                   -> liveness probe
+//	GET /croid/{croid}?full=true -> nauvis record + relationship triples (200) or 404
+//	GET /croid/{croid}            -> nauvis record only (200) or 404
+//	GET /relationships/{croid}    -> relationship triples (200) or 404
+//	GET /healthz                  -> liveness probe
 type Server struct {
 	store *store.Store
 	addr  string
@@ -114,13 +115,29 @@ func (srv *Server) handleCroid(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
+	resp := map[string]any{
 		"croid":             rec.Croid,
 		"doi":               rec.DOI,
 		"record":            rec.Record,
 		"funder_names":      rec.FunderNames,
 		"affiliation_names": rec.AffiliationNames,
-	})
+	}
+
+	// When ?full=true, also inject nexus relationship triples.
+	if r.URL.Query().Get("full") == "true" {
+		relationships, err := srv.store.RelationshipsByCroid(r.Context(), croid)
+		if err != nil {
+			log.Printf("aquilo: GET /croid/%s: relationships: %v", croid, err)
+			// Non-fatal: return nauvis data without relationships.
+		} else {
+			if relationships == nil {
+				relationships = []store.Relationship{}
+			}
+			resp["relationships"] = relationships
+		}
+	}
+
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (srv *Server) handleRelationships(w http.ResponseWriter, r *http.Request) {
