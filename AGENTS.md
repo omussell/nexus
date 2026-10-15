@@ -52,7 +52,3 @@ NEXUS is a prototype monorepo linking metadata from journals, articles, books, a
 ## Git
 
 Commit messages must end with your model name in parentheses, e.g. `(ornith1.5:35b)` or `(qwen3.6:35b-a3b)`.
-
-## WARNING
-
-Never write into the `/tmp` directory. If you do, you will be killed with an electromagnetic shotgun.
